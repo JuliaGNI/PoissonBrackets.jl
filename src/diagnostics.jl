@@ -1,0 +1,277 @@
+
+@doc raw"""
+    invariants(system, û)
+
+The conserved quantities of `system` at `û`, as a `NamedTuple`.
+
+Assembled from a **single** evaluation of the field and its derivative rather than by
+calling each Hamiltonian in turn. This is called once per time step by [`integrate`](@ref),
+and at the step counts these runs reach it is a third of the total time.
+"""
+function invariants end
+
+"""
+    invariant_names(system)
+
+The names of the quantities [`invariants`](@ref) returns, in order.
+"""
+function invariant_names end
+
+function invariants(sys::KdVSystem, û::AbstractVector)
+    s  = sys.space
+    w  = quadrature_weights(s)
+    uh = field(s, û, 0)
+    ux = field(s, û, 1)
+    wu = w .* uh
+    (H1 = (dot(w, ux .^ 2) + 2 * dot(wu, uh .^ 2)) / 2,
+     H2 = dot(wu, uh) / 2,
+     C0 = sum(wu))
+end
+
+invariant_names(::KdVSystem) = (:H1, :H2, :C0)
+
+@doc raw"""
+    invariants(sys::MiuraSystem, v̂)
+
+The invariants of a [`MiuraSystem`](@ref), **reported in ``u``**.
+
+The state is ``\hat{v}``, so the map through [`miura_map`](@ref) comes first and everything
+after it is the ordinary KdV computation. This is what lets a `MiuraSystem` be handed to
+[`integrate`](@ref) and to the plotting routines alongside the ``u``-chart systems and
+compared with them directly.
+
+Note that ``C_{0,d} = \int u_h = \int v_h^2`` is positive by construction here, and is *not*
+a Casimir in this chart — the Casimir of ``\mathbb{P}^1`` in ``\hat{v}`` is
+[`miura_casimir`](@ref), ``\int v_h``, which corresponds to nothing in ``u``.
+"""
+function invariants(sys::MiuraSystem, v̂::AbstractVector)
+    s  = sys.space
+    w  = quadrature_weights(s)
+    û  = miura_map(s, v̂)
+    uh = field(s, û, 0)
+    ux = field(s, û, 1)
+    wu = w .* uh
+    (H1 = (dot(w, ux .^ 2) + 2 * dot(wu, uh .^ 2)) / 2,
+     H2 = dot(wu, uh) / 2,
+     C0 = sum(wu))
+end
+
+invariant_names(::MiuraSystem) = (:H1, :H2, :C0)
+
+function invariants(sys::CamassaHolmSystem, m̂::AbstractVector)
+    s  = sys.space
+    w  = quadrature_weights(s)
+    û  = velocity(sys, m̂)               # one Helmholtz solve for all three
+    uh = field(s, û, 0)
+    ux = field(s, û, 1)
+    (H1 = (dot(w, uh .^ 2) + dot(w, ux .^ 2)) / 2,
+     H2 = (dot(w, uh .^ 3) + dot(w .* uh, ux .^ 2)) / 2,
+     C0 = dot(w, field(s, m̂, 0)))
+end
+
+invariant_names(::CamassaHolmSystem) = (:H1, :H2, :C0)
+
+function invariants(sys::BurgersSystem, û::AbstractVector)
+    s = sys.space
+    (H = hamiltonian(sys.H, s, û),
+     C = hamiltonian(sys.C, s, û))
+end
+
+invariant_names(::BurgersSystem) = (:H, :C)
+
+
+@doc raw"""
+    Trajectory
+
+The record of a run: the output times, the initial values of the invariants, and the
+**windowed maxima** of their deviations.
+
+`deviation[k, j]` is the largest ``|I_k - I_k(0)|`` reached *anywhere* inside output window
+`j`, not the value at its end.
+
+# Why windowed maxima and not samples
+
+The error of a geometric integrator oscillates with a period of tens of steps. Sampling it
+every `stride` steps over a run of millions aliases that oscillation into noise, and the
+noise can be an order of magnitude below the true envelope — so a plot built from samples
+shows a method conserving an invariant far better than it does. The invariants are therefore
+evaluated at *every* step and only the reporting is windowed.
+"""
+struct Trajectory{T, NT}
+    t::Vector{T}
+    reference::NT
+    deviation::Matrix{T}
+    names::NTuple
+    final::Vector{T}
+end
+
+Base.length(traj::Trajectory) = length(traj.t)
+
+"""
+    deviation(traj, name)
+
+The windowed deviation series of the invariant called `name`.
+"""
+function deviation(traj::Trajectory, name::Symbol)
+    k = findfirst(==(name), traj.names)
+    k === nothing && throw(ArgumentError(
+        "no invariant called $(name); this trajectory has $(traj.names)"))
+    traj.deviation[k, :]
+end
+
+@doc raw"""
+    integrate(system, integrator, û₀, nsteps; stride = 1)
+
+Run `nsteps` steps of `integrator` from `û₀`, recording the invariants at every step and
+reporting them as windowed maxima over `nsteps ÷ stride` windows.
+
+Returns a [`Trajectory`](@ref). The initial state is not modified.
+
+```jldoctest
+julia> sys = KdVSystem(SplineSpace(16, 3));
+
+julia> integ = Integrator(sys.flow1, ImplicitMidpoint(), 1e-3);
+
+julia> traj = integrate(sys, integ, project(sys.space, sin), 20; stride = 5);
+
+julia> length(traj)
+4
+```
+"""
+function integrate(sys, integ::Integrator{T}, û₀::AbstractVector, nsteps::Integer;
+                   stride::Integer = 1) where {T}
+    stride ≥ 1 || throw(ArgumentError("the output stride must be positive, got $(stride)"))
+    nsteps ≥ stride || throw(ArgumentError(
+        "the run is $(nsteps) steps but the output stride is $(stride); there would be no " *
+        "complete output window"))
+
+    û    = collect(T, û₀)
+    ref  = invariants(sys, û)
+    names = invariant_names(sys)
+    nk   = length(names)
+    nout = nsteps ÷ stride
+
+    t   = Vector{T}(undef, nout)
+    dev = zeros(T, nk, nout)
+    ref0 = T[getproperty(ref, n) for n in names]
+
+    for j in 1:nout
+        peak = zeros(T, nk)
+        for _ in 1:stride
+            integrate_step!(û, integ)
+            cur = invariants(sys, û)
+            for k in 1:nk
+                d = abs(getproperty(cur, names[k]) - ref0[k])
+                d > peak[k] && (peak[k] = d)
+            end
+        end
+        t[j] = j * stride * integ.Δt
+        dev[:, j] .= peak
+    end
+
+    Trajectory{T, typeof(ref)}(t, ref, dev, names, û)
+end
+
+@doc raw"""
+    drift(traj, name)
+
+The largest **relative** deviation of the invariant `name` over the whole run,
+``\max_j |I - I_0| / |I_0|``.
+
+Use this for the Hamiltonians. For an invariant whose reference value is zero — the mass of
+the cosine initial condition, for one — use [`absolute_drift`](@ref) instead; dividing by
+zero there would report `Inf` for a quantity that is in fact conserved to round-off.
+"""
+function drift(traj::Trajectory{T}, name::Symbol; atol = sqrt(eps(T))) where {T}
+    ref = abs(getproperty(traj.reference, name))
+    d   = maximum(deviation(traj, name))
+    # The guard is on `atol` rather than on exact zero because the reference value of a
+    # quantity that vanishes mathematically does not vanish numerically: the mass of the
+    # cosine initial condition comes out around 1e-17, and dividing a 1e-15 deviation by it
+    # would report a 100-fold "relative drift" of a quantity conserved to round-off.
+    ref > atol || throw(ArgumentError(
+        "the reference value of $(name) is $(ref), which is below atol = $(atol), so a " *
+        "relative drift is not meaningful; use absolute_drift"))
+    d / ref
+end
+
+"""
+    absolute_drift(traj, name)
+
+The largest absolute deviation of the invariant `name` over the whole run.
+"""
+absolute_drift(traj::Trajectory, name::Symbol) = maximum(deviation(traj, name))
+
+@doc raw"""
+    growth(traj, name; fraction = 1//10)
+
+The ratio of the error envelope over the last `fraction` of the run to that over the first.
+
+Near one means a bounded oscillation; large means a secular drift. This is the number that
+separates "the invariant departs by ``10^{-6}`` and stays there" from "the invariant is
+being lost", and the two look identical in a single end-of-run figure.
+"""
+function growth(traj::Trajectory, name::Symbol; fraction = 1//10)
+    d = deviation(traj, name)
+    n = length(d)
+    m = max(1, round(Int, n * fraction))
+    first_env = maximum(@view d[1:m])
+    last_env  = maximum(@view d[end-m+1:end])
+    iszero(first_env) ? one(eltype(d)) : last_env / first_env
+end
+
+
+@doc raw"""
+    energyplot(trajectories, labels; kwargs...)
+    stateplot(system, states, labels; kwargs...)
+
+Plot the relative error of the invariants against time, and the initial and final states.
+
+Defined in a package extension: load `CairoMakie` to make them available.
+
+```julia
+using PoissonBrackets, CairoMakie
+fig = energyplot(trajs, labels)
+```
+
+The encoding is deliberate and worth keeping if these are adapted: **colour carries the
+integrator and line style carries the vector field**, so no series is identified by colour
+alone and the figure survives being printed in grey. The palette is Okabe-Ito.
+"""
+function energyplot end
+
+@doc (@doc energyplot)
+function stateplot end
+
+"""
+    INTEGRATOR_COLORS
+
+The Okabe-Ito colour assigned to each integrator by [`energyplot`](@ref). Colour carries
+the *integrator*; line style carries the vector field.
+"""
+const INTEGRATOR_COLORS = Dict(
+    "midpoint"                 => "#0072B2",
+    "discrete gradient"        => "#D55E00",
+    "discrete gradient (mass)" => "#F0A070",
+    "AVF"                      => "#009E73",
+    "RK4"                      => "#E69F00",
+    "Euler"                    => "#CC79A7",
+)
+
+"""
+    FLOW_STYLES
+
+The line style assigned to each vector field by [`energyplot`](@ref): solid for the first
+flow, dashed for the second, dash-dotted for the Miura flow, which is a third vector field
+and needs a third pattern.
+"""
+const FLOW_STYLES = Dict(1 => :solid, 2 => :dash, :M => :dashdot)
+
+"""
+    ERROR_FLOOR
+
+The floor of the logarithmic axis in [`energyplot`](@ref). Deviations below round-off are
+clamped to it rather than dropped, so that a method conserving an invariant exactly shows
+as a flat line at the floor instead of a gap.
+"""
+const ERROR_FLOOR = 1e-16

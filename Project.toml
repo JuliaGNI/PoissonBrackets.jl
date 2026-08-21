@@ -1,0 +1,44 @@
+name = "PoissonBrackets"
+uuid = "2a9ffa85-4e0d-473f-b05e-278d80d8d306"
+version = "0.1.0"
+authors = ["Michael Kraus"]
+
+[deps]
+CompactBasisFunctions = "a09551c4-f815-4143-809e-dd1986753ba7"
+GeometricBase = "9a0b12b7-583b-4f04-aa1f-d8551b6addc9"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+QuadratureRules = "a08977f5-a20d-4b99-b11f-f5ea535e0575"
+SimpleSolvers = "36b790f5-6434-4fbe-b711-1f64a1e2f6a2"
+SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[weakdeps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+
+[sources]
+CompactBasisFunctions = {path = "/Users/mkraus/Datashare/Julia/CompactBasisFunctions"}
+SimpleSolvers = {path = "/Users/mkraus/Datashare/Julia/SimpleSolvers"}
+SimpleSplines = {path = "/Users/mkraus/Datashare/Julia/SimpleSplines"}
+
+[extensions]
+PoissonBracketsMakieExt = "CairoMakie"
+
+[compat]
+CairoMakie = "0.12, 0.13, 0.14, 0.15"
+CompactBasisFunctions = "0.3"
+GeometricBase = "0.14.8"
+LinearAlgebra = "1"
+QuadratureRules = "0.2"
+Random = "1"
+SimpleSolvers = "0.12"
+SimpleSplines = "1"
+StaticArrays = "1"
+Test = "1"
+julia = "1.10"
+
+[extras]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Random", "Test"]

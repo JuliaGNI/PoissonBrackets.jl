@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# Run the test suite before every push. Enable with
+#
+#     git config core.hooksPath .githooks
+#
+set -e
+echo "running the test suite before push..."
+julia --project=. -e 'using Pkg; Pkg.test()'
