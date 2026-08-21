@@ -87,7 +87,7 @@ traj = integrate(sys, Integrator(sys.flow, ImplicitMidpoint(), 1e-3), u₀, 200;
 (H = drift(traj, :H), C = drift(traj, :C))
 ```
 
-Integrating in ``\bar{u} = 2\sqrt{u}``, where the bracket is the constant ``\mathbb{K}/4``,
+Integrating in ``\bar{u} = \sqrt{u}``, where the bracket is the constant ``\mathbb{K}/4``,
 makes the Casimir *linear* and therefore exactly conserved by any symplectic method at any
 step size. See [`to_sqrt_variables`](@ref).
 

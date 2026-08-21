@@ -35,13 +35,6 @@ Modules = [PoissonBrackets]
 Pages = ["flows.jl"]
 ```
 
-## Linear solver
-
-```@autodocs
-Modules = [PoissonBrackets]
-Pages = ["linearsolver.jl"]
-```
-
 ## Integrators
 
 ```@autodocs

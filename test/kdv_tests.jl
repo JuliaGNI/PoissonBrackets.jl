@@ -5,15 +5,16 @@ using Test
 
 @testset "$(rpad("KdV Tests",80))" begin
 
-    @testset "$(rpad("both flows reproduce 6 u u_x - u_xxx",76))" begin
-        # for u = sin x the right-hand side is 3 sin 2x + cos x
+    @testset "$(rpad("both flows reproduce -6 u u_x - u_xxx",76))" begin
+        # for u = sin x the right-hand side is -3 sin 2x + cos x: only the nonlinear term
+        # flips with the convention, the -u_xxx being common to both
         for p in 2:4
             errs = Float64[]
             for N in (32, 64)
                 s   = SplineSpace(UniformMesh(N, 2π), p)
                 sys = KdVSystem(s)
                 û   = project(s, sin)
-                ex  = project(s, x -> 3sin(2x) + cos(x))
+                ex  = project(s, x -> -3sin(2x) + cos(x))
                 xs  = collect(range(0, 2π, length = 201))
                 sc  = maximum(abs, evaluate(s, ex, xs))
                 e1  = maximum(abs, evaluate(s, vectorfield(sys.flow1, û) .- ex, xs)) / sc
@@ -34,14 +35,14 @@ using Test
         end
     end
 
-    @testset "$(rpad("the sign convention: solitons are depressions",76))" begin
-        # u_t = 6uu_x - u_xxx maps to the textbook form under u = -w, so the solitons of
-        # this convention are negative. Getting the sign wrong gives a profile that
-        # steepens and blows up instead of translating.
+    @testset "$(rpad("the sign convention: solitons are elevations",76))" begin
+        # u_t + 6uu_x + u_xxx = 0 is the textbook convention, so the sech² solitons are
+        # POSITIVE. Getting the sign wrong gives a profile that steepens and blows up
+        # instead of translating.
         L = 40.0
         u = soliton(0.5, 20.0, L)
-        @test u(20.0) < 0
-        @test u(20.0) ≈ -2 * 0.5^2 atol = 1e-12
+        @test u(20.0) > 0
+        @test u(20.0) ≈ 2 * 0.5^2 atol = 1e-12
         @test abs(u(0.0)) < 1e-6                       # tails below round-off in this box
         @test u(20.0 + L) ≈ u(20.0) atol = 1e-12       # periodic
     end
@@ -59,15 +60,15 @@ using Test
         xs = range(0, L, length = 401)
         v = u.(xs)
         @test all(isfinite, v)
-        @test all(≤(1e-10), v)                         # depressions
-        @test minimum(v) < -0.1
+        @test all(≥(-1e-10), v)                        # elevations
+        @test maximum(v) > 0.1
         @test u(0.0) ≈ u(L) atol = 1e-8
     end
 
     @testset "$(rpad("multi-soliton superposition and cosine",76))" begin
         L = 40.0
         u = solitons((0.5, 0.4), (10.0, 25.0), L)
-        @test u(10.0) ≈ -2 * 0.5^2 atol = 1e-3
+        @test u(10.0) ≈ 2 * 0.5^2 atol = 1e-3
         @test_throws DimensionMismatch solitons((0.5,), (10.0, 25.0), L)
         c = cosine(2π)
         @test c(0.0) ≈ 1
@@ -138,7 +139,7 @@ using Test
         v̂ = project(s, x -> 1.0 + 0.3sin(x))
         û = PoissonBrackets.miura_map(s, v̂)
         xs = collect(range(0, 2π, length = 101))
-        exact = [(1 + 0.3sin(x))^2 + 0.3cos(x) for x in xs]
+        exact = [-((1 + 0.3sin(x))^2 + 0.3cos(x)) for x in xs]
         @test maximum(abs, evaluate(s, û, xs) .- exact) < 1e-6
     end
 

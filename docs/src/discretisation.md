@@ -16,7 +16,7 @@ suffices.
 
 [`LagrangeSpace`](@ref) is a periodic nodal Lagrange finite element space. It is only
 ``\mathcal{C}^0``, but it is *nodal*, and that is what the Burgers construction needs: the
-transformation ``\bar{u} = 2\sqrt{u}`` is applied coefficient by coefficient, which is only
+transformation ``\bar{u} = \sqrt{u}`` is applied coefficient by coefficient, which is only
 justified when the coefficients are values at points.
 
 Both answer the same small interface — `basis_values`, `quadrature_weights`,
@@ -47,7 +47,18 @@ to be 0.1 % of a run.
 supported on `p+1` cells, so only `(p+1)·nq` entries per row are structurally nonzero.
 Storing it densely makes every contraction ``\Phi \, \mathrm{diag}(fw) \, \Phi^T``
 cost ``O(N^2 n n_q)`` where it should cost ``O(N p^2 n_q)``. At ``N = 384`` that alone was
-the difference between 6.0 ms and 0.4 ms for one Hessian.
+the difference between 6.0 ms and 0.4 ms for one Hessian. Both spaces store it this way:
+[`SplineSpace`](@ref) through `SimpleSplines.SplineQuadrature`, and [`LagrangeSpace`](@ref)
+in its own assembly, where a dense table is 0.8 % full at `p = 2`, `ne = 192`.
+
+**And nothing downstream may densify it.** [`AffineBracket`](@ref) holds the tabulation as a
+field, and it used to call `Matrix` on the way in — which threw the sparsity away again for
+the second KdV bracket and the first Camassa-Holm one, both of which contract it on every
+Newton iteration. Keeping it sparse takes one [`jacobian`](@ref) of the second flow at
+``N = 384`` from 7.2 ms to 1.3 ms, with `bracket_directional` alone 25 times faster. The two
+``O(N^3)`` tensor routines — [`poisson_tensor`](@ref) and the Jacobiator's
+[`poisson_derivative`](@ref) — densify locally and deliberately: they random-access the table
+``N^3`` times instead of contracting it, and they are off the time loop by construction.
 
 **The constant assemblies are memoised.** The mass, stiffness and derivative matrices and
 ``\int \phi_k' \phi_l''`` do not depend on the field, but the Hessian of ``H_1`` is

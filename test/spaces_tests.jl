@@ -1,6 +1,7 @@
 using PoissonBrackets
 using LinearAlgebra
-using SimpleSplines: UniformMesh, GradedMesh, RandomMesh
+using SimpleSplines: UniformMesh, GradedMesh, RandomMesh, MassOperator
+using SparseArrays
 using Test
 
 const SPLINE_MESHES = ((:uniform, n -> UniformMesh(n, 2π)),
@@ -36,6 +37,51 @@ const SPLINE_MESHES = ((:uniform, n -> UniformMesh(n, 2π)),
         @test_throws ArgumentError LagrangeSpace(2, 0)
         # only C⁰, so the second derivative does not exist across element boundaries
         @test_throws ArgumentError basis_values(s, 2)
+    end
+
+    @testset "$(rpad("the Lagrange tabulation is sparse, with the support-sized nnz",76))" begin
+        # A basis function is supported on at most two elements, so only p+1 of the N rows
+        # are nonzero in any quadrature column. Storing that densely is what this asserts
+        # against: at p = 2, ne = 192 a dense table is 0.8 % full.
+        for (p, ne) in ((1, 25), (2, 13), (3, 16))
+            s  = LagrangeSpace(p, ne)
+            nq = 2p + 4
+            for d in 0:1
+                Φ = basis_values(s, d)
+                @test Φ isa SparseMatrixCSC
+                @test size(Φ) == (p * ne, ne * nq)
+                # exactly one structural entry per (local dof, quadrature point) per element
+                @test nnz(Φ) == ne * (p + 1) * nq
+            end
+        end
+
+        # the mass matrix is sparse too, and its operator answers `mass_solve!`
+        s = LagrangeSpace(2, 13)
+        @test mass_matrix(s) isa SparseMatrixCSC
+        @test mass_factorization(s) isa MassOperator
+        # `inverse_mass_matrix` stays dense, as it does for a spline space
+        @test inverse_mass_matrix(s) isa Matrix
+        @test inverse_mass_matrix(s) * mass_matrix(s) ≈ I
+
+        # `mixed_matrix` is memoised, so the second call returns the SAME object
+        A = mixed_matrix(s, 1, 1)
+        @test A === mixed_matrix(s, 1, 1)
+        @test A ≈ stiffness_matrix(s)
+    end
+
+    @testset "$(rpad("project! works on a Lagrange space and matches project",76))" begin
+        # It did not: `mass_factorization` returned a bare Cholesky, for which `mass_solve!`
+        # has no method, so every in-place projection onto a Lagrange space was a MethodError.
+        # Nothing exercised it until the tabulation was made sparse.
+        for (p, ne) in ((1, 25), (2, 13))
+            s  = LagrangeSpace(p, ne)
+            f  = x -> 2.0 + sin(x) + 0.3cos(2x)
+            u  = project(s, f)
+            fv = f.(quadrature_nodes(s))
+            û  = similar(u)
+            project!(û, s, fv)
+            @test û ≈ u
+        end
     end
 
     @testset "$(rpad("mass matrix and partition of unity",76))" begin

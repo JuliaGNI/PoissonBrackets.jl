@@ -22,9 +22,11 @@ is the only conservation law here that costs nothing.
 
 ## Energy or structure, but not both
 
-That no method is both a Poisson map and exactly energy-preserving is the **Ge-Marsden
-theorem**: such a method would reproduce the exact flow up to a reparametrisation of time.
-The trade-off is visible directly through [`poisson_defect`](@ref).
+That no method here is both a Poisson map and exactly energy-preserving is the
+**Ge-Marsden theorem**: such a method would reproduce the exact flow up to a reparametrisation
+of time. The theorem's non-degeneracy hypotheses are not checked for these systems, so it is
+the reason to expect the trade-off rather than a proof of it here. The trade-off itself is
+measured directly, through [`poisson_defect`](@ref).
 
 ## Why the tangent map is analytic
 
@@ -61,12 +63,13 @@ than assumed:
     default `Backtracking` spends several extra residual evaluations per iteration probing a
     step length that is always accepted at one. The default here is `Static`. Pass
     `linesearch = Backtracking(Float64)` if a run is pushed to a step size that needs it.
-  - **[`LapackLU`](@ref) for the factorisation.** SimpleSolvers ships a hand-written scalar
-    LU, which is the right default for the small dense systems it is usually pointed at. At
-    ``N = 384`` it accounted for **74 % of the cost of an implicit step** — about 17 ms
-    against LAPACK's 0.6 ms. [`LapackLU`](@ref) keeps the whole SimpleSolvers nonlinear
-    driver and replaces only the factorisation; the test suite checks that the two produce
-    the same step.
+  - **`LapackLU` for the factorisation.** SimpleSolvers' default is a hand-written scalar
+    LU, portable and the right choice for the small dense systems it is usually pointed at.
+    At ``N = 384`` it accounted for **74 % of the cost of an implicit step** — about 17 ms
+    against LAPACK's 0.6 ms. `SimpleSolvers.LapackLU` keeps the whole nonlinear driver and
+    replaces only the factorisation; the test suite checks that the two produce the same
+    step. It is restricted to the element types LAPACK provides, so `SimpleSolvers.LU()`
+    remains the only option for e.g. `BigFloat`.
 
 Together with the assembly changes of the [Discretisation](@ref) page this took an implicit
 step at ``N = 384`` from 45 ms to 4.2 ms.

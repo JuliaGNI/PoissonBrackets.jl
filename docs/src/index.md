@@ -53,9 +53,10 @@ t2  = integrate(sys, avf, û₀, 2000; stride = 20)
  poisson_defect_avf = poisson_defect(avf, copy(û₀)))
 ```
 
-That no method achieves both is the Ge-Marsden theorem, not a gap in the list: a Poisson
-integrator that also conserved the Hamiltonian exactly would reproduce the exact flow up to
-a reparametrisation of time.
+That no method here achieves both is the Ge-Marsden theorem, not a gap in the list: a
+Poisson integrator that also conserved the Hamiltonian exactly would reproduce the exact flow
+up to a reparametrisation of time. Its non-degeneracy hypotheses are not checked for these
+systems, so it is why the trade-off is expected, not a proof that it is unavoidable here.
 
 ## What is preserved by what
 
@@ -94,6 +95,6 @@ errors sit orders of magnitude apart, so a shared axis flattens them, and the co
 matters is *within* a family rather than across.
 
 Only the `miura` case has Miura runs, and it is the only one that can: the image of the
-discrete Miura map lies in ``C_{0,d} > 0``, and the other five all have ``C_{0,d} \le 0`` —
-``\cos x`` has zero mass and the solitons of this sign convention are depressions. Its
-initial data are therefore posed in ``v``. See [`MiuraSystem`](@ref).
+discrete Miura map lies in ``C_{0,d} \le 0``, and the other five all have ``C_{0,d} \ge 0``
+without being the zero field — ``\cos x`` has zero mass and the solitons are elevations of
+positive mass. Its initial data are therefore posed in ``v``. See [`MiuraSystem`](@ref).

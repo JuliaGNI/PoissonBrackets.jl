@@ -88,13 +88,16 @@ using Test
         @test rate > 4                                          # and converge fast
     end
 
-    @testset "$(rpad("Magri rung: P2 g = 2 P1 dH2/du, exact at finite N",76))" begin
+    @testset "$(rpad("Magri rung: P2 g = -2 P1 dH2/du, exact at finite N",76))" begin
+        # The transport part of P² carries the sign of the convention while ∂ₓ³ does not, so
+        # this rung is -2 where the older u_t = 6uu_x - u_xxx convention had +2. In the
+        # continuum: P²·1 = -2u_x against 2 P¹ u = 2u_x.
         for N in (12, 16, 20)
             s = SplineSpace(UniformMesh(N, 2π), 3)
             sys = KdVSystem(s)
             û = 0.3 .* randn(N)
             lhs = poisson_apply(sys.bracket2, û, basis_integrals(s))
-            rhs = 2 .* poisson_apply(sys.bracket1, û, gradient(sys.H2, s, û))
+            rhs = -2 .* poisson_apply(sys.bracket1, û, gradient(sys.H2, s, û))
             @test lhs ≈ rhs atol = 1e-10 * maximum(abs, rhs)
         end
     end

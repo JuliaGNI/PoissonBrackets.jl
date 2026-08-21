@@ -112,6 +112,27 @@ using Test
         end
     end
 
+    @testset "$(rpad("the spectral radius reproduces the values quoted in the notes",76))" begin
+        # Section 5 of discrete-kdv-brackets-notes.tex quotes rho = 115, 274, 907, 2170 at
+        # N = 12, 16, 24, 32 for p = 3 on the first flow, and kdvsim.py checks the same four
+        # figures. This is the one place where the step size of every explicit run in the
+        # manuscript is pinned, so a change in the assembly should fail here rather than
+        # show up as a silent disagreement with the notes.
+        ρ_ref = (12 => 115.0, 16 => 274.0, 24 => 907.0, 32 => 2170.0)
+        ρ = Float64[]
+        for (N, ref) in ρ_ref
+            sN  = SplineSpace(N, 3; L = 2π)
+            sysN = KdVSystem(sN)
+            r = 2 * sqrt(2) / PoissonBrackets.stability_limit(sysN.flow1, project(sN, sin))
+            push!(ρ, r)
+            @test isapprox(r, ref; rtol = 5e-3)
+        end
+        # and it grows as h^-3
+        for (i, (a, b)) in enumerate(((12, 16), (16, 24), (24, 32)))
+            @test isapprox(ρ[i+1] / ρ[i], (b / a)^3; rtol = 0.03)
+        end
+    end
+
     @testset "$(rpad("projection method holds several invariants at once",76))" begin
         # projecting onto both Hamiltonians alone LOSES the Casimir, because the correction
         # direction is not mass-neutral; a third multiplier along g restores all three
@@ -128,10 +149,10 @@ using Test
         @test absolute_drift(t3, :C0) < 1e-12
     end
 
-    @testset "$(rpad("the LAPACK linear solver agrees with the SimpleSolvers one",76))" begin
-        # LapackLU replaces only the factorisation inside SimpleSolvers' Newton loop, so
-        # the two must produce the same step -- it is a performance substitution, not a
-        # different method.
+    @testset "$(rpad("LapackLU and LU agree, so the substitution is a performance one",76))" begin
+        # Both solvers come from SimpleSolvers; LapackLU replaces only the factorisation
+        # inside its Newton loop, so the two must produce the same step -- it is a
+        # performance substitution, not a different method.
         import SimpleSolvers
         for meth in (ImplicitMidpoint(), AverageVectorField(), Gonzalez())
             a = copy(u0); b = copy(u0)

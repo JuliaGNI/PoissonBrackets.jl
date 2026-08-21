@@ -29,6 +29,7 @@ makedocs(;
                         "Camassa-Holm" => "camassaholm.md",
                         "Burgers" => "burgers.md"],
         "Integrators" => "integrators.md",
+        "Verification" => "verification.md",
         "Library" => "library.md",
     ],
 )

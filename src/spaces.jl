@@ -30,7 +30,7 @@ each paper actually uses.
     to carry the third derivative of the KdV brackets;
   - [`LagrangeSpace`](@ref), a periodic nodal Lagrange finite element space, only
     ``\mathcal{C}^0``, but *nodal*, which is what the pointwise transformation
-    ``\bar{u}_i = 2\sqrt{u_i}`` of the Burgers bracket needs to be justified.
+    ``\bar{u}_i = \sqrt{u_i}`` of the Burgers bracket needs to be justified.
 """
 abstract type DiscreteSpace{T} end
 
@@ -224,15 +224,28 @@ onto the first.
 # Why a nodal basis
 
 This is the space the Burgers bracket is discretised in, and the reason is the
-transformation ``\bar{u} = 2\sqrt{u}`` that makes that bracket constant. On a nodal basis
+transformation ``\bar{u} = \sqrt{u}`` that makes that bracket constant. On a nodal basis
 the coefficients *are* the values of the field at the nodes, so
-``\bar{u}_i = 2\sqrt{u_i}`` is the transformation applied coefficient by coefficient, and
+``\bar{u}_i = \sqrt{u_i}`` is the transformation applied coefficient by coefficient, and
 the chain rule that turns the constant bracket ``\mathbb{K}`` back into
 ``\mathbb{J}_{ij} = \sqrt{u_i} \, \mathbb{K}_{ij} \sqrt{u_j}`` is exact. In a modal or
 B-spline basis the same manipulation has no such justification.
 
 The price is regularity: the basis is only ``\mathcal{C}^0``, so derivatives beyond the
 first do not exist across element boundaries and only `d = 0, 1` are tabulated.
+
+# Storage
+
+``\Phi`` is stored **sparse**, as `SimpleSplines.SplineQuadrature` stores the spline
+tabulation: a basis function is supported on at most two elements, so only ``p+1`` of the
+``N`` rows are structurally nonzero in any quadrature column — 0.8 % of a dense table at
+`p = 2`, `ne = 192`. The mass matrix that comes out of it is sparse too, and is wrapped in a
+`SimpleSplines.FactorizedMass`, i.e. a sparse Cholesky, so that [`project!`](@ref) and
+`mass_solve!` work here as they do on a spline space. `CirculantMass` is *not* usable: it
+needs one degree of freedom per cell, which holds only at ``p = 1``. Only
+[`inverse_mass_matrix`](@ref) is dense, and it is built by solving against the identity.
+[`mixed_matrix`](@ref) is memoised, so the stiffness matrix is assembled once per space
+rather than once per Newton iteration.
 
 # A trap
 
@@ -242,20 +255,23 @@ is therefore two rather than one, and the extra kernel vector — the sawtooth m
 ``(-1)^i`` — is a **spurious** discrete Casimir with no continuum counterpart. Choose `p`
 and `ne` so that ``N = p \, n_e`` is odd.
 """
-struct LagrangeSpace{T} <: DiscreteSpace{T}
+struct LagrangeSpace{T, MO <: MassOperator{T}} <: DiscreteSpace{T}
     p::Int
     ne::Int
     L::T
     nq::Int
-    x::Vector{T}                # the nodes, i.e. the coordinates of the dofs
-    xq::Vector{T}               # global quadrature nodes
-    w::Vector{T}                # global quadrature weights
-    Φ::Vector{Matrix{T}}        # Φ[d+1][i,r]
-    M::Matrix{T}
-    Mfact::Cholesky{T, Matrix{T}}
+    x::Vector{T}                        # the nodes, i.e. the coordinates of the dofs
+    xq::Vector{T}                       # global quadrature nodes
+    w::Vector{T}                        # global quadrature weights
+    Φ::Vector{SparseMatrixCSC{T, Int}}  # Φ[d+1][i,r]
+    mass::MO
     Minv::Matrix{T}
+    integrals::Vector{T}
+    scratch::Vector{T}
+    cache::Dict{Tuple{Int, Int}, SparseMatrixCSC{T, Int}}
 
-    function LagrangeSpace{T}(p::Integer, ne::Integer; L = 2π, nq::Integer = 2p + 4) where {T}
+    function LagrangeSpace{T}(p::Integer, ne::Integer; L = 2π,
+                              nq::Integer = 2p + 4) where {T}
         p ≥ 1 || throw(ArgumentError(
             "the degree of a Lagrange element must be at least one, got p = $(p)"))
         ne ≥ 1 || throw(ArgumentError(
@@ -277,8 +293,17 @@ struct LagrangeSpace{T} <: DiscreteSpace{T}
         x  = zeros(T, N)
         xq = Vector{T}(undef, ne * nq)
         w  = Vector{T}(undef, ne * nq)
-        Φ  = [zeros(T, N, ne * nq) for _ in 0:1]
 
+        # Only the p+1 basis functions supported on an element are evaluated there, and only
+        # those entries are stored. A dense tabulation is (p+1)/N full -- under one per cent
+        # at the resolutions these runs reach -- and makes every contraction
+        # Φ diag(f w) Φᵀ cost N² per quadrature point instead of (p+1)².
+        nnzΦ = ne * (p + 1) * nq
+        Is = Vector{Int}(undef, nnzΦ)
+        Js = Vector{Int}(undef, nnzΦ)
+        Vs = [zeros(T, nnzΦ) for _ in 0:1]
+
+        t = 0
         for e in 0:ne-1
             gidx = [mod1(e * p + a + 1, N) for a in 0:p]
             # Only the first p local nodes are *owned* by this element; local node p is
@@ -293,22 +318,49 @@ struct LagrangeSpace{T} <: DiscreteSpace{T}
                 xq[q] = e * h + h * ξ[r]
                 w[q]  = h * ω[r]
                 for a in 0:p
-                    Φ[1][gidx[a+1], q] += ℓ[ξ[r], a+1]
+                    t += 1
+                    Is[t] = gidx[a+1]
+                    Js[t] = q
+                    Vs[1][t] = ℓ[ξ[r], a+1]
                     # the chain rule of the map from the reference element: d/dx = (1/h) d/dξ
-                    Φ[2][gidx[a+1], q] += dℓ[ξ[r], a+1] / h
+                    Vs[2][t] = dℓ[ξ[r], a+1] / h
                 end
             end
         end
 
+        # `sparse` SUMS duplicate (i,q) pairs, which is the `+=` the dense assembly used to
+        # do. The only way to get a duplicate here is ne == 1, where the wrap makes local
+        # nodes 0 and p the same degree of freedom on the one element.
+        Φ = [sparse(Is, Js, Vs[d+1], N, ne * nq) for d in 0:1]
+
         M = Φ[1] * Diagonal(w) * Φ[1]'
-        M = (M + M') / 2
+        M = (M + M') / 2                # symmetric by construction; enforce it exactly
 
-        F = cholesky(M; check = false)
-        issuccess(F) || throw(ArgumentError(
-            "the mass matrix assembled with nq = $(nq) points per element is not positive " *
-            "definite for degree-$(p) elements; raise nq"))
+        # A `FactorizedMass`, i.e. a sparse Cholesky, rather than `mass_operator(M, mesh)`:
+        # that would dispatch to `CirculantMass`, which needs size(M,1) == ncells and is
+        # therefore valid only at p == 1, where N = ne. The mass solve is not where the time
+        # goes in any case -- the assembly is, and that is what the sparsity above is for.
+        mass = try
+            FactorizedMass(M)
+        catch err
+            err isa ArgumentError && throw(ArgumentError(
+                "the mass matrix assembled with nq = $(nq) points per element is not " *
+                "positive definite for degree-$(p) elements; raise nq"))
+            rethrow()
+        end
 
-        new{T}(Int(p), Int(ne), Lx, Int(nq), x, xq, w, Φ, M, F, inv(M))
+        # ∫ φ_i dx and the f ⊙ w buffer are constants of the discretisation, assembled once
+        # rather than rebuilt on every call, as in `SimpleSplines.SplineQuadrature`.
+        integrals = Φ[1] * w
+        scratch   = Vector{T}(undef, ne * nq)
+
+        # The dense inverse is built by solving against the identity rather than by inverting
+        # an assembled matrix, matching `SplineSpace`.
+        Minv = mass \ Matrix{T}(I, N, N)
+
+        new{T, typeof(mass)}(Int(p), Int(ne), Lx, Int(nq), x, xq, w, Φ, mass, Minv,
+                             integrals, scratch,
+                             Dict{Tuple{Int, Int}, SparseMatrixCSC{T, Int}}())
     end
 end
 
@@ -323,9 +375,31 @@ domainlength(s::LagrangeSpace) = s.L
 nodes(s::LagrangeSpace) = s.x
 quadrature_nodes(s::LagrangeSpace) = s.xq
 quadrature_weights(s::LagrangeSpace) = s.w
-mass_matrix(s::LagrangeSpace) = s.M
-mass_factorization(s::LagrangeSpace) = s.Mfact
+mass_matrix(s::LagrangeSpace) = mass_matrix(s.mass)
+mass_operator(s::LagrangeSpace) = s.mass
 inverse_mass_matrix(s::LagrangeSpace) = s.Minv
+basis_integrals(s::LagrangeSpace) = s.integrals
+
+# The `MassOperator` itself, so that the generic `project`, `project!` and `mass_solve!` of
+# this file work on a Lagrange space at all: they go through `mass_solve!`, which is defined
+# for a `MassOperator` and not for a bare `Cholesky`.
+mass_factorization(s::LagrangeSpace) = s.mass
+
+"""
+    mixed_matrix(space::LagrangeSpace, a, b)
+
+The matrix ``\\int_\\Omega D^a \\phi_k \\, D^b \\phi_l \\, dx``, memoised.
+
+These are constants of the discretisation, and the stiffness matrix in particular would
+otherwise be reassembled on every Newton iteration of every step. `SplineSpace` gets the
+same memoisation by delegating to `SimpleSplines.SplineQuadrature`.
+"""
+function mixed_matrix(s::LagrangeSpace{T}, a::Integer, b::Integer) where {T}
+    get!(s.cache, (Int(a), Int(b))) do
+        A = basis_values(s, a) * Diagonal(s.w) * basis_values(s, b)'
+        SparseMatrixCSC{T, Int}(A)
+    end
+end
 
 function basis_values(s::LagrangeSpace, d::Integer = 0)
     0 ≤ d ≤ 1 || throw(ArgumentError(

@@ -5,19 +5,19 @@ CurrentModule = PoissonBrackets
 # Korteweg-de Vries
 
 ```math
-u_t = 6 u u_x - u_{xxx}
+u_t + 6 u u_x + u_{xxx} = 0
 ```
 
 is bi-Hamiltonian, with
 
 ```math
 \{A,B\}_1 = \int_\Omega \frac{\delta A}{\delta u} \partial_x \frac{\delta B}{\delta u} \, dx ,
-\qquad H_1 = \tfrac{1}{2} \int_\Omega ( u_x^2 + 2u^3 ) \, dx
+\qquad H_1 = \tfrac{1}{2} \int_\Omega ( u_x^2 - 2u^3 ) \, dx
 ```
 
 ```math
 \{A,B\}_2 = \int_\Omega \frac{\delta A}{\delta u}
-    \left( 4u \partial_x + 2 u_x - \partial_x^3 \right)
+    \left( -4u \partial_x - 2 u_x - \partial_x^3 \right)
     \frac{\delta B}{\delta u} \, dx ,
 \qquad H_2 = \tfrac{1}{2} \int_\Omega u^2 \, dx
 ```
@@ -51,21 +51,32 @@ maximum(abs, vectorfield(sys.flow1, û) - vectorfield(sys.flow2, û))
 
 ## Sign convention
 
-Under ``u = -w`` the equation becomes the textbook ``w_t + 6ww_x + w_{xxx} = 0``, so the
-solitons of this convention are **depressions**:
+This is the textbook convention, so the solitons are **elevations**:
 
 ```math
-u(t,x) = -2\kappa^2 \operatorname{sech}^2 \left( \kappa (x - 4\kappa^2 t - x_0) \right) .
+u(t,x) = 2\kappa^2 \operatorname{sech}^2 \left( \kappa (x - 4\kappa^2 t - x_0) \right) .
 ```
+
+The older ``u_t = 6uu_x - u_{xxx}`` is reached by ``u \to -u``, and each Hamiltonian carries
+the matching sign, ``H_1^{\mathrm{new}}(-w) = H_1^{\mathrm{old}}(w)``. So every energy figure
+in these pages is the same in either convention — the elevation soliton here has the ``H_1``
+the depression soliton had there, ``-6.39998180`` at ``N = 128`` in both — while
+``C_{0,d} = \int u`` changes sign. (``H_1`` itself is *not* an even functional; it is the
+pairing of convention with data that is preserved.) What does move is the
+second structure, and not by an overall sign: ``4u\partial_x + 2u_x - \partial_x^3`` becomes
+``-4u\partial_x - 2u_x - \partial_x^3``, the third derivative keeping its sign while the
+transport part flips. That asymmetry is checked symbolically in
+`verify_kdv_continuous.py` rather than asserted.
 
 Getting the sign wrong gives a profile that steepens and blows up instead of translating.
 
 ## The Miura map
 
-The second bracket does not need repairing. With ``u = v^2 + v_x`` the Miura factorisation
+The second bracket does not need repairing. With ``u = -(v^2 + v_x)`` the Miura
+factorisation
 
 ```math
-(2v + \partial_x) \, \partial_x \, (2v - \partial_x) = 4u\partial_x + 2u_x - \partial_x^3
+(2v + \partial_x) \, \partial_x \, (2v - \partial_x) = -4u\partial_x - 2u_x - \partial_x^3
 ```
 
 exhibits the second structure as the pushforward of the **first**, which is constant.
@@ -97,13 +108,14 @@ away — it is what the Jacobi identity costs.
 gives the exact identity
 
 ```math
-C_{0,d} = \int_\Omega u_h \, dx = \int_\Omega \big( v_h^2 + \partial_x v_h \big) \, dx
-        = \int_\Omega v_h^2 \, dx ,
+C_{0,d} = \int_\Omega u_h \, dx = -\int_\Omega \big( v_h^2 + \partial_x v_h \big) \, dx
+        = -\int_\Omega v_h^2 \, dx ,
 ```
 
-so the image lies in the half-space of **positive mass**. The sharp criterion is spectral and
+so the image lies in the half-space of **non-positive mass**, ``C_{0,d} \le 0``, with
+equality only for the trivial field ``v_h \equiv 0``. The sharp criterion is spectral and
 is the discrete form of the classical one: a preimage exists exactly when the Hill operator
-``-\partial_x^2 + u_h`` is positive definite ([`hill_lambda0`](@ref)). Where there is one
+``-\partial_x^2 - u_h`` is positive definite ([`hill_lambda0`](@ref)). Where there is one
 there are two, the two Floquet solutions, with opposite ``\int_\Omega v``.
 
 ```@example kdv
@@ -113,9 +125,46 @@ uhill(c) = project(shill, x -> c + sin(x) + 0.4cos(2x))
   miura_invert(shill, uhill(c)) !== nothing) for c in (0.45, 0.47, 0.48, 0.6)]
 ```
 
-The consequence is concrete: ``u_0 = \cos x`` has zero mass and the solitons of this sign
-convention are depressions, so **none of the other examples is in the image**, and Miura runs
-have to be posed in ``\hat{v}``. That is what [`miura_initial_v`](@ref) is for.
+The consequence is concrete: at ``\lambda = 0``, ``u_0 = \cos x`` has zero mass and the
+solitons are elevations of positive mass, so **none of the other examples is in the image**.
+That is what [`miura_initial_v`](@ref) is for — data posed in ``\hat{v}`` from the start.
+
+The sign convention is not what decides this. In the older convention the image was the
+non-negative half-space and the solitons were excluded for being depressions; flipping to
+elevations flips the half-space with them. A soliton is a reflectionless potential *with* a
+bound state, and the ``\lambda = 0`` chart covers exactly the fields whose Hill operator has
+none.
+
+### The spectral parameter, which does lift it
+
+Restore the parameter the Riccati substitution has all along, ``u = -(v^2 + v_x) - \lambda``,
+and it becomes ``(-\partial_x^2 - u)\psi = \lambda\psi``: ``\lambda`` is an eigenvalue
+parameter of the very Hill operator that decides invertibility, and a preimage exists exactly
+when ``\lambda < \lambda_0``. For any ``\hat{u}`` that can be arranged.
+[`miura_lambda`](@ref) returns such a value.
+
+```@example kdv
+sλ = SplineSpace(64, 3; L = 40.0)
+û  = project(sλ, soliton(1.0, 10.0, 40.0))
+(at_zero = miura_invert(sλ, û) === nothing,
+ λ₀ = round(hill_lambda0(sλ, û); digits = 4),
+ λ = round(miura_lambda(sλ, û); digits = 4),
+ reached = miura_invert(sλ, û; λ = miura_lambda(sλ, û)) !== nothing)
+```
+
+``\mathbb{L}`` does not see a constant, so [`MiuraBracket`](@ref) is unchanged and its
+Jacobiator stays at round-off for every ``\lambda``. What moves is *which* bracket the
+pushforward is:
+
+```math
+\mathbb{L} \mathbb{P}^1 \mathbb{L}^T = \mathbb{P}^2 - 4\lambda \mathbb{P}^1 ,
+```
+
+a member of the bi-Hamiltonian **pencil**. On the ``u`` side the extra term is a
+constant-speed translation, so the trajectory is the KdV solution in a uniformly moving frame
+and all three invariants survive — ``H_2`` and ``C_0`` because the drift is generated by them,
+``H_1`` because ``\{H_1,H_2\}_1 = 0``. Every case in `scripts/kdv.jl` therefore carries Miura
+runs now, not only the `miura` one.
 
 ### What a time integrator does to the chart
 
@@ -165,15 +214,15 @@ dg  = integrate(sys, Integrator(sys.flow, Gonzalez(), 1.6e-3), v₀, 125; stride
 
 ```@example kdv
 usol = soliton(1.0, 10.0, 40.0)
-usol(10.0), -2 * 1.0^2          # a depression of depth 2κ²
+usol(10.0), 2 * 1.0^2           # an elevation of height 2κ²
 ```
 
 The two multi-soliton benchmarks come from Shi, Fu and Liu, *Appl. Math. Comput.* **508**
 (2026) 129620. That paper writes KdV as ``u_t = \alpha u u_x + \nu u_{xxx}`` with
-``\alpha = \nu = -1``; our convention is reached by ``u \to -u/6``, which turns their
-elevations ``12\kappa^2\operatorname{sech}^2`` into exactly the depressions above, at the
+``\alpha = \nu = -1``; our convention is reached by ``u \to u/6``, which turns their
+elevations ``12\kappa^2\operatorname{sech}^2`` into exactly the elevations above, at the
 same speeds. Their momentum and energy are ``36 H_{2,d}`` and ``36 H_{1,d}``, their mass
-``-6 C_{0,d}``.
+``6 C_{0,d}``.
 
 !!! warning "two_soliton is exact at t = 0 only"
     On the torus it carries the phase shift of *one* overtaking, whereas the two solitons

@@ -100,18 +100,28 @@ _invsqrt(u) = 1 / sqrt(u)
     to_sqrt_variables(û)
     from_sqrt_variables(ū)
 
-The transformation ``\bar{u}_i = 2\sqrt{u_i}`` and its inverse ``u_i = (\bar{u}_i/2)^2``.
+The transformation ``\bar{u}_i = \sqrt{u_i}`` and its inverse ``u_i = \bar{u}_i^2``.
 
 In ``\bar{u}`` the Burgers bracket is the **constant** tensor ``\mathbb{K}/4``, so the
 system there is a Poisson system with a constant structure matrix and every symplectic
 Runge-Kutta method is a Poisson integrator for it. The Casimir is *linear* in these
-variables, ``C = \left(\int \phi_i\right) \cdot \bar{u}``, and is therefore conserved
+variables, ``C = 2 \left(\int \phi_i\right) \cdot \bar{u}``, and is therefore conserved
 exactly by any such method, at any step size.
 
 Integrating in ``\bar{u}`` and transforming back is the practical form of the construction.
+
+!!! note "The factor and the transformation move together"
+    ``\bar{u} = \sqrt{u}`` goes with ``\mathbb{K}/4`` and ``\partial H / \partial
+    \bar{u}_i = 2 \sqrt{u_i} \, (\mathbb{M} u)_i``; the other common choice,
+    ``\bar{u} = 2\sqrt{u}``, goes with ``\mathbb{K}`` and no factor. Pairing
+    ``2\sqrt{u}`` with ``\mathbb{K}/4`` — as an earlier version of this docstring and of
+    `verify_burgers_discretisation.py` both did — makes the flow four times too slow, which
+    no conservation test can see: a constant rescaling of a Poisson vector field preserves
+    every Casimir, every energy and every convergence *rate*. The convention here is the
+    manuscript's, eq. (variable-transformation).
 """
-to_sqrt_variables(û::AbstractVector) = 2 .* sqrt.(û)
-from_sqrt_variables(ū::AbstractVector) = (ū ./ 2) .^ 2
+to_sqrt_variables(û::AbstractVector) = sqrt.(û)
+from_sqrt_variables(ū::AbstractVector) = ū .^ 2
 
 @doc raw"""
     BurgersSystem(space)

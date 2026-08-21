@@ -282,19 +282,26 @@ practical content of the skew-symmetrisation, and it is not a cosmetic rearrange
 
 Neither of these brackets satisfies the Jacobi identity; see [`DiscreteBracket`](@ref).
 """
-struct AffineBracket{T, ST <: DiscreteSpace{T}} <: DiscreteBracket{T}
+struct AffineBracket{T, ST <: DiscreteSpace{T}, PT <: AbstractMatrix{T}} <: DiscreteBracket{T}
     space::ST
     scale::T
-    Ψ::Matrix{T}
+    Ψ::PT
     K0::Matrix{T}
     Minv::Matrix{T}
 
+    # `Ψ` is stored AS GIVEN rather than densified. It is the basis tabulation, which both
+    # spaces hand over sparse -- under one per cent full at the resolutions these runs reach
+    # -- and it is contracted on every Newton iteration by `kernel_matrix` and
+    # `kernel_directional`. Calling `Matrix` on it here, as this constructor used to, threw
+    # that away and made each of those contractions cost N² per quadrature point instead of
+    # (p+1)². `K0` stays dense: it is N × N and is skew-symmetrised in place.
     function AffineBracket(s::ST, scale::Real, Ψ::AbstractMatrix,
                            K0::AbstractMatrix) where {T, ST <: DiscreteSpace{T}}
         size(Ψ) == size(basis_values(s, 0)) || throw(DimensionMismatch(
             "the density table has size $(size(Ψ)) but the basis tabulation has " *
             "$(size(basis_values(s, 0)))"))
-        new{T, ST}(s, convert(T, scale), Matrix(Ψ), Matrix(_skew(K0)), inverse_mass_matrix(s))
+        new{T, ST, typeof(Ψ)}(s, convert(T, scale), Ψ, Matrix(_skew(K0)),
+                              inverse_mass_matrix(s))
     end
 end
 
@@ -347,15 +354,21 @@ The three-tensor `Ku[m,k,l]` of the `u`-linear block, so that the block at ``\ha
 function kernel_tensor(b::AffineBracket{T}) where {T}
     s  = b.space
     w  = quadrature_weights(s)
-    Φ0 = basis_values(s, 0)
-    Φ1 = basis_values(s, 1)
+    # Densified deliberately, and only here. The tabulations are stored sparse because the
+    # assemblies contract them, and that is the hot path; this routine instead RANDOM-ACCESSES
+    # them N³ times, where every sparse read is a binary search down a column. It builds an
+    # N³ tensor, so it is off the time loop by construction -- `bracket_directional` is what
+    # a Jacobian uses -- and dense reads are what the loop below actually wants.
+    Φ0 = Matrix(basis_values(s, 0))
+    Φ1 = Matrix(basis_values(s, 1))
+    Ψ  = Matrix(b.Ψ)
     N  = nbasis(s)
 
     T1 = zeros(T, N, N, N)
     @inbounds for l in 1:N, kk in 1:N, m in 1:N
         acc = zero(T)
         for r in eachindex(w)
-            acc += w[r] * b.Ψ[m, r] * Φ0[kk, r] * Φ1[l, r]
+            acc += w[r] * Ψ[m, r] * Φ0[kk, r] * Φ1[l, r]
         end
         T1[m, kk, l] = acc
     end
@@ -495,7 +508,7 @@ The pushforward of the first bracket along the Miura map, evaluated at the mKdV 
 \mathbb{P}^2_{\mathrm{M}} (\hat{v}) = \mathbb{L}(\hat{v}) \; \mathbb{P}^1 \;
                                       \mathbb{L}(\hat{v})^T ,
 \qquad
-\mathbb{L}(\hat{v}) = \mathbb{M}^{-1} \big( 2\mathbb{B}(\hat{v}) + S \big) ,
+\mathbb{L}(\hat{v}) = -\mathbb{M}^{-1} \big( 2\mathbb{B}(\hat{v}) + S \big) ,
 \qquad
 \mathbb{B}_{kl} = \int_\Omega v_h \phi_k \phi_l \, dx ,
 ```
@@ -503,10 +516,13 @@ The pushforward of the first bracket along the Miura map, evaluated at the mKdV 
 the discrete counterpart of the Miura factorisation
 
 ```math
-(2v + \partial_x) \, \partial_x \, (2v - \partial_x) = 4u\partial_x + 2u_x - \partial_x^3
+(2v + \partial_x) \, \partial_x \, (2v - \partial_x) = -4u\partial_x - 2u_x - \partial_x^3
 ```
 
-under ``u = v^2 + v_x``.
+under ``u = -(v^2 + v_x)``. The overall sign of ``\mathbb{L}`` cancels in
+``\mathbb{L}\mathbb{P}^1\mathbb{L}^T``, so the assembled bracket is what it always was; it
+is the *chart* that carries the sign, and `miura_invert` and the chain rule below need the
+true Jacobian.
 
 Antisymmetry is a one-line consequence of ``\mathbb{B}^T = \mathbb{B}`` and ``S^T = -S``,
 and the Jacobi identity of the facts that ``\mathbb{P}^1`` is constant and antisymmetric and
@@ -592,7 +608,9 @@ function poisson_derivative(b::MiuraBracket{T}, û::AbstractVector) where {T}
     s  = b.space
     N  = nbasis(s)
     w  = quadrature_weights(s)
-    Φ0 = basis_values(s, 0)
+    # dense for the same reason as in `kernel_tensor`: the triple-product tensor below reads
+    # the tabulation N³ times at random rather than contracting it
+    Φ0 = Matrix(basis_values(s, 0))
     Minv = inverse_mass_matrix(s)
     Linv = inv(b.L)
 
@@ -609,7 +627,8 @@ function poisson_derivative(b::MiuraBracket{T}, û::AbstractVector) where {T}
     # ∂P/∂v̂_l, one N × N matrix per l
     dPdv = Vector{Matrix{T}}(undef, N)
     @inbounds for l in 1:N
-        dL = 2 .* (Minv * Tt[l, :, :])
+        # ∂L/∂v̂_l = -2 M⁻¹ Tˡ, the sign being that of `miura_derivative`
+        dL = -2 .* (Minv * Tt[l, :, :])
         A  = dL * b.P1 * b.L'
         # the second term is L P¹ dLᵀ = -(dL P¹ Lᵀ)ᵀ, because P¹ is antisymmetric, so the
         # two SUBTRACT; adding them would give a symmetric matrix and a Jacobiator of
@@ -649,84 +668,156 @@ The Jacobian of the discrete Miura map,
 Its transpose ``\mathbb{L}^T = (2\mathbb{B} - S)\mathbb{M}^{-1}`` discretises the adjoint
 ``2v - \partial_x``.
 
-``\mathbb{L}`` is singular exactly where ``\ker(2v + \partial_x)``, spanned by
-``\exp(-2\int v)``, is periodic — that is, on ``\int_\Omega v \, dx = 0``. Its condition
-number reflects this: around ``10^9`` there, below ``10^2`` away from it.
+# Where it degenerates, and how sharply that is known
+
+For the *differential* operator the statement is exact: ``\ker(2v + \partial_x)`` is spanned
+by ``\exp(-2\int v)``, which is periodic precisely on ``\int_\Omega v \, dx = 0``. For the
+assembled ``\mathbb{M}^{-1}(2\mathbb{B} + S)`` it is **evidence rather than proof** — the
+condition number is around ``10^9`` on that set and below ``10^2`` away from it — and the
+discrete critical set need not coincide with the continuous one.
+
+What *is* exact here is a statement in the other direction, and it is the one that matters in
+practice: ``\int_\Omega v_h \, dx`` is an exact Casimir of ``\mathbb{P}^1`` in this chart
+(see [`miura_casimir`](@ref)), so the Miura flow **cannot reach** ``\int_\Omega v_h = 0``
+from initial data off it, at any resolution and for any step lying in the range of
+``\mathbb{P}^1``. The near-degeneracy is therefore not something a run can wander into; it
+has to be posed there.
 """
 function miura_derivative(s::DiscreteSpace, v̂::AbstractVector)
     Minv = inverse_mass_matrix(s)
-    Minv * (2 .* miura_moment_matrix(s, v̂) .+ derivative_matrix(s))
+    .-(Minv * (2 .* miura_moment_matrix(s, v̂) .+ derivative_matrix(s)))
 end
 
 @doc raw"""
-    miura_map(space, v̂)
+    miura_map(space, v̂, λ = 0)
 
-The discrete Miura map ``\hat{u} = \mathcal{M}_h(\hat{v})``, i.e. the ``L^2`` projection of
-``v_h^2 + v_{h,x}`` onto the spline space.
+The discrete Miura map with spectral parameter,
+``\hat{u} = \mathcal{M}_h^\lambda(\hat{v})``, i.e. the ``L^2`` projection of
+``-(v_h^2 + v_{h,x}) - \lambda``. The sign is the one that makes the map carry the mKdV flow
+``v_t = 6v^2v_x - v_{xxx}`` to ``u_t + 6uu_x + u_{xxx} = 0``.
 
-Pairing it with the partition of unity gives the exact identity
+# What λ is for
+
+At ``\lambda = 0`` the image is the half-space ``C_{0,d} \le 0`` and, sharply, the fields
+whose Hill operator is positive definite — which excludes every standard KdV example. The
+parameter removes that restriction, and it is not an ad-hoc shift: the Riccati substitution
+``v = \psi_x/\psi`` turns ``u = -(v^2 + v_x) - \lambda`` into
 
 ```math
-C_{0,d} = \int_\Omega u_h \, dx = \int_\Omega \big( v_h^2 + \partial_x v_h \big) \, dx
-        = \int_\Omega v_h^2 \, dx ,
+\left( -\partial_x^2 - u_h \right) \psi = \lambda \psi ,
 ```
 
-so the image of ``\mathcal{M}_h`` lies in the half-space of **positive mass**. None of the
-usual KdV initial conditions is in it: ``u_0 = \cos x`` has zero mass, and the solitons of
-this sign convention are depressions. Miura runs must therefore be posed in ``\hat{v}``.
+so **λ is an eigenvalue parameter of the very Hill operator that decides invertibility**. A
+real periodic preimage exists exactly when ``\lambda`` lies at or below the bottom of the
+spectrum,
+
+```math
+\lambda < \lambda_0 \left( -\partial_x^2 - u_h \right) ,
+```
+
+which for any ``\hat{u}`` whatever can be arranged by taking ``\lambda`` negative enough.
+[`miura_lambda`](@ref) returns such a value. At ``\lambda = 0`` the condition reduces to
+``\lambda_0 > 0``, the criterion of [`hill_lambda0`](@ref).
+
+# What it costs
+
+``\mathbb{L}`` does not see a constant, so [`miura_derivative`](@ref) and hence
+[`MiuraBracket`](@ref) are **unchanged**. What changes is which bracket the pushforward is:
+
+```math
+\mathbb{L} \mathbb{P}^1 \mathbb{L}^T = \mathbb{P}^2 - 4\lambda \mathbb{P}^1 ,
+```
+
+a member of the bi-Hamiltonian *pencil* rather than ``\mathbb{P}^2`` itself. It is exactly
+Poisson for every ``\lambda``, by the same one-line argument. On the ``u`` side the extra
+``-4\lambda\mathbb{P}^1 \partial H_2/\partial\hat{u}`` is a constant-speed translation, so
+the trajectory is the KdV solution in a uniformly moving frame and all three invariants are
+untouched — ``H_2`` and ``C_{0}`` because the drift is generated by them, ``H_1`` because
+``\{H_1,H_2\}_1 = 0``.
+
+# The mass identity, and the half-space it used to confine the image to
+
+Pairing with the partition of unity gives the exact identity
+
+```math
+C_{0,d} = \int_\Omega u_h \, dx
+        = -\int_\Omega \big( v_h^2 + \partial_x v_h \big) \, dx - \lambda L
+        = -\int_\Omega v_h^2 \, dx - \lambda L ,
+```
+
+so at ``\lambda = 0`` the image lies in the half-space of **non-positive mass**,
+``C_{0,d} \le 0``, meeting ``C_{0,d} = 0`` only at ``v_h \equiv 0``. A negative ``\lambda``
+moves that half-space up by ``-\lambda L`` and is what lets any mass be reached.
+
+!!! note "The sign convention never decided this"
+    In the older ``u_t = 6uu_x - u_{xxx}`` convention the map was ``u = v^2 + v_x`` and the
+    image was the *non-negative* half-space, with the solitons excluded for being
+    depressions. Flipping to elevations flips the half-space with them, and they are excluded
+    again — now for being positive. The obstruction was never a matter of signs: a soliton is
+    by construction a reflectionless potential *with* a bound state, and the ``\lambda = 0``
+    chart covers exactly the fields whose Hill operator has none. What lifts the restriction
+    is ``\lambda``, because it moves the spectral threshold rather than relabelling it.
 """
-miura_map(s::DiscreteSpace, v̂::AbstractVector) =
-    project(s, field(s, v̂) .^ 2 .+ field(s, v̂, 1))
+miura_map(s::DiscreteSpace, v̂::AbstractVector, λ::Real = 0) =
+    project(s, .-(field(s, v̂) .^ 2 .+ field(s, v̂, 1))) .- λ
 
 @doc raw"""
     hill_lambda0(space, û)
 
-The lowest eigenvalue of the Galerkin Hill operator ``-\partial_x^2 + u_h``, from
-``(\mathbb{K}^1 + \mathbb{U})\psi = \lambda \mathbb{M}\psi`` with
+The lowest eigenvalue of the Galerkin Hill operator ``-\partial_x^2 - u_h``, from
+``(\mathbb{K}^1 - \mathbb{U})\psi = \lambda \mathbb{M}\psi`` with
 ``\mathbb{U}_{kl} = \int u_h \phi_k \phi_l``.
 
 This is the **sharp** criterion for [`miura_invert`](@ref) to succeed: the Riccati
-substitution ``v = \psi_x/\psi`` turns ``u = v^2 + v_x`` into ``\psi_{xx} = u\psi``, and a
-nodeless solution — hence one with a real, periodic logarithmic derivative — exists exactly
-when zero lies below the spectrum, i.e. when this eigenvalue is positive.
+substitution ``v = \psi_x/\psi`` turns ``u = -(v^2 + v_x)`` into ``\psi_{xx} = -u\psi``, and
+a nodeless solution — hence one with a real, periodic logarithmic derivative — exists exactly
+when zero lies below the spectrum, i.e. when this eigenvalue is positive. The potential is
+``-u_h`` rather than ``u_h`` because the convention here is
+``u_t + 6uu_x + u_{xxx} = 0``.
 
 ```jldoctest
 julia> s = SplineSpace(20, 3);
 
 julia> λ(c) = hill_lambda0(s, project(s, x -> c + sin(x) + 0.4cos(2x)));
 
-julia> λ(0.6) > 0 && λ(0.3) < 0      # the threshold lies between
+julia> λ(-0.6) > 0 && λ(-0.3) < 0    # the threshold lies between
 true
 ```
 """
 function hill_lambda0(s::DiscreteSpace, û::AbstractVector)
     K1 = stiffness_matrix(s)
-    U  = weighted_matrix(s, field(s, û), 0, 0)
+    # the Riccati substitution turns u = -(v² + v_x) into ψ_xx = -u ψ, so the Hill potential
+    # is MINUS the KdV field in this convention
+    U  = .-weighted_matrix(s, field(s, û), 0, 0)
     # densified on the way in: the assemblies are sparse, and a sparse Cholesky cannot
     # solve against a sparse right-hand side. The eigenvalue problem is dense in any case.
     minimum(real.(eigvals(mass_factorization(s) \ Matrix(K1 .+ U))))
 end
 
 @doc raw"""
-    miura_invert(space, û; seed = 1.0, tol = 1e-13, maxiter = 200)
+    miura_invert(space, û; λ = 0, seed = 1.0, tol = 1e-13, maxiter = 200)
 
-Newton's method on ``\mathcal{M}_h(\hat{v}) = \hat{u}``, returning `nothing` if it does not
-converge.
+Newton's method on ``\mathcal{M}_h^\lambda(\hat{v}) = \hat{u}``, returning `nothing` if it
+does not converge.
 
-The map is **neither surjective nor injective**. It is not surjective because its image lies
-in ``C_{0,d} > 0`` (see [`miura_map`](@ref)), and sharply because the discrete Hill operator
-must be positive definite ([`hill_lambda0`](@ref)). Where a preimage exists there are two —
-the two Floquet solutions of ``\psi'' = u\psi``, with opposite signs of ``\int_\Omega v`` —
-and `seed` selects the branch.
+At ``\lambda = 0`` the map is **neither surjective nor injective**. It is not surjective
+because its image lies in ``C_{0,d} \le 0`` (see [`miura_map`](@ref)), and sharply because the
+discrete Hill operator must be positive definite ([`hill_lambda0`](@ref)). Where a preimage
+exists there are two — the two Floquet solutions of ``\psi'' = (-u - \lambda)\psi``, with
+opposite signs of ``\int_\Omega v`` — and `seed` selects the branch.
 
-Returning `nothing` rather than throwing is deliberate: for most `û` there is genuinely no
-preimage, and that is an answer about the geometry of the map, not an error.
+The `λ` argument is what makes the map surjective in practice: a preimage exists exactly when
+``\lambda < `` [`hill_lambda0`](@ref)`(space, û)`, which can always be arranged.
+[`miura_lambda`](@ref) picks such a value. Returning `nothing` rather than throwing is
+deliberate: at ``\lambda = 0`` there is genuinely no preimage for most `û`, and that is an
+answer about the geometry of the map, not an error.
 """
 function miura_invert(s::DiscreteSpace{T}, û::AbstractVector;
-                      seed = one(T), tol = 1e-13, maxiter::Integer = 200) where {T}
+                      λ::Real = 0, seed = one(T), tol = 1e-13,
+                      maxiter::Integer = 200) where {T}
     v = fill(convert(T, seed), nbasis(s))
     for _ in 1:maxiter
-        r = miura_map(s, v) .- û
+        r = miura_map(s, v, λ) .- û
         maximum(abs, r) < tol && return v
         L = miura_derivative(s, v)
         local Δ
@@ -740,6 +831,38 @@ function miura_invert(s::DiscreteSpace{T}, û::AbstractVector;
     end
     return nothing
 end
+
+
+@doc raw"""
+    miura_lambda(space, û; margin = 1//10)
+
+A spectral parameter at which `û` **is** in the image of the Miura map:
+``\lambda = \lambda_0 - \mathrm{margin} \cdot \max(1, |\lambda_0|)`` with
+``\lambda_0`` = [`hill_lambda0`](@ref)`(space, û)`.
+
+The criterion is ``\lambda < \lambda_0``, so any margin does; it is relative to
+``|\lambda_0|`` because the preimage is *unbounded* as ``\lambda \to \lambda_0``, where
+``\psi`` acquires a zero and ``v = \psi_x/\psi`` diverges. Sitting a fixed fraction below
+the threshold keeps the Newton iteration of [`miura_invert`](@ref) well conditioned instead
+of chasing the singular limit.
+
+```jldoctest
+julia> s = SplineSpace(20, 3);
+
+julia> û = project(s, cosine(2π));            # zero mass: no preimage at λ = 0
+
+julia> miura_invert(s, û) === nothing
+true
+
+julia> λ = miura_lambda(s, û); λ < hill_lambda0(s, û)
+true
+
+julia> v̂ = miura_invert(s, û; λ = λ); miura_map(s, v̂, λ) ≈ û
+true
+```
+"""
+miura_lambda(s::DiscreteSpace, û::AbstractVector; margin = 1//10) =
+    (λ₀ = hill_lambda0(s, û); λ₀ - margin * max(one(λ₀), abs(λ₀)))
 
 
 @doc raw"""

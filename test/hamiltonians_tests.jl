@@ -72,15 +72,15 @@ end
     end
 
     @testset "$(rpad("H1 gradient is the discrete variational derivative",76))" begin
-        # ∂H₁/∂û_i = ∫(φ_i' u_x + 3 φ_i u²), which after one integration by parts is the
-        # weak form of 3u² - u_xx. No integration by parts is needed for the gradient
+        # ∂H₁/∂û_i = ∫(φ_i' u_x - 3 φ_i u²), which after one integration by parts is the
+        # weak form of -3u² - u_xx. No integration by parts is needed for the gradient
         # itself, so it is exact for p ≥ 1.
         s = SplineSpace(UniformMesh(64, 2π), 3)
         û = project(s, sin)
         g = gradient(KdVHamiltonian1(), s, û)
         w = quadrature_weights(s)
         Φ = basis_values(s, 0)
-        direct = Φ * (w .* (3 .* PoissonBrackets.field(s, û) .^ 2
+        direct = Φ * (w .* (-3 .* PoissonBrackets.field(s, û) .^ 2
                             .- PoissonBrackets.field(s, û, 2)))
         @test maximum(abs, g .- direct) < 1e-8 * maximum(abs, g)
     end

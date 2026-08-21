@@ -17,9 +17,12 @@ all three:
 | [`ExplicitEuler`](@ref), [`RungeKutta4`](@ref) | no | no | yes |
 | [`ProjectionMethod`](@ref) | no | yes, by construction | only if asked for |
 
-That no method is both a Poisson map and exactly energy-preserving is the Ge-Marsden
+That no method here is both a Poisson map and exactly energy-preserving is the Ge-Marsden
 theorem, not a gap in the list: a Poisson integrator that also conserved the Hamiltonian
-exactly would reproduce the exact flow up to a reparametrisation of time.
+exactly would reproduce the exact flow up to a reparametrisation of time. The theorem carries
+non-degeneracy hypotheses on the system that are not checked here, so read the statement as
+the reason to expect the trade-off rather than as a proof that no such method can exist for
+these particular brackets — one of which is not even Poisson.
 
 The mass, by contrast, comes free to *every* method here, explicit Euler included, because
 its gradient spans the kernel of the first bracket and every increment above lies in that
@@ -252,9 +255,10 @@ whole run time.
     `Backtracking`.
   - `fallback_linesearch = Backtracking(T)`: used to *redo* a step whose first attempt did
     not converge. See [`_step!`](@ref).
-  - `linear_solver_method = LapackLU()`: a LAPACK-backed factorisation. SimpleSolvers'
-    own scalar `LU` accounted for 74 % of an implicit step at `N = 384`; see
-    [`LapackLU`](@ref).
+  - `linear_solver_method = LapackLU()`: SimpleSolvers' LAPACK-backed factorisation, as
+    against its portable scalar `LU`, which accounted for 74 % of an implicit step at
+    `N = 384`. Both come from SimpleSolvers; pass `SimpleSolvers.LU()` for the scalar one,
+    which is the only choice for element types LAPACK does not provide.
   - `f_abstol = 1e-13`, `max_iterations = 40`: passed through to the solver's options.
   - any other `SimpleSolvers.Options` keyword.
 """
@@ -489,16 +493,35 @@ function _step!(û, method::IntegratorMethod, integ::Integrator)
     un .= û
     params = (un = un,)
 
-    solve!(û, integ.solver, integ.state, params)
+    # A singular Newton matrix is a statement about the step size, not a bug. SimpleSolvers'
+    # `ldiv!` reports it as a bare `SingularException(k)` naming the zero pivot, which says
+    # nothing about what to do; it is caught here and given the context the caller needs.
+    _solve_or_explain!(û, integ.solver, integ.state, params)
     converged(s, st) = SimpleSolvers.isconverged(SimpleSolvers.status(s, st))
     converged(integ.solver, integ.state) && return û
 
     û .= un
-    solve!(û, integ.fallback, integ.fallbackstate, params)
+    _solve_or_explain!(û, integ.fallback, integ.fallbackstate, params)
     converged(integ.fallback, integ.fallbackstate) || @warn(
         "the nonlinear solver did not converge in this step, with or without a line " *
         "search; the step size is probably too large for the stiffness of this " *
         "discretisation", maxlog = 3)
+    return û
+end
+
+"""
+    _solve_or_explain!(û, solver, state, params)
+
+`solve!`, with a singular Newton matrix reported as the step-size statement it is.
+"""
+function _solve_or_explain!(û, solver, state, params)
+    try
+        solve!(û, solver, state, params)
+    catch err
+        err isa LinearAlgebra.SingularException || rethrow()
+        error("the Newton matrix is singular at pivot $(err.info); the step size is " *
+              "probably too large for the stiffness of this discretisation")
+    end
     return û
 end
 

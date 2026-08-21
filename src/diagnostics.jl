@@ -23,7 +23,10 @@ function invariants(sys::KdVSystem, û::AbstractVector)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     wu = w .* uh
-    (H1 = (dot(w, ux .^ 2) + 2 * dot(wu, uh .^ 2)) / 2,
+    # H₁ = ½∫(u_x² - 2u³). This DUPLICATES `hamiltonian(KdVHamiltonian1(), …)` on purpose --
+    # see the docstring -- so the two have to be changed together; a sign convention that
+    # moved in one and not the other would show up as a spurious drift and nothing else.
+    (H1 = (dot(w, ux .^ 2) - 2 * dot(wu, uh .^ 2)) / 2,
      H2 = dot(wu, uh) / 2,
      C0 = sum(wu))
 end
@@ -40,18 +43,21 @@ after it is the ordinary KdV computation. This is what lets a `MiuraSystem` be h
 [`integrate`](@ref) and to the plotting routines alongside the ``u``-chart systems and
 compared with them directly.
 
-Note that ``C_{0,d} = \int u_h = \int v_h^2`` is positive by construction here, and is *not*
+Note that ``C_{0,d} = \int u_h = -\int v_h^2`` is negative by construction here, and is *not*
 a Casimir in this chart — the Casimir of ``\mathbb{P}^1`` in ``\hat{v}`` is
 [`miura_casimir`](@ref), ``\int v_h``, which corresponds to nothing in ``u``.
 """
 function invariants(sys::MiuraSystem, v̂::AbstractVector)
     s  = sys.space
     w  = quadrature_weights(s)
-    û  = miura_map(s, v̂)
+    û  = miura_map(s, v̂, sys.H.λ)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     wu = w .* uh
-    (H1 = (dot(w, ux .^ 2) + 2 * dot(wu, uh .^ 2)) / 2,
+    # H₁ = ½∫(u_x² - 2u³). This DUPLICATES `hamiltonian(KdVHamiltonian1(), …)` on purpose --
+    # see the docstring -- so the two have to be changed together; a sign convention that
+    # moved in one and not the other would show up as a spurious drift and nothing else.
+    (H1 = (dot(w, ux .^ 2) - 2 * dot(wu, uh .^ 2)) / 2,
      H2 = dot(wu, uh) / 2,
      C0 = sum(wu))
 end
@@ -149,23 +155,29 @@ function integrate(sys, integ::Integrator{T}, û₀::AbstractVector, nsteps::Int
     ref  = invariants(sys, û)
     names = invariant_names(sys)
     nk   = length(names)
-    nout = nsteps ÷ stride
+    # Ceiling, and a final short window, so that all `nsteps` steps are taken even when the
+    # stride does not divide them. Rounding down instead would silently drop up to
+    # `stride - 1` steps -- 381 of the 766781 of the explicit cosine run -- while the tables
+    # went on reporting `nsteps`, and would end the run before the final time.
+    nout = cld(nsteps, stride)
 
     t   = Vector{T}(undef, nout)
     dev = zeros(T, nk, nout)
     ref0 = T[getproperty(ref, n) for n in names]
 
+    done = 0
     for j in 1:nout
         peak = zeros(T, nk)
-        for _ in 1:stride
+        for _ in 1:min(stride, nsteps - done)
             integrate_step!(û, integ)
+            done += 1
             cur = invariants(sys, û)
             for k in 1:nk
                 d = abs(getproperty(cur, names[k]) - ref0[k])
                 d > peak[k] && (peak[k] = d)
             end
         end
-        t[j] = j * stride * integ.Δt
+        t[j] = done * integ.Δt
         dev[:, j] .= peak
     end
 

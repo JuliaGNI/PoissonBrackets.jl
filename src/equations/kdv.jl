@@ -29,13 +29,13 @@ kdv_bracket_1(s::DiscreteSpace) = ConstantBracket(s, derivative_matrix(s))
     kdv_bracket_2(space)
 
 The second discrete KdV bracket, the discretisation of
-``\{A,B\}_2 = \int_\Omega \frac{\delta A}{\delta u} \left( 4u \partial_x + 2u_x -
+``\{A,B\}_2 = \int_\Omega \frac{\delta A}{\delta u} \left( -4u \partial_x - 2u_x -
 \partial_x^3 \right) \frac{\delta B}{\delta u} \, dx``, in explicitly skew-symmetrised form,
 
 ```math
 \mathbb{P}^2_{ij} (\hat{u}) = \mathbb{M}^{-1} \left(
       \tfrac{1}{2} \left( C - C^T \right)
-    + 2 \int_\Omega u_h \left( \phi_k \partial_x \phi_l
+    - 2 \int_\Omega u_h \left( \phi_k \partial_x \phi_l
                              - \phi_l \partial_x \phi_k \right) dx
   \right) \mathbb{M}^{-1} ,
 \qquad C_{kl} = \int_\Omega \phi_k' \phi_l'' \, dx .
@@ -53,21 +53,21 @@ This bracket is exactly antisymmetric on any mesh and at any quadrature, and it 
 satisfy the Jacobi identity. The normalised residual is about `0.42` and is flat under
 refinement.
 
-That is a result, not a defect. The operator ``4u\partial_x + 2u_x - \partial_x^3 =
-2(u\partial_x + \partial_x u) - \partial_x^3`` is the Virasoro Lie-Poisson structure, so the
+That is a result, not a defect. The operator ``-4u\partial_x - 2u_x - \partial_x^3 =
+-2(u\partial_x + \partial_x u) - \partial_x^3`` is the Virasoro Lie-Poisson structure, so the
 Jacobi identity would require the discrete coefficients to close into a Lie algebra — a
 quadratic condition on the basis, not something a choice of quadrature or a regrouping of
 the integrand can deliver. See [`kdv_miura_bracket`](@ref) for the construction that does
 give an exactly Poisson second bracket, and what it costs.
 """
 kdv_bracket_2(s::DiscreteSpace) =
-    AffineBracket(s, 2, basis_values(s, 0), mixed_matrix(s, 1, 2))
+    AffineBracket(s, -2, basis_values(s, 0), mixed_matrix(s, 1, 2))
 
 @doc raw"""
     kdv_miura_bracket(space, v̂)
 
 The second KdV bracket obtained by pushing the first forward along the Miura map
-``u = v^2 + v_x``, at the mKdV field `v̂`; see [`MiuraBracket`](@ref).
+``u = -(v^2 + v_x)``, at the mKdV field `v̂`; see [`MiuraBracket`](@ref).
 
 Antisymmetric *and* Poisson to round-off at every `N`, at the cost of being dense. It is a
 bracket on ``v``-space; to run it, use [`MiuraSystem`](@ref) rather than forming this matrix.
@@ -79,17 +79,17 @@ kdv_miura_bracket(s::DiscreteSpace, v̂::AbstractVector) =
 @doc raw"""
     KdVHamiltonian1()
 
-The first KdV Hamiltonian, ``H_1 = \tfrac{1}{2} \int_\Omega (u_x^2 + 2u^3) \, dx``, whose
-variational derivative is ``\delta H_1/\delta u = 3u^2 - u_{xx}``.
+The first KdV Hamiltonian, ``H_1 = \tfrac{1}{2} \int_\Omega (u_x^2 - 2u^3) \, dx``, whose
+variational derivative is ``\delta H_1/\delta u = -3u^2 - u_{xx}``.
 
 Cubic in the degrees of freedom, with
 
 ```math
 \frac{\partial H_1}{\partial \hat{u}_i}
-    = \int_\Omega \left( \partial_x \phi_i \, u_{h,x} + 3 \phi_i \, u_h^2 \right) dx ,
+    = \int_\Omega \left( \partial_x \phi_i \, u_{h,x} - 3 \phi_i \, u_h^2 \right) dx ,
 \qquad
 \frac{\partial^2 H_1}{\partial \hat{u}_i \partial \hat{u}_j}
-    = \mathbb{K}^1_{ij} + 6 \int_\Omega \phi_i \phi_j \, u_h \, dx .
+    = \mathbb{K}^1_{ij} - 6 \int_\Omega \phi_i \phi_j \, u_h \, dx .
 ```
 
 No integration by parts is needed for the gradient, so it is exact for ``p \ge 1``.
@@ -107,19 +107,19 @@ function hamiltonian(::KdVHamiltonian1, s::DiscreteSpace, û::AbstractVector)
     w  = quadrature_weights(s)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
-    (dot(w, ux .^ 2) + 2 * dot(w, uh .^ 3)) / 2
+    (dot(w, ux .^ 2) - 2 * dot(w, uh .^ 3)) / 2
 end
 
 function gradient(::KdVHamiltonian1, s::DiscreteSpace, û::AbstractVector)
     w  = quadrature_weights(s)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
-    basis_values(s, 1) * (w .* ux) .+ 3 .* (basis_values(s, 0) * (w .* uh .^ 2))
+    basis_values(s, 1) * (w .* ux) .- 3 .* (basis_values(s, 0) * (w .* uh .^ 2))
 end
 
 function hessian(::KdVHamiltonian1, s::DiscreteSpace, û::AbstractVector)
     uh = field(s, û, 0)
-    H  = stiffness_matrix(s) .+ 6 .* weighted_matrix(s, uh, 0, 0)
+    H  = stiffness_matrix(s) .- 6 .* weighted_matrix(s, uh, 0, 0)
     (H + H') / 2
 end
 
@@ -136,7 +136,7 @@ flow collapse: it cancels one of the two inverse mass matrices of
 
 ```math
 \int_\Omega \phi_i \, \partial_t u_h \, dx
-    = \int_\Omega \left( 6 u_h u_{h,x} \phi_i + \partial_x \phi_i \, u_{h,xx} \right) dx
+    = -\int_\Omega \left( 6 u_h u_{h,x} \phi_i - \partial_x \phi_i \, u_{h,xx} \right) dx
 ```
 
 with no auxiliary variable and a single sparse solve, where the first flow is a *mixed*
@@ -151,10 +151,10 @@ KdVHamiltonian2(s::DiscreteSpace) = QuadraticHamiltonian(mass_matrix(s))
 The Hamiltonian of the fifth-order member of the KdV hierarchy,
 
 ```math
-H_3 = \int_\Omega \left( \tfrac{5}{2} u^4 + 5 u u_x^2 + \tfrac{1}{2} u_{xx}^2 \right) dx ,
+H_3 = \int_\Omega \left( \tfrac{5}{2} u^4 - 5 u u_x^2 + \tfrac{1}{2} u_{xx}^2 \right) dx ,
 ```
 
-whose variational derivative is ``10u^3 - 10 u u_{xx} - 5 u_x^2 + u_{xxxx}``.
+whose variational derivative is ``10u^3 + 10 u u_{xx} + 5 u_x^2 + u_{xxxx}``.
 
 Used for the Magri hierarchy tests: ``\mathbb{P}^2 \, \partial H_1/\partial \hat{u}`` should
 reproduce this flow, and does so at ``O(h^{2p})`` — the first rung of the hierarchy is exact
@@ -169,7 +169,7 @@ function hamiltonian(::KdVHamiltonian3, s::DiscreteSpace, û::AbstractVector)
     uh  = field(s, û, 0)
     ux  = field(s, û, 1)
     uxx = field(s, û, 2)
-    dot(w, (5 // 2) .* uh .^ 4 .+ 5 .* uh .* ux .^ 2 .+ uxx .^ 2 ./ 2)
+    dot(w, (5 // 2) .* uh .^ 4 .- 5 .* uh .* ux .^ 2 .+ uxx .^ 2 ./ 2)
 end
 
 function gradient(::KdVHamiltonian3, s::DiscreteSpace, û::AbstractVector)
@@ -177,8 +177,8 @@ function gradient(::KdVHamiltonian3, s::DiscreteSpace, û::AbstractVector)
     uh  = field(s, û, 0)
     ux  = field(s, û, 1)
     uxx = field(s, û, 2)
-    10 .* (basis_values(s, 0) * (w .* uh .^ 3)) .+
-     5 .* (basis_values(s, 0) * (w .* ux .^ 2)) .+
+    10 .* (basis_values(s, 0) * (w .* uh .^ 3)) .-
+     5 .* (basis_values(s, 0) * (w .* ux .^ 2)) .-
     10 .* (basis_values(s, 1) * (w .* uh .* ux)) .+
           (basis_values(s, 2) * (w .* uxx))
 end
@@ -186,10 +186,9 @@ end
 
 ## Initial data
 #
-# The paper's convention is u_t = 6 u u_x - u_xxx. Writing u = -w turns it into the
-# textbook w_t + 6 w w_x + w_xxx = 0, so the solitons of this convention are NEGATIVE --
-# depressions, not elevations. Getting the sign wrong gives a profile that steepens and
-# blows up instead of translating.
+# The convention is the textbook one, u_t + 6 u u_x + u_xxx = 0, so the sech^2 solitons are
+# ELEVATIONS. Getting the sign wrong gives a profile that steepens and blows up instead of
+# translating, which is the quickest way to tell the two conventions apart numerically.
 #
 # On a torus a soliton is not an exact solution, but for the boxes used here its tails are
 # below round-off, so the periodic images are summed and the result is periodic to machine
@@ -204,15 +203,15 @@ const COSH_CLIP = 350.0
 @doc raw"""
     soliton(κ, x₀, L; t = 0)
 
-The single soliton of ``u_t = 6uu_x - u_{xxx}``, wrapped onto ``[0,L)``, as a function of
+The single soliton of ``u_t + 6uu_x + u_{xxx} = 0``, wrapped onto ``[0,L)``, as a function of
 `x`:
 
 ```math
-u(t,x) = -2 \kappa^2 \operatorname{sech}^2
+u(t,x) = 2 \kappa^2 \operatorname{sech}^2
          \left( \kappa \left( x - 4\kappa^2 t - x_0 \right) \right) .
 ```
 
-A **depression** of depth ``2\kappa^2``, travelling right at speed ``4\kappa^2``.
+An **elevation** of height ``2\kappa^2``, travelling right at speed ``4\kappa^2``.
 
 The centre is reduced modulo `L` before the periodic images are summed, so the formula stays
 valid at large `t`, where the soliton has crossed the box many times and an unreduced
@@ -224,7 +223,7 @@ function soliton(κ::Real, x₀::Real, L::Real; t::Real = 0)
         v = zero(float(κ))
         for r in SOLITON_IMAGES
             ξ = clamp(κ * (x + r * L - centre), -COSH_CLIP, COSH_CLIP)
-            v += -2κ^2 / cosh(ξ)^2
+            v += 2κ^2 / cosh(ξ)^2
         end
         return v
     end
@@ -233,9 +232,9 @@ end
 @doc raw"""
     two_soliton(k₁, k₂, x₁, x₂, L; t = 0)
 
-Hirota's exact two-soliton of ``u_t = 6uu_x - u_{xxx}``, wrapped onto ``[0,L)``.
+Hirota's exact two-soliton of ``u_t + 6uu_x + u_{xxx} = 0``, wrapped onto ``[0,L)``.
 
-From the tau function for ``w = -u``,
+From the tau function,
 
 ```math
 f = 1 + e^{\eta_1} + e^{\eta_2} + A_{12} e^{\eta_1 + \eta_2} ,
@@ -243,9 +242,9 @@ f = 1 + e^{\eta_1} + e^{\eta_2} + A_{12} e^{\eta_1 + \eta_2} ,
 \qquad A_{12} = \left( \frac{k_1 - k_2}{k_1 + k_2} \right)^2 ,
 ```
 
-with ``w = 2 (\log f)_{xx}`` and ``u = -w``. The second derivative of the logarithm is taken
-in closed form rather than numerically, and the exponentials are written through a shifted
-maximum so that the tails do not overflow.
+with ``u = 2 (\log f)_{xx}``. The second derivative of the logarithm is taken in closed form
+rather than numerically, and the exponentials are written through a shifted maximum so that
+the tails do not overflow.
 
 !!! warning "Exact at t = 0 only"
     This is the exact solution on the line. On the torus it is exact at `t = 0`, but it
@@ -274,7 +273,7 @@ function two_soliton(k₁::Real, k₂::Real, x₁::Real, x₂::Real, L::Real; t:
             f  = sum(ws)
             f1 = sum(ds[a] * ws[a] for a in 1:4)
             f2 = sum(ds[a]^2 * ws[a] for a in 1:4)
-            v += -2 * (f2 / f - (f1 / f)^2)
+            v += 2 * (f2 / f - (f1 / f)^2)
         end
         return v
     end
@@ -292,9 +291,17 @@ out into a genuine multi-soliton within the first few time units.
 This is the initial condition of the three- and five-soliton problems of Shi, Fu and Liu.
 That paper writes KdV as ``u_t = \alpha u u_x + \nu u_{xxx}`` with ``\alpha = \nu = -1`` and
 gives elevations ``12\kappa_i^2 \operatorname{sech}^2``; our convention is reached by
-``u \to -u/6``, which turns those into exactly the depressions ``-2\kappa^2
+``u \to u/6``, which turns those into exactly the elevations ``2\kappa^2
 \operatorname{sech}^2`` above, at the same speeds ``4\kappa^2``. Their momentum and energy
-are then ``36 H_{2,d}`` and ``36 H_{1,d}``, and their mass is ``-6 C_{0,d}``.
+are then ``36 H_{2,d}`` and ``36 H_{1,d}``, and their mass is ``6 C_{0,d}``.
+
+The three Hamiltonians take the *same numerical values* on corresponding data as under the
+older ``u_t = 6uu_x - u_{xxx}`` convention. Not because they are even — ``H_1`` is not — but
+because the two conventions are related by ``u \to -u`` and each Hamiltonian carries the
+matching sign: ``H_1^{\mathrm{new}}(-w) = H_1^{\mathrm{old}}(w)``, and likewise for ``H_3``.
+So the elevation soliton here has exactly the ``H_1`` the depression soliton had there, which
+is checked against `plot_kdv_energies.py` to eight digits. Only ``C_{0,d}`` differs, and it
+differs by a sign.
 """
 function solitons(κs, centres, L::Real; t::Real = 0)
     length(κs) == length(centres) || throw(DimensionMismatch(
@@ -320,10 +327,10 @@ only the plots carry it back.
 
 That paper writes KdV as ``u_t = \alpha u u_x + \nu u_{xxx}`` with ``\alpha = \nu = -1`` and
 gives elevations ``12\kappa_i^2 \operatorname{sech}^2``; our convention is reached by
-``u \to -u/6``, which turns those into exactly the depressions ``-2\kappa^2
+``u \to u/6``, which turns those into exactly the elevations ``2\kappa^2
 \operatorname{sech}^2`` of [`soliton`](@ref), at the same speeds ``4\kappa^2``. Their
 momentum and energy are then ``36 H_{2,d}`` and ``36 H_{1,d}``, and their mass is
-``-6 C_{0,d}``, so the invariants correspond one to one.
+``6 C_{0,d}``, so the invariants correspond one to one.
 
 In both, the tallest wave overtakes all the others over the course of the run.
 """
@@ -340,9 +347,11 @@ five_solitons(; L = 300.0, xleft = -150.0) =
 The initial condition ``v_0 = 1 + \sin(2\pi x / L)`` of the Miura example, posed in the
 **mKdV** variable.
 
-It has to be posed there. The image of the discrete Miura map lies in ``C_{0,d} > 0``, since
-``\int u_h = \int v_h^2``, and none of the other examples here is in it — ``\cos x`` has zero
-mass and the solitons of this sign convention are depressions. The corresponding KdV field is
+It has to be posed there. The image of the discrete Miura map lies in ``C_{0,d} \le 0``,
+since ``\int u_h = -\int v_h^2``, with equality only for the trivial field, and none of the
+other examples here is in it — ``\cos x`` has zero mass without being zero, and the solitons
+are elevations, hence of positive mass. Flipping the sign convention does not help: it moves
+the half-space along with the solitons. The corresponding KdV field is
 ``u_0 = \mathcal{M}_h(v_0)``; see [`MiuraSystem`](@ref).
 """
 miura_initial_v(L = 2π) = x -> 1 + sin(2π * x / L)
@@ -378,7 +387,7 @@ The two flows are
   - `flow1` — ``\mathbb{P}^1 \, \partial H_1/\partial \hat{u}``, a **mixed** two-field
     Galerkin method, and a genuine finite-dimensional Poisson system;
   - `flow2` — ``\mathbb{P}^2 \, \partial H_2/\partial \hat{u}``, which collapses to the
-    **plain** Galerkin discretisation of ``u_t = 6uu_x - u_{xxx}``.
+    **plain** Galerkin discretisation of ``u_t + 6uu_x + u_{xxx} = 0``.
 
 They are not the same. The difference is exactly the projection error that the first inserts
 between its two derivatives, ``\int \phi_i' (\mathrm{id} - \Pi) (3u_h^2 - u_{h,xx})``, which
@@ -455,21 +464,30 @@ gradient method — [`Gonzalez`](@ref) — does conserve ``\tilde{H}``, and henc
 exactly in the ``\hat{v}`` chart, because the discrete-gradient property
 ``\bar{g}\cdot\Delta\hat{v} = \Delta\tilde{H}`` holds by construction whatever the degree.
 """
-struct MiuraHamiltonian{T} <: DiscreteHamiltonian{T} end
+struct MiuraHamiltonian{T} <: DiscreteHamiltonian{T}
+    λ::T
+end
 
-MiuraHamiltonian() = MiuraHamiltonian{Float64}()
-MiuraHamiltonian(::DiscreteSpace{T}) where {T} = MiuraHamiltonian{T}()
+MiuraHamiltonian() = MiuraHamiltonian{Float64}(0.0)
+MiuraHamiltonian(λ::Real) = MiuraHamiltonian{typeof(float(λ))}(float(λ))
+MiuraHamiltonian(::DiscreteSpace{T}; λ::Real = 0) where {T} =
+    MiuraHamiltonian{T}(convert(T, λ))
 
-hamiltonian(::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector) =
-    (û = miura_map(s, v̂); dot(û, mass_matrix(s), û) / 2)
+hamiltonian(H::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector) =
+    (û = miura_map(s, v̂, H.λ); dot(û, mass_matrix(s), û) / 2)
 
-gradient(::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector) =
-    (2 .* miura_moment_matrix(s, v̂) .- derivative_matrix(s)) * miura_map(s, v̂)
+# ∂H̃/∂v̂ = Lᵀ M û, and BOTH L and û changed sign with the convention, so the product is
+# numerically what it always was -- but it has to be written with the minus, because
+# `miura_map` and `miura_derivative` now carry theirs.
+gradient(H::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector) =
+    .-(2 .* miura_moment_matrix(s, v̂) .- derivative_matrix(s)) * miura_map(s, v̂, H.λ)
 
-function hessian(::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector)
+function hessian(H::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector)
     L  = miura_derivative(s, v̂)
-    û  = miura_map(s, v̂)
-    H  = L' * mass_matrix(s) * L .+ 2 .* weighted_matrix(s, field(s, û), 0, 0)
+    û  = miura_map(s, v̂, H.λ)
+    # LᵀML is even in L, so it is unchanged; the second term carries the sign of
+    # ∂²û/∂v̂∂v̂, which is -2 M⁻¹T for û = -(v² + v_x)
+    H  = L' * mass_matrix(s) * L .- 2 .* weighted_matrix(s, field(s, û), 0, 0)
     (H + H') / 2
 end
 
@@ -498,15 +516,16 @@ julia> sys = MiuraSystem(SplineSpace(32, 3));
 
 julia> v̂ = project(sys.space, x -> 1 + sin(x));
 
-julia> inv = invariants(sys, v̂); inv.C0 > 0        # the image has positive mass
+julia> inv = invariants(sys, v̂); inv.C0 < 0        # nonzero v̂, so strictly negative
 true
 ```
 
 # Initial data must be posed in v
 
-They have to be: ``\int u_h = \int v_h^2``, so the image of ``\mathcal{M}_h`` lies in
-``C_{0,d} > 0``, and none of the standard KdV examples — ``\cos x`` has zero mass, the
-solitons are depressions — has a preimage at all. Use [`miura_invert`](@ref) if a particular
+They have to be: ``\int u_h = -\int v_h^2``, so the image of ``\mathcal{M}_h`` lies in
+``C_{0,d} \le 0``, with equality only at ``v_h \equiv 0``, and none of the standard KdV
+examples — ``\cos x`` has zero mass without being zero, the solitons are elevations of
+positive mass — has a preimage at all. Use [`miura_invert`](@ref) if a particular
 ``\hat{u}`` is wanted, and [`hill_lambda0`](@ref) to tell in advance whether it has one.
 
 # The two charts are not the same numerical method
@@ -532,12 +551,19 @@ struct MiuraSystem{T, ST <: DiscreteSpace{T}, BT, HT, FT}
     flow::FT
 end
 
-function MiuraSystem(s::DiscreteSpace{T}) where {T}
+function MiuraSystem(s::DiscreteSpace{T}; λ::Real = 0) where {T}
     b = kdv_bracket_1(s)
-    h = MiuraHamiltonian{T}()
+    h = MiuraHamiltonian{T}(convert(T, λ))
     f = HamiltonianFlow(s, b, h)
     MiuraSystem{T, typeof(s), typeof(b), typeof(h), typeof(f)}(s, b, h, MassCasimir(s), f)
 end
+
+"""
+    miura_lambda(sys::MiuraSystem)
+
+The spectral parameter the system was built with.
+"""
+miura_lambda(sys::MiuraSystem) = sys.H.λ
 
 MiuraSystem(n::Integer, p::Integer; L = 2π, kwargs...) =
     MiuraSystem(SplineSpace(n, p; L = L, kwargs...))
@@ -550,7 +576,7 @@ nbasis(sys::MiuraSystem) = nbasis(sys.space)
 
 The KdV field ``\\hat{u} = \\mathcal{M}_h(\\hat{v})`` of a Miura system state.
 """
-miura_map(sys::MiuraSystem, v̂::AbstractVector) = miura_map(sys.space, v̂)
+miura_map(sys::MiuraSystem, v̂::AbstractVector) = miura_map(sys.space, v̂, sys.H.λ)
 
 """
     miura_bracket(sys::MiuraSystem, v̂)

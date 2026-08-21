@@ -20,9 +20,9 @@
 # step count.
 #
 # The `miura` case is different in kind from the other five and adds a THIRD vector field.
-# It is posed in v, not in u, and it has to be: int u_h = int v_h^2, so the image of the
-# discrete Miura map lies in C_0,d > 0, and none of the other five -- cos x has zero mass,
-# the solitons are depressions -- has a preimage at all.
+# It is posed in v, not in u, and it has to be: int u_h = -int v_h^2, so the image of the
+# discrete Miura map lies in C_0,d <= 0, and none of the other five -- cos x has zero mass,
+# the solitons are elevations of positive mass -- has a preimage at all.
 
 using CairoMakie
 using PoissonBrackets
@@ -100,7 +100,9 @@ runs_v(sysM) = (("midpoint, Miura",          sysM.flow, ImplicitMidpoint(), fals
 
 function run_one(sys, flow, meth, x0, dt, T)
     NT = max(round(Int, T / dt), NOUT)
-    stride = max(NT ÷ NOUT, 1)
+    # `round`, not `div`, so that the windowing matches `plot_kdv_energies.py` step for step;
+    # `integrate` takes the remainder in a final short window either way.
+    stride = max(round(Int, NT / NOUT), 1)
     # û₀ is passed so that the Newton tolerance scales with the amplitude of the field; the
     # Miura initial condition reaches |u| ~ 4 where the solitons are below 1, and one
     # absolute tolerance cannot serve both
@@ -231,10 +233,12 @@ function write_summary(case::Case, rows::Vector{RunSummary}, s)
                         "than a bounded oscillation): ",
                         join(("**" * r.label * "**" for r in drifting), ", "), ".")
         end
-        println(io, "- No method holds both Hamiltonians. That is the Ge-Marsden theorem, ",
-                    "not a gap in the list: a Poisson integrator that also conserved the ",
-                    "Hamiltonian exactly would reproduce the exact flow up to a ",
-                    "reparametrisation of time.")
+        println(io, "- No method here holds both Hamiltonians. That is what the Ge-Marsden ",
+                    "theorem leads one to expect, rather than a gap in the list: a Poisson ",
+                    "integrator that also conserved the Hamiltonian exactly would reproduce ",
+                    "the exact flow up to a reparametrisation of time. The theorem's ",
+                    "non-degeneracy hypotheses are not checked for these systems, so it is ",
+                    "the reason for the trade-off and not a proof of it.")
         println(io)
         println(io, "## Figures")
         println(io)
@@ -256,11 +260,32 @@ function run_case(case::Case)
     s   = SplineSpace(case.n, case.p; L = case.L)
     sys = KdVSystem(s)
 
-    # the Miura case is posed in v, and the u system is then seeded from u₀ = M_h(v₀) so
-    # that all eight runs start from the same field
-    sysM = case.v0 === nothing ? nothing : MiuraSystem(s)
-    v0   = case.v0 === nothing ? nothing : project(s, case.v0)
-    u0   = case.v0 === nothing ? project(s, case.u0) : miura_map(s, v0)
+    # The `miura` case is posed in v, and the u system is then seeded from u₀ = M_h(v₀) so
+    # that all eight runs start from the same field.
+    #
+    # Every OTHER case is posed in u, and used to have no Miura runs at all: at λ = 0 the
+    # image of M_h is the half-space C₀ ≤ 0 and, sharply, the fields whose Hill operator is
+    # positive definite, which excludes all of them. The spectral parameter removes that --
+    # a preimage exists whenever λ < λ₀ -- so those cases now get Miura runs too, in a frame
+    # translating at constant speed. See `miura_lambda`.
+    local sysM, v0, u0
+    if case.v0 !== nothing
+        sysM = MiuraSystem(s)
+        v0   = project(s, case.v0)
+        u0   = miura_map(s, v0)
+    else
+        u0 = project(s, case.u0)
+        λ  = miura_lambda(s, u0)
+        v0 = miura_invert(s, u0; λ = λ)
+        if v0 === nothing
+            note("no Miura preimage at λ = $(round(λ; digits = 4)); skipping the v-chart runs")
+            sysM = nothing
+        else
+            sysM = MiuraSystem(s; λ = λ)
+            note("Miura chart entered at λ = $(round(λ; digits = 4)) " *
+                 "(λ₀ = $(round(hill_lambda0(s, u0); digits = 4)))")
+        end
+    end
 
     dt_rk4 = RK4_SAFETY * min(PoissonBrackets.stability_limit(sys.flow1, u0),
                               PoissonBrackets.stability_limit(sys.flow2, u0))
@@ -269,7 +294,12 @@ function run_case(case::Case)
     rows = RunSummary[]
 
     for (label, flow, meth, explicit) in runs_u(sys)
-        dt = explicit ? min(dt_rk4, case.dt) : case.dt
+        # The stability limit, not `min(dt_rk4, case.dt)`: on the two wide benchmarks it is
+        # LARGER than the step size the implicit methods want, and clamping it there would
+        # hide the very point the comparison makes -- that on those two examples an explicit
+        # method is not paying a step-count penalty at all. This matches
+        # `plot_kdv_energies.py`, which uses `dt_rk4` outright.
+        dt = explicit ? dt_rk4 : case.dt
         traj, NT = run_one(sys, flow, meth, u0, dt, case.T)
         push!(trajs, traj); push!(labels, label); push!(finals, traj.final)
         push!(rows, summarise(label, traj, dt, NT))
@@ -281,7 +311,7 @@ function run_case(case::Case)
             traj, NT = run_one(sysM, flow, meth, v0, case.dt, case.T)
             push!(trajs, traj); push!(labels, label)
             # the state of a Miura run is v̂; map it before plotting alongside the others
-            push!(finals, miura_map(s, traj.final))
+            push!(finals, miura_map(sysM, traj.final))
             push!(rows, summarise(label, traj, case.dt, NT))
             report(label, traj)
         end

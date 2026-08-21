@@ -5,6 +5,7 @@ module PoissonBrackets
     using QuadratureRules
     using SimpleSolvers
     using SimpleSplines
+    using SparseArrays
 
     # extended rather than defined here, so that the packages of the ecosystem share one
     # generic function per accessor
@@ -13,6 +14,12 @@ module PoissonBrackets
                           evaluate, l2_projection, mass_factorization, mass_matrix,
                           mass_operator, mass_solve!, mixed_matrix, nbasis,
                           ncells, nodes, order, quadrature_nodes, quadrature_weights
+
+    # Re-exported rather than defined: the LAPACK-backed factorisation lives in SimpleSolvers
+    # as of 0.12.2, but it is this package's default `linear_solver_method`, so it has to be
+    # nameable without qualification by anyone who has only done `using PoissonBrackets`.
+    using SimpleSolvers: LapackLU
+    export LapackLU
 
     export DiscreteSpace, SplineSpace, LagrangeSpace
     export basis, nbasis, degree, order, nodes, ncells, domainlength,
@@ -39,10 +46,6 @@ module PoissonBrackets
 
     include("flows.jl")
 
-    export LapackLU
-
-    include("linearsolver.jl")
-
     export IntegratorMethod, ExplicitEuler, RungeKutta4, ImplicitMidpoint,
            AverageVectorField, DiscreteGradient, Gonzalez, GonzalezMass,
            ProjectionMethod
@@ -54,6 +57,7 @@ module PoissonBrackets
            KdVHamiltonian1, KdVHamiltonian2, KdVHamiltonian3,
            MiuraSystem, MiuraHamiltonian, miura_map, miura_invert, miura_bracket,
            miura_casimir, miura_derivative, miura_moment_matrix, hill_lambda0,
+           miura_lambda,
            soliton, two_soliton, solitons, cosine,
            three_solitons, five_solitons, miura_initial_v
 

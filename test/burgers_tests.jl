@@ -81,8 +81,34 @@ dudx(x) = cos(x) - 0.6sin(2x)
         u = uex.(nodes(s))
         ū = PoissonBrackets.to_sqrt_variables(u)
         @test PoissonBrackets.from_sqrt_variables(ū) ≈ u
-        # C = (∫φ_i) ⋅ ū exactly, which is why any symplectic method holds it at any step
-        @test dot(basis_integrals(s), ū) ≈ hamiltonian(burgers_casimir(s), s, u)
+        # C = 2 (∫φ_i) ⋅ ū exactly, which is why any symplectic method holds it at any step.
+        # The 2 is the antiderivative of 1/g: G(u) = 2√u, and ū = √u.
+        @test 2 * dot(basis_integrals(s), ū) ≈ hamiltonian(burgers_casimir(s), s, u)
+    end
+
+    @testset "$(rpad("the sqrt-variable bracket is K/4, not K -- the factor is pinned",76))" begin
+        # The transformation and the factor move together: ū = √u goes with K/4, ū = 2√u with
+        # K. Pairing 2√u with K/4 makes the flow four times too slow, and NO conservation
+        # test can see it -- a constant rescaling of a Poisson field keeps every Casimir,
+        # every energy and every convergence rate. Only a comparison against the pushforward
+        # of the u-space field catches it, so that is what is checked here.
+        s  = LagrangeSpace(2, 13)
+        u  = uex.(nodes(s))
+        Minv = inverse_mass_matrix(s)
+        S    = derivative_matrix(s)
+        K    = Minv * (S - transpose(S)) * Minv
+
+        sys  = BurgersSystem(s)
+        udot = vectorfield(sys.flow, u)                      # u-space, reproduces 3 u u_x
+
+        ū    = PoissonBrackets.to_sqrt_variables(u)
+        # d(√u)/dt = u̇ / (2√u), the pushforward of the u-space field
+        ūdot = udot ./ (2 .* sqrt.(u))
+        # ∂H/∂ū_i = 2 √u_i (M u)_i
+        gū   = 2 .* sqrt.(u) .* (mass_matrix(s) * u)
+
+        @test (K * gū) ./ 4 ≈ ūdot
+        @test !isapprox(K * gū, ūdot; rtol = 1e-3)          # the factor is not 1
     end
 
     @testset "$(rpad("semi-discrete conservation of H and C",76))" begin

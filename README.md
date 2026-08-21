@@ -19,7 +19,7 @@ Three equations are covered:
 
 | equation | bracket | basis |
 |:--|:--|:--|
-| Burgers | `J(u) = g(u) K g(u)` with `g = √u`, made constant by `ū = 2√u` | periodic nodal Lagrange |
+| Burgers | `J(u) = g(u) K g(u)` with `g = √u`, made constant by `ū = √u` | periodic nodal Lagrange |
 | KdV | the bi-Hamiltonian pair `P¹` (constant, Poisson) and `P²(û)` (antisymmetric, not Jacobi) | periodic B-spline |
 | Camassa-Holm | the standard bi-Hamiltonian pair — *prototype* | periodic B-spline |
 
