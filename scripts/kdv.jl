@@ -11,7 +11,7 @@
 #   kdv-<case>-{H1,H2,C0}-flow1.pdf   the four flow-1 runs
 #   kdv-<case>-{H1,H2,C0}-other.pdf   the two flow-2 runs, and the two Miura runs where
 #                                     the case has them
-#   kdv-state-<case>.pdf              initial and final states
+#   kdv-<case>-state-{flow1,other}.pdf   initial and final states, split the same way
 #   <case>.md                         a table of the maximum error in each invariant
 #
 # In every case each geometric method holds the Hamiltonian generating its flow to round-off
@@ -101,11 +101,25 @@ runs_v(sysM) = (("midpoint, Miura",          sysM.flow, ImplicitMidpoint(), fals
 function run_one(sys, flow, meth, x0, dt, T)
     NT = max(round(Int, T / dt), NOUT)
     stride = max(NT ÷ NOUT, 1)
-    traj = integrate(sys, Integrator(flow, meth, dt), x0, NT; stride = stride)
+    # û₀ is passed so that the Newton tolerance scales with the amplitude of the field; the
+    # Miura initial condition reaches |u| ~ 4 where the solitons are below 1, and one
+    # absolute tolerance cannot serve both
+    traj = integrate(sys, Integrator(flow, meth, dt; û₀ = x0), x0, NT; stride = stride)
     (traj, NT)
 end
 
-report(label, traj) = @info(
+"""Log and flush.
+
+`@info` writes to a buffered stream, and a run that is killed part-way — these take tens of
+minutes — then leaves an empty log and no indication of how far it got. Flushing after every
+line costs nothing at this rate and makes the log worth reading.
+"""
+function note(msg)
+    println(stderr, "[ ", msg)
+    flush(stderr)
+end
+
+report(label, traj) = note(
     "  " * rpad(label, 26) *
     " |ΔH₁| = $(round(drift(traj, :H1), sigdigits = 2))" *
     "  |ΔH₂| = $(round(drift(traj, :H2), sigdigits = 2))" *
@@ -224,16 +238,21 @@ function write_summary(case::Case, rows::Vector{RunSummary}, s)
         println(io)
         println(io, "## Figures")
         println(io)
-        for inv in ("H1", "H2", "C0"), g in ("flow1", "other")
-            println(io, "- `kdv-$(case.key)-$(inv)-$(g).pdf`")
+        for g in ("flow1", "other")
+            println(io, "**", g == "flow1" ? "flow 1" : "flow 2 and Miura", "**")
+            println(io)
+            for inv in ("H1", "H2", "C0")
+                println(io, "- `kdv-$(case.key)-$(inv)-$(g).pdf`")
+            end
+            println(io, "- `kdv-$(case.key)-state-$(g).pdf`")
+            println(io)
         end
-        println(io, "- `kdv-state-$(case.key).pdf`")
     end
-    @info "  wrote $(basename(path))"
+    note("  wrote $(basename(path))")
 end
 
 function run_case(case::Case)
-    @info "running $(case.key): $(case.title)" * (isempty(case.note) ? "" : "  ($(case.note))")
+    note("running $(case.key): $(case.title)" * (isempty(case.note) ? "" : "  ($(case.note))"))
     s   = SplineSpace(case.n, case.p; L = case.L)
     sys = KdVSystem(s)
 
@@ -272,25 +291,28 @@ function run_case(case::Case)
 
     # One invariant per figure, one family of vector fields per figure. Six energy figures
     # rather than one panel of everything: the errors of the three invariants sit orders of
-    # magnitude apart, and the comparison that matters is within a family, not across.
+    # magnitude apart, and the comparison that matters is within a family, not across. The
+    # state figure is split the same way and named the same way.
     for g in (:flow1, :other)
         keep = [i for i in eachindex(labels) if group_of(labels[i]) == g]
         isempty(keep) && continue
+        gname = string(g)
+
         for inv in (:H1, :H2, :C0)
-            fig = energyplot(trajs[keep], labels[keep];
-                             name = inv,
-                             title = "$(case.title) — $(GROUP_TITLE[g])")
-            save(joinpath(FIGDIR, "kdv-$(case.key)-$(inv)-$(g == :flow1 ? "flow1" : "other").pdf"), fig)
+            save(joinpath(FIGDIR, "kdv-$(case.key)-$(inv)-$(gname).pdf"),
+                 energyplot(trajs[keep], labels[keep];
+                            name = inv,
+                            title = "$(case.title) — $(GROUP_TITLE[g])"))
         end
+
+        save(joinpath(FIGDIR, "kdv-$(case.key)-state-$(gname).pdf"),
+             stateplot(sys, vcat([u0], finals[keep]), vcat(["initial"], labels[keep]);
+                       xleft = case.xleft,
+                       title = "$(case.title) — $(GROUP_TITLE[g]): initial and final states"))
     end
 
-    save(joinpath(FIGDIR, "kdv-state-$(case.key).pdf"),
-         stateplot(sys, vcat([u0], finals), vcat(["initial"], labels);
-                   xleft = case.xleft,
-                   title = "$(case.title): initial and final states"))
-
     write_summary(case, rows, s)
-    @info "  wrote 6 energy figures and the state figure for $(case.key)"
+    note("  wrote 6 energy figures and 2 state figures for $(case.key)")
 end
 
 for k in (isempty(ARGS) ? [c.key for c in CASES] : ARGS)

@@ -86,9 +86,14 @@ Per case it writes into `scripts/figures/`:
 |:--|:--|
 | `kdv-<case>-{H1,H2,C0}-flow1.pdf` | the four flow-1 runs |
 | `kdv-<case>-{H1,H2,C0}-other.pdf` | the two flow-2 runs, and the two Miura runs where the case has them |
-| `kdv-state-<case>.pdf` | initial and final states |
+| `kdv-<case>-state-{flow1,other}.pdf` | initial and final states, split the same way |
 | `<case>.md` | a table of the maximum error in each invariant, and what it says |
 
 One invariant per figure and one family of vector fields per figure: the three invariants'
 errors sit orders of magnitude apart, so a shared axis flattens them, and the comparison that
 matters is *within* a family rather than across.
+
+Only the `miura` case has Miura runs, and it is the only one that can: the image of the
+discrete Miura map lies in ``C_{0,d} > 0``, and the other five all have ``C_{0,d} \le 0`` —
+``\cos x`` has zero mass and the solitons of this sign convention are depressions. Its
+initial data are therefore posed in ``v``. See [`MiuraSystem`](@ref).

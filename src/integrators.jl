@@ -193,6 +193,37 @@ isexplicit(m::ProjectionMethod) = isexplicit(m.base)
 
 
 @doc raw"""
+    default_f_abstol(T, ndofs, û₀ = nothing)
+
+The residual tolerance for the Newton iteration,
+``4 \, \max(8, N) \, \varepsilon \, \lVert \hat{u}_0 \rVert_\infty``.
+
+The tolerance is **absolute**, so it has to sit above the round-off floor of the residual —
+and that floor scales with both the number of degrees of freedom, which is how many terms
+accumulate error, and the *amplitude* of the field. Getting either wrong is expensive in a
+different direction, and both were measured on implicit midpoint on the second KdV flow:
+
+| tolerance | ``\lVert u \rVert \approx 4`` | ``\lVert u \rVert \approx 1`` |
+|:--|:--|:--|
+| ``\max(8,N)\varepsilon`` | 40 iterations, never converges | 40 iterations, never converges |
+| **this** | **3.0 iterations** | **2.5 iterations** |
+| ``16 \times`` this | 2.9 iterations, ``H_2`` error ``10\times`` worse | 2.0 iterations |
+
+Below the floor Newton reaches its limit in three iterations and then spins to the iteration
+cap making no progress, reporting non-convergence on a step it has in fact solved. Above it,
+Newton stops early and the conservation laws pay: at ``10^{-11}`` the drift in ``H_2`` is
+``170\times`` larger. Neither is a tolerable trade in a package whose subject is exact
+conservation, and the window between them is not wide — hence a formula rather than a
+constant.
+
+Pass `û₀` to [`Integrator`](@ref) so the amplitude is known; without it the factor is one,
+which is right for a field of order one and too tight for anything much larger.
+"""
+default_f_abstol(::Type{T}, ndofs::Integer, û₀ = nothing) where {T} =
+    4 * max(8, ndofs) * eps(T) *
+    (û₀ === nothing ? one(T) : max(one(T), convert(T, maximum(abs, û₀))))
+
+@doc raw"""
     Integrator(flow, method, Δt; kwargs...)
 
 A one-step integrator for `flow`, with its nonlinear solver built **once** and reused across
@@ -216,40 +247,46 @@ whole run time.
 # Keyword arguments
 
   - `refactorize = 5`: Newton iterations between Jacobian factorisations.
-  - `linesearch = Static(T)`: no line search, i.e. a full Newton step. This is what the
-    problem wants — the residual is a small perturbation of the identity at these step
-    sizes and Newton converges in two or three iterations from the previous state — and it
-    matters: SimpleSolvers' default `Backtracking` spends several extra residual
-    evaluations per iteration probing a step length that is always accepted at one. Pass
-    `Backtracking(Float64)` if a run is being pushed to a step size where it is needed.
+  - `linesearch = Static(T)`: no line search, i.e. a full Newton step, which is what the
+    problem wants at these step sizes and is measurably faster than the default
+    `Backtracking`.
+  - `fallback_linesearch = Backtracking(T)`: used to *redo* a step whose first attempt did
+    not converge. See [`_step!`](@ref).
   - `linear_solver_method = LapackLU()`: a LAPACK-backed factorisation. SimpleSolvers'
     own scalar `LU` accounted for 74 % of an implicit step at `N = 384`; see
     [`LapackLU`](@ref).
   - `f_abstol = 1e-13`, `max_iterations = 40`: passed through to the solver's options.
   - any other `SimpleSolvers.Options` keyword.
 """
-struct Integrator{T, FT <: HamiltonianFlow{T}, MT <: IntegratorMethod, ST, CT}
+struct Integrator{T, FT <: HamiltonianFlow{T}, MT <: IntegratorMethod, ST, CT, BT, BCT}
     flow::FT
     method::MT
     Δt::T
     solver::ST
     state::CT
+    # the same problem with a line search; a separate type parameter because the line
+    # search is part of the solver's type
+    fallback::BT
+    fallbackstate::BCT
     cache::Vector{Vector{T}}
     targets::Vector{T}          # level-set values held by a ProjectionMethod
 end
 
 function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
-                    refactorize::Integer = 5, f_abstol = 1e-13,
+                    refactorize::Integer = 5,
+                    û₀ = nothing,
+                    f_abstol = default_f_abstol(T, nbasis(f.space), û₀),
+                    min_iterations::Integer = 1,
                     max_iterations::Integer = 40, verbosity::Integer = 0,
-                    linesearch = Static(T), linear_solver_method = LapackLU(),
-                    kwargs...) where {T}
+                    linesearch = Static(T), fallback_linesearch = Backtracking(T),
+                    linear_solver_method = LapackLU(), kwargs...) where {T}
     N = nbasis(f.space)
     dt = convert(T, Δt)
     cache = [zeros(T, N) for _ in 1:6]
 
     if isexplicit(method)
-        return Integrator{T, typeof(f), typeof(method), Nothing, Nothing}(
-            f, method, dt, nothing, nothing, cache, T[])
+        return Integrator{T, typeof(f), typeof(method), Nothing, Nothing, Nothing, Nothing}(
+            f, method, dt, nothing, nothing, nothing, nothing, cache, T[])
     end
 
     # `params` carries the state at the beginning of the step; SimpleSolvers passes it
@@ -257,17 +294,23 @@ function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
     F!(y, x, params) = residual!(y, method, f, params.un, x, dt)
     J!(j, x, params) = residual_jacobian!(j, method, f, params.un, x, dt)
 
-    x0 = zeros(T, N)
-    y0 = zeros(T, N)
-    solver = NewtonSolver(x0, y0; F = F!, (DF!) = J!, refactorize = refactorize,
-                          linesearch = linesearch,
-                          linear_solver_method = linear_solver_method,
-                          f_abstol = f_abstol, max_iterations = max_iterations,
-                          verbosity = verbosity, kwargs...)
-    state = SolverState(solver)
+    newton(ls) = NewtonSolver(zeros(T, N), zeros(T, N);
+                              F = F!, (DF!) = J!, refactorize = refactorize,
+                              linesearch = ls,
+                              linear_solver_method = linear_solver_method,
+                              f_abstol = f_abstol,
+                              min_iterations = min_iterations,
+                              max_iterations = max_iterations,
+                              verbosity = verbosity, kwargs...)
 
-    Integrator{T, typeof(f), typeof(method), typeof(solver), typeof(state)}(
-        f, method, dt, solver, state, cache, T[])
+    solver   = newton(linesearch)
+    fallback = newton(fallback_linesearch)
+    state    = SolverState(solver)
+    fbstate  = SolverState(fallback)
+
+    Integrator{T, typeof(f), typeof(method), typeof(solver), typeof(state),
+               typeof(fallback), typeof(fbstate)}(
+        f, method, dt, solver, state, fallback, fbstate, cache, T[])
 end
 
 Base.eltype(::Integrator{T}) where {T} = T
@@ -420,13 +463,42 @@ function _step!(û, ::RungeKutta4, integ::Integrator)
     û .+= (Δt / 6) .* (k1 .+ 2 .* k2 .+ 2 .* k3 .+ k4)
 end
 
+@doc raw"""
+    _step!(û, method, integrator)
+
+One implicit step: a full Newton step first, and a line search only if that fails.
+
+The fast path is `SimpleSolvers.Static` — no line search — because at these
+step sizes the residual is a small perturbation of the identity and Newton converges in two
+or three iterations from the previous state, so a backtracking search spends several extra
+residual evaluations per iteration probing a step length that is accepted at one.
+
+It is not always enough. On the large-amplitude Miura initial condition, implicit midpoint on
+the second flow fails to reach the tolerance on about 1 % of its steps. Measured, those steps
+land on the same state to every digit that matters — a line search changes the final field by
+less than ``10^{-4}`` relative over four hundred steps — so the failures are consequence-free
+here. That is a statement about one problem, though, not a guarantee, and a run that silently
+accepts unconverged steps has no way to tell the two apart.
+
+So the step is *redone* from ``\hat{u}^n`` with `fallback_linesearch` when the first attempt
+does not converge, and only a failure of both is warned about. The cost is paid on the
+1 % of steps that need it rather than on all of them.
+"""
 function _step!(û, method::IntegratorMethod, integ::Integrator)
     un = integ.cache[1]
     un .= û
-    solve!(û, integ.solver, integ.state, (un = un,))
-    SimpleSolvers.isconverged(SimpleSolvers.status(integ.solver, integ.state)) || @warn(
-        "the nonlinear solver did not converge in this step; the step size may be too " *
-        "large for the stiffness of this discretisation")
+    params = (un = un,)
+
+    solve!(û, integ.solver, integ.state, params)
+    converged(s, st) = SimpleSolvers.isconverged(SimpleSolvers.status(s, st))
+    converged(integ.solver, integ.state) && return û
+
+    û .= un
+    solve!(û, integ.fallback, integ.fallbackstate, params)
+    converged(integ.fallback, integ.fallbackstate) || @warn(
+        "the nonlinear solver did not converge in this step, with or without a line " *
+        "search; the step size is probably too large for the stiffness of this " *
+        "discretisation", maxlog = 3)
     return û
 end
 
@@ -447,9 +519,7 @@ function _step!(û, method::ProjectionMethod, integ::Integrator)
     if isexplicit(method.base)
         _step!(û, method.base, integ)
     else
-        un = integ.cache[1]
-        un .= û
-        solve!(û, integ.solver, integ.state, (un = un,))
+        _step!(û, method.base, integ)
     end
 
     project_invariants!(û, s, method.invariants, integ.targets)

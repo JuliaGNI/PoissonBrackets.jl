@@ -46,7 +46,7 @@ module PoissonBrackets
     export IntegratorMethod, ExplicitEuler, RungeKutta4, ImplicitMidpoint,
            AverageVectorField, DiscreteGradient, Gonzalez, GonzalezMass,
            ProjectionMethod
-    export Integrator, integrate_step!, tangent_map
+    export Integrator, integrate_step!, tangent_map, default_f_abstol
 
     include("integrators.jl")
 

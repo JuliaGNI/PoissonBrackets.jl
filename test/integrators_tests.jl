@@ -150,6 +150,36 @@ using Test
         @test drift(ta, :H1) ≈ drift(tb, :H1) rtol = 1e-6
     end
 
+    @testset "$(rpad("an unconverged step is redone with a line search",76))" begin
+        # The fast path takes a full Newton step. Where that fails -- implicit midpoint on
+        # the second flow does, on about 1 % of the steps of the large-amplitude Miura
+        # initial condition -- the step is redone from uⁿ with a line search rather than
+        # accepted as it stands.
+        sm  = SplineSpace(64, 3; L = 2π)
+        sysm = KdVSystem(sm)
+        w0  = miura_map(sm, project(sm, miura_initial_v(2π)))
+
+        integ = Integrator(sysm.flow2, ImplicitMidpoint(), 1e-3)
+        @test integ.fallback !== integ.solver
+        @test integ.fallbackstate !== integ.state
+
+        # 400 steps run without a single warning reaching the user
+        w = copy(w0)
+        @test_nowarn for _ in 1:400
+            integrate_step!(w, integ)
+        end
+        @test all(isfinite, w)
+
+        # and the trajectory matches the one a line search would have produced throughout
+        back = Integrator(sysm.flow2, ImplicitMidpoint(), 1e-3;
+                          linesearch = SimpleSolvers.Backtracking(Float64))
+        wb = copy(w0)
+        for _ in 1:400
+            integrate_step!(wb, back)
+        end
+        @test maximum(abs, w .- wb) < 1e-8 * maximum(abs, wb)
+    end
+
     @testset "$(rpad("solver is built once and reused across steps",76))" begin
         integ = Integrator(sys.flow1, ImplicitMidpoint(), 1e-3)
         solver = integ.solver
