@@ -30,36 +30,38 @@ end
 _clamped(v) = max.(v, ERROR_FLOOR)
 
 function PoissonBrackets.energyplot(trajs, labels;
-                                    names = nothing,
+                                    name::Symbol = :H1,
                                     title = "",
-                                    size = (900, 380),
+                                    ylabel = nothing,
+                                    size = (620, 380),
                                     resolution = nothing)
     isempty(trajs) && throw(ArgumentError("no trajectories to plot"))
     length(trajs) == length(labels) || throw(DimensionMismatch(
         "got $(length(trajs)) trajectories but $(length(labels)) labels"))
 
-    keys_to_plot = names === nothing ? first(trajs).names : names
-    fig = Figure(size = resolution === nothing ? size : resolution)
+    # A reference value that vanishes -- the mass of the cosine initial condition is zero to
+    # round-off -- makes a relative error meaningless, so the whole panel switches to the
+    # absolute one rather than reporting a 100-fold "drift" of a conserved quantity.
+    refs = [abs(getproperty(t.reference, name)) for t in trajs]
+    relative = all(r -> r > sqrt(eps(Float64)), refs)
 
-    for (k, nm) in enumerate(keys_to_plot)
-        ax = Axis(fig[1, k];
-                  xlabel = "t",
-                  ylabel = k == 1 ? "relative error" : "",
-                  title = string(nm),
-                  yscale = log10)
-        for (traj, label) in zip(trajs, labels)
-            st = _series_style(label)
-            ref = abs(getproperty(traj.reference, nm))
-            d = deviation(traj, nm)
-            y = ref > sqrt(eps(eltype(d))) ? d ./ ref : d
-            lines!(ax, traj.t, _clamped(y);
-                   color = st.color, linestyle = st.linestyle, label = label)
-        end
+    fig = Figure(size = resolution === nothing ? size : resolution)
+    ax = Axis(fig[1, 1];
+              xlabel = "t",
+              ylabel = ylabel === nothing ?
+                       (relative ? "relative error" : "absolute error") : ylabel,
+              title = isempty(title) ? string(name) : "$(title):  $(name)",
+              yscale = log10)
+
+    for (traj, label) in zip(trajs, labels)
+        st = _series_style(label)
+        d = deviation(traj, name)
+        y = relative ? d ./ abs(getproperty(traj.reference, name)) : d
+        lines!(ax, traj.t, _clamped(y);
+               color = st.color, linestyle = st.linestyle, label = label)
     end
 
-    Legend(fig[2, 1:length(keys_to_plot)], first(fig.content);
-           orientation = :horizontal, nbanks = 2, framevisible = false)
-    isempty(title) || Label(fig[0, 1:length(keys_to_plot)], title; fontsize = 16)
+    Legend(fig[2, 1], ax; orientation = :horizontal, nbanks = 2, framevisible = false)
     fig
 end
 

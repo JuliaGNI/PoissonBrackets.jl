@@ -222,21 +222,30 @@ end
 
 
 @doc raw"""
-    energyplot(trajectories, labels; kwargs...)
-    stateplot(system, states, labels; kwargs...)
+    energyplot(trajectories, labels; name = :H1, kwargs...)
+    stateplot(system, states, labels; xleft = 0, kwargs...)
 
-Plot the relative error of the invariants against time, and the initial and final states.
+Plot the error of **one** invariant against time, and the initial and final states.
 
 Defined in a package extension: load `CairoMakie` to make them available.
 
 ```julia
 using PoissonBrackets, CairoMakie
-fig = energyplot(trajs, labels)
+fig = energyplot(trajs, labels; name = :H2)
 ```
+
+One invariant per figure, and one *family* of vector fields per figure. Putting several
+invariants side by side forces a shared axis on quantities whose errors sit orders of
+magnitude apart, and putting every run on one axis makes eight curves of four colours where
+the comparison that matters is within a family.
 
 The encoding is deliberate and worth keeping if these are adapted: **colour carries the
 integrator and line style carries the vector field**, so no series is identified by colour
 alone and the figure survives being printed in grey. The palette is Okabe-Ito.
+
+If the reference value of the invariant vanishes — the mass of the cosine initial condition
+does, to round-off — the panel reports the absolute error instead of the relative one, and
+says so on the axis.
 """
 function energyplot end
 

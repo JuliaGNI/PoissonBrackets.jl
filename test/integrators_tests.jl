@@ -128,6 +128,28 @@ using Test
         @test absolute_drift(t3, :C0) < 1e-12
     end
 
+    @testset "$(rpad("the LAPACK linear solver agrees with the SimpleSolvers one",76))" begin
+        # LapackLU replaces only the factorisation inside SimpleSolvers' Newton loop, so
+        # the two must produce the same step -- it is a performance substitution, not a
+        # different method.
+        import SimpleSolvers
+        for meth in (ImplicitMidpoint(), AverageVectorField(), Gonzalez())
+            a = copy(u0); b = copy(u0)
+            integrate_step!(a, Integrator(sys.flow1, meth, 1e-3;
+                                          linear_solver_method = LapackLU()))
+            integrate_step!(b, Integrator(sys.flow1, meth, 1e-3;
+                                          linear_solver_method = SimpleSolvers.LU()))
+            @test a ≈ b atol = 1e-11
+        end
+        # and over a run
+        ta = integrate(sys, Integrator(sys.flow1, ImplicitMidpoint(), 1e-3;
+                                       linear_solver_method = LapackLU()), u0, 100; stride = 10)
+        tb = integrate(sys, Integrator(sys.flow1, ImplicitMidpoint(), 1e-3;
+                                       linear_solver_method = SimpleSolvers.LU()), u0, 100; stride = 10)
+        @test ta.final ≈ tb.final atol = 1e-10
+        @test drift(ta, :H1) ≈ drift(tb, :H1) rtol = 1e-6
+    end
+
     @testset "$(rpad("solver is built once and reused across steps",76))" begin
         integ = Integrator(sys.flow1, ImplicitMidpoint(), 1e-3)
         solver = integ.solver

@@ -216,6 +216,15 @@ whole run time.
 # Keyword arguments
 
   - `refactorize = 5`: Newton iterations between Jacobian factorisations.
+  - `linesearch = Static(T)`: no line search, i.e. a full Newton step. This is what the
+    problem wants — the residual is a small perturbation of the identity at these step
+    sizes and Newton converges in two or three iterations from the previous state — and it
+    matters: SimpleSolvers' default `Backtracking` spends several extra residual
+    evaluations per iteration probing a step length that is always accepted at one. Pass
+    `Backtracking(Float64)` if a run is being pushed to a step size where it is needed.
+  - `linear_solver_method = LapackLU()`: a LAPACK-backed factorisation. SimpleSolvers'
+    own scalar `LU` accounted for 74 % of an implicit step at `N = 384`; see
+    [`LapackLU`](@ref).
   - `f_abstol = 1e-13`, `max_iterations = 40`: passed through to the solver's options.
   - any other `SimpleSolvers.Options` keyword.
 """
@@ -232,6 +241,7 @@ end
 function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
                     refactorize::Integer = 5, f_abstol = 1e-13,
                     max_iterations::Integer = 40, verbosity::Integer = 0,
+                    linesearch = Static(T), linear_solver_method = LapackLU(),
                     kwargs...) where {T}
     N = nbasis(f.space)
     dt = convert(T, Δt)
@@ -250,6 +260,8 @@ function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
     x0 = zeros(T, N)
     y0 = zeros(T, N)
     solver = NewtonSolver(x0, y0; F = F!, (DF!) = J!, refactorize = refactorize,
+                          linesearch = linesearch,
+                          linear_solver_method = linear_solver_method,
                           f_abstol = f_abstol, max_iterations = max_iterations,
                           verbosity = verbosity, kwargs...)
     state = SolverState(solver)

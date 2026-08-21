@@ -10,14 +10,17 @@ module PoissonBrackets
     # generic function per accessor
     import GeometricBase: integrate, value
     import SimpleSplines: basis, basis_integrals, basis_values, degree, domainlength,
-                          evaluate, l2_projection, mass_factorization, mass_matrix, nbasis,
+                          evaluate, l2_projection, mass_factorization, mass_matrix,
+                          mass_operator, mass_solve!, mixed_matrix, nbasis,
                           ncells, nodes, order, quadrature_nodes, quadrature_weights
 
     export DiscreteSpace, SplineSpace, LagrangeSpace
     export basis, nbasis, degree, order, nodes, ncells, domainlength,
-           mass_matrix, mass_factorization, basis_values, basis_integrals,
-           quadrature_nodes, quadrature_weights, project, evaluate,
-           derivative_matrix, stiffness_matrix, mixed_matrix, weighted_matrix
+           mass_matrix, mass_factorization, inverse_mass_matrix,
+           basis_values, basis_integrals,
+           quadrature_nodes, quadrature_weights, project, project!, evaluate,
+           derivative_matrix, stiffness_matrix, mixed_matrix, weighted_matrix,
+           mass_operator, mass_solve!
 
     include("spaces.jl")
 
@@ -35,6 +38,10 @@ module PoissonBrackets
     export HamiltonianFlow, vectorfield, vectorfield!, jacobian
 
     include("flows.jl")
+
+    export LapackLU
+
+    include("linearsolver.jl")
 
     export IntegratorMethod, ExplicitEuler, RungeKutta4, ImplicitMidpoint,
            AverageVectorField, DiscreteGradient, Gonzalez, GonzalezMass,

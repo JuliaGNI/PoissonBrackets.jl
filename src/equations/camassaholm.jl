@@ -37,10 +37,13 @@ struct HelmholtzMap{T}
 end
 
 function HelmholtzMap(s::DiscreteSpace{T}) where {T}
-    M = mass_matrix(s)
-    A = M .+ stiffness_matrix(s)
+    # Kept dense here. The Helmholtz solve appears inside the gradient AND the Hessian of
+    # both Camassa-Holm Hamiltonians, and the Hessian needs A⁻¹ against a MATRIX right-hand
+    # side, which a sparse Cholesky will not do.
+    M = Matrix(mass_matrix(s))
+    A = Matrix(M .+ stiffness_matrix(s))
     A = (A + A') / 2
-    HelmholtzMap{T}(A, cholesky(A), Matrix(M))
+    HelmholtzMap{T}(A, cholesky(A), M)
 end
 
 """

@@ -69,7 +69,26 @@ a reparametrisation of time.
 The mass comes free to *every* method, explicit Euler included, because its gradient spans
 the kernel of the first bracket. See [`MassCasimir`](@ref).
 
-## Plotting
+## Plotting and the experiments
 
-Load `CairoMakie` to get [`energyplot`](@ref) and [`stateplot`](@ref); see
-`scripts/kdv_energies.jl` for the full set of experiments.
+Load `CairoMakie` to get [`energyplot`](@ref) and [`stateplot`](@ref).
+
+`scripts/kdv.jl` runs the full set of experiments:
+
+```sh
+julia --project=scripts scripts/kdv.jl          # all six cases
+julia --project=scripts scripts/kdv.jl cos      # or just one
+```
+
+Per case it writes into `scripts/figures/`:
+
+| file | contents |
+|:--|:--|
+| `kdv-<case>-{H1,H2,C0}-flow1.pdf` | the four flow-1 runs |
+| `kdv-<case>-{H1,H2,C0}-other.pdf` | the two flow-2 runs, and the two Miura runs where the case has them |
+| `kdv-state-<case>.pdf` | initial and final states |
+| `<case>.md` | a table of the maximum error in each invariant, and what it says |
+
+One invariant per figure and one family of vector fields per figure: the three invariants'
+errors sit orders of magnitude apart, so a shared axis flattens them, and the comparison that
+matters is *within* a family rather than across.

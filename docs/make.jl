@@ -13,6 +13,13 @@ makedocs(;
     format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", "false") == "true",
         canonical = "https://JuliaGNI.github.io/PoissonBrackets.jl",
+        # set explicitly: without a configured remote, Documenter cannot read the branch
+        # from `git remote` and would default to "master"
+        edit_link = "main",
+        # the library page collects every docstring in the package and is legitimately
+        # large; the default warning threshold is aimed at pages that are large by accident
+        size_threshold_warn = 400 * 1024,
+        size_threshold = 800 * 1024,
         assets = String[],
     ),
     pages = [

@@ -208,7 +208,7 @@ struct ConstantBracket{T, MT <: AbstractMatrix{T}} <: DiscreteBracket{T}
 end
 
 function ConstantBracket(s::DiscreteSpace, K::AbstractMatrix)
-    Minv = inv(mass_matrix(s))
+    Minv = inverse_mass_matrix(s)
     ConstantBracket(Minv * _skew(K) * Minv)
 end
 
@@ -294,7 +294,7 @@ struct AffineBracket{T, ST <: DiscreteSpace{T}} <: DiscreteBracket{T}
         size(Ψ) == size(basis_values(s, 0)) || throw(DimensionMismatch(
             "the density table has size $(size(Ψ)) but the basis tabulation has " *
             "$(size(basis_values(s, 0)))"))
-        new{T, ST}(s, convert(T, scale), Matrix(Ψ), Matrix(_skew(K0)), inv(mass_matrix(s)))
+        new{T, ST}(s, convert(T, scale), Matrix(Ψ), Matrix(_skew(K0)), inverse_mass_matrix(s))
     end
 end
 
@@ -593,7 +593,7 @@ function poisson_derivative(b::MiuraBracket{T}, û::AbstractVector) where {T}
     N  = nbasis(s)
     w  = quadrature_weights(s)
     Φ0 = basis_values(s, 0)
-    Minv = inv(mass_matrix(s))
+    Minv = inverse_mass_matrix(s)
     Linv = inv(b.L)
 
     # the triple-product tensor T[l,k,m] = ∫ φ_l φ_k φ_m
@@ -654,7 +654,7 @@ Its transpose ``\mathbb{L}^T = (2\mathbb{B} - S)\mathbb{M}^{-1}`` discretises th
 number reflects this: around ``10^9`` there, below ``10^2`` away from it.
 """
 function miura_derivative(s::DiscreteSpace, v̂::AbstractVector)
-    Minv = inv(mass_matrix(s))
+    Minv = inverse_mass_matrix(s)
     Minv * (2 .* miura_moment_matrix(s, v̂) .+ derivative_matrix(s))
 end
 
@@ -702,7 +702,9 @@ true
 function hill_lambda0(s::DiscreteSpace, û::AbstractVector)
     K1 = stiffness_matrix(s)
     U  = weighted_matrix(s, field(s, û), 0, 0)
-    minimum(real.(eigvals(mass_matrix(s) \ (K1 .+ U))))
+    # densified on the way in: the assemblies are sparse, and a sparse Cholesky cannot
+    # solve against a sparse right-hand side. The eigenvalue problem is dense in any case.
+    minimum(real.(eigvals(mass_factorization(s) \ Matrix(K1 .+ U))))
 end
 
 @doc raw"""

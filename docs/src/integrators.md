@@ -48,11 +48,28 @@ exactly.
 
 [`Integrator`](@ref) builds one `SimpleSolvers.NewtonSolver` and reuses it across every
 step. Its `refactorize` option is the quasi-Newton scheme these problems want: the Jacobian
-is factorised once and reused for several iterations. An assembly costs ``O(N^2 Q)``, and at
-the resolutions and step counts used here it is the whole run time.
+is factorised once and reused for several iterations.
 
 The Jacobian supplied is analytic, including for the Gonzalez discrete gradient, whose
 rank-one correction is differentiated in closed form.
+
+Two departures from SimpleSolvers' defaults are worth knowing about, both measured rather
+than assumed:
+
+  - **No line search.** The residual is a small perturbation of the identity at these step
+    sizes and Newton converges in two or three iterations from the previous state, so the
+    default `Backtracking` spends several extra residual evaluations per iteration probing a
+    step length that is always accepted at one. The default here is `Static`. Pass
+    `linesearch = Backtracking(Float64)` if a run is pushed to a step size that needs it.
+  - **[`LapackLU`](@ref) for the factorisation.** SimpleSolvers ships a hand-written scalar
+    LU, which is the right default for the small dense systems it is usually pointed at. At
+    ``N = 384`` it accounted for **74 % of the cost of an implicit step** — about 17 ms
+    against LAPACK's 0.6 ms. [`LapackLU`](@ref) keeps the whole SimpleSolvers nonlinear
+    driver and replaces only the factorisation; the test suite checks that the two produce
+    the same step.
+
+Together with the assembly changes of the [Discretisation](@ref) page this took an implicit
+step at ``N = 384`` from 45 ms to 4.2 ms.
 
 ## Diagnostics
 

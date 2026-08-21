@@ -57,7 +57,7 @@ there is one further kernel vector — the sawtooth mode ``(-1)^i`` — and henc
 discrete Casimir with no continuum counterpart. Choose ``N = p \, n_e`` odd.
 """
 function burgers_bracket(s::DiscreteSpace)
-    Minv = inv(mass_matrix(s))
+    Minv = inverse_mass_matrix(s)
     S = derivative_matrix(s)
     K = Minv * (S - S') * Minv
     GaugedBracket(K, sqrt, u -> 1 / (2 * sqrt(u)))

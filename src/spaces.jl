@@ -8,10 +8,10 @@ with the quadrature its assemblies are carried out with.
 The whole package is written against one small interface, which every concrete space
 answers:
 
-  - [`nbasis`](@ref) — the number of degrees of freedom ``N``;
-  - [`quadrature_nodes`](@ref), [`quadrature_weights`](@ref) — the global rule, `x` and `w`;
-  - [`basis_values`](@ref)`(space, d)` — the table ``\Phi_d[i,r] = D^d \phi_i (x_r)``;
-  - [`mass_matrix`](@ref) and its factorization.
+  - `nbasis` — the number of degrees of freedom ``N``;
+  - `quadrature_nodes`, `quadrature_weights` — the global rule, `x` and `w`;
+  - `basis_values``(space, d)` — the table ``\Phi_d[i,r] = D^d \phi_i (x_r)``;
+  - `mass_matrix` and its factorization.
 
 Everything else — the discrete brackets, the Hamiltonians, their gradients and Hessians — is
 a weighted contraction of those tables and is therefore written once, generically. A matrix
@@ -37,6 +37,18 @@ abstract type DiscreteSpace{T} end
 Base.eltype(::DiscreteSpace{T}) where {T} = T
 Base.length(s::DiscreteSpace) = nbasis(s)
 
+@doc raw"""
+    inverse_mass_matrix(space)
+
+The inverse mass matrix ``\mathbb{M}^{-1}``, formed once when the space is built.
+
+Every discrete bracket here is a weak-form operator sandwiched between two of these, so it
+appears in every assembly and in every Jacobian. Forming it on each call — even as one
+``O(N^3)`` inversion — is a measurable fraction of a run at the step counts these
+discretisations reach.
+"""
+function inverse_mass_matrix end
+
 """
     mixed_matrix(space, a, b)
 
@@ -49,7 +61,7 @@ mixed_matrix(s::DiscreteSpace, a::Integer, b::Integer) =
     weighted_matrix(space, f, a, b)
 
 The matrix ``\\int_\\Omega f(x) \\, D^a \\phi_k \\, D^b \\phi_l \\, dx``, with `f` either a
-function of the coordinate or a vector already sampled at [`quadrature_nodes`](@ref).
+function of the coordinate or a vector already sampled at `quadrature_nodes`.
 """
 weighted_matrix(s::DiscreteSpace, f, a::Integer, b::Integer) =
     weighted_matrix(s, f.(quadrature_nodes(s)), a, b)
@@ -96,12 +108,23 @@ field(s::DiscreteSpace, û::AbstractVector, d::Integer = 0) = basis_values(s, d)
     project(space, f)
 
 The coefficients of the ``L^2`` projection of `f` onto the space, with `f` a function or a
-vector of values at [`quadrature_nodes`](@ref).
+vector of values at `quadrature_nodes`.
 """
 project(s::DiscreteSpace, f) = project(s, f.(quadrature_nodes(s)))
 
 project(s::DiscreteSpace, f::AbstractVector) =
     mass_factorization(s) \ (basis_values(s, 0) * (quadrature_weights(s) .* f))
+
+"""
+    project!(û, space, f)
+
+In-place [`project`](@ref). On a uniform mesh the solve goes through the planned transforms
+of `CirculantMass` and allocates nothing beyond the right-hand side.
+"""
+function project!(û::AbstractVector, s::DiscreteSpace, f::AbstractVector)
+    û .= basis_values(s, 0) * (quadrature_weights(s) .* f)
+    mass_solve!(û, mass_factorization(s), û)
+end
 
 
 ## Spline space
@@ -131,10 +154,15 @@ checked rather than assumed.
 """
 struct SplineSpace{T, QT <: SplineQuadrature{T}} <: DiscreteSpace{T}
     quadrature::QT
+    Minv::Matrix{T}
 
     # an inner constructor, so that the one-argument outer form below is not also generated
     # by default and then overwritten
-    SplineSpace(q::QT) where {T, QT <: SplineQuadrature{T}} = new{T, QT}(q)
+    # The dense inverse is built by solving against the identity rather than by inverting
+    # the assembled matrix: the mass matrix is sparse now, and on a uniform mesh each of
+    # those N solves goes through the planned transforms of `CirculantMass`.
+    SplineSpace(q::QT) where {T, QT <: SplineQuadrature{T}} =
+        new{T, QT}(q, mass_operator(q) \ Matrix{T}(I, nbasis(q), nbasis(q)))
 end
 
 SplineSpace(mesh::Mesh, p::Integer; kwargs...) =
@@ -155,7 +183,13 @@ quadrature_nodes(s::SplineSpace) = quadrature_nodes(s.quadrature)
 quadrature_weights(s::SplineSpace) = quadrature_weights(s.quadrature)
 basis_values(s::SplineSpace, d::Integer = 0) = basis_values(s.quadrature, d)
 mass_matrix(s::SplineSpace) = mass_matrix(s.quadrature)
+
+# Delegated rather than recomputed from `basis_values`: the quadrature memoises these, and
+# the stiffness matrix in particular would otherwise be reassembled on every Newton
+# iteration of every step, which at N = 384 is the single largest cost in a run.
+mixed_matrix(s::SplineSpace, a::Integer, b::Integer) = mixed_matrix(s.quadrature, a, b)
 mass_factorization(s::SplineSpace) = mass_factorization(s.quadrature)
+inverse_mass_matrix(s::SplineSpace) = s.Minv
 
 """
     evaluate(space, û, x, d = 0)
@@ -219,6 +253,7 @@ struct LagrangeSpace{T} <: DiscreteSpace{T}
     Φ::Vector{Matrix{T}}        # Φ[d+1][i,r]
     M::Matrix{T}
     Mfact::Cholesky{T, Matrix{T}}
+    Minv::Matrix{T}
 
     function LagrangeSpace{T}(p::Integer, ne::Integer; L = 2π, nq::Integer = 2p + 4) where {T}
         p ≥ 1 || throw(ArgumentError(
@@ -273,7 +308,7 @@ struct LagrangeSpace{T} <: DiscreteSpace{T}
             "the mass matrix assembled with nq = $(nq) points per element is not positive " *
             "definite for degree-$(p) elements; raise nq"))
 
-        new{T}(Int(p), Int(ne), Lx, Int(nq), x, xq, w, Φ, M, F)
+        new{T}(Int(p), Int(ne), Lx, Int(nq), x, xq, w, Φ, M, F, inv(M))
     end
 end
 
@@ -290,6 +325,7 @@ quadrature_nodes(s::LagrangeSpace) = s.xq
 quadrature_weights(s::LagrangeSpace) = s.w
 mass_matrix(s::LagrangeSpace) = s.M
 mass_factorization(s::LagrangeSpace) = s.Mfact
+inverse_mass_matrix(s::LagrangeSpace) = s.Minv
 
 function basis_values(s::LagrangeSpace, d::Integer = 0)
     0 ≤ d ≤ 1 || throw(ArgumentError(

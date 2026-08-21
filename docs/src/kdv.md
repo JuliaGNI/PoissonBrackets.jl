@@ -107,10 +107,10 @@ is the discrete form of the classical one: a preimage exists exactly when the Hi
 there are two, the two Floquet solutions, with opposite ``\int_\Omega v``.
 
 ```@example kdv
-s = SplineSpace(20, 3)
-u(c) = project(s, x -> c + sin(x) + 0.4cos(2x))
-[(c, round(hill_lambda0(s, u(c)); digits = 6), miura_invert(s, u(c)) !== nothing)
- for c in (0.45, 0.47, 0.48, 0.6)]
+shill = SplineSpace(20, 3)
+uhill(c) = project(shill, x -> c + sin(x) + 0.4cos(2x))
+[(c, round(hill_lambda0(shill, uhill(c)); digits = 6),
+  miura_invert(shill, uhill(c)) !== nothing) for c in (0.45, 0.47, 0.48, 0.6)]
 ```
 
 The consequence is concrete: ``u_0 = \cos x`` has zero mass and the solitons of this sign
@@ -164,8 +164,8 @@ dg  = integrate(sys, Integrator(sys.flow, Gonzalez(), 1.6e-3), v₀, 125; stride
 | [`miura_initial_v`](@ref) | ``v_0 = 1 + \sin x``, posed in ``v`` | ``[0, 2\pi)`` | 64 | 100 | ``10^{-3}`` |
 
 ```@example kdv
-u = soliton(1.0, 10.0, 40.0)
-u(10.0), -2 * 1.0^2          # a depression of depth 2κ²
+usol = soliton(1.0, 10.0, 40.0)
+usol(10.0), -2 * 1.0^2          # a depression of depth 2κ²
 ```
 
 The two multi-soliton benchmarks come from Shi, Fu and Liu, *Appl. Math. Comput.* **508**
@@ -182,8 +182,14 @@ same speeds. Their momentum and energy are ``36 H_{2,d}`` and ``36 H_{1,d}``, th
 Run them all with
 
 ```sh
-julia --project=scripts scripts/kdv_energies.jl
+julia --project=scripts scripts/kdv.jl
 ```
+
+which writes six energy figures, a state figure and a markdown summary per case into
+`scripts/figures/`. The summary tabulates the maximum error in each invariant over the run,
+together with the *growth* of the error envelope — the ratio of its size over the last tenth
+of the run to the first — which is what separates a bounded oscillation from a secular drift
+and which no single end-of-run number can show.
 
 ## Reference
 

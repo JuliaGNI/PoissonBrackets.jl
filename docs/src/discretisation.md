@@ -19,8 +19,11 @@ suffices.
 transformation ``\bar{u} = 2\sqrt{u}`` is applied coefficient by coefficient, which is only
 justified when the coefficients are values at points.
 
-Both answer the same small interface — [`basis_values`](@ref), [`quadrature_weights`](@ref),
-[`mass_matrix`](@ref) — so every assembly downstream is written once.
+Both answer the same small interface — `basis_values`, `quadrature_weights`,
+`mass_matrix` — so every assembly downstream is written once. Those accessors are generics of
+[SimpleSplines](https://github.com/JuliaDEC/SimpleSplines.jl), extended here rather than
+redefined, so that the packages of the ecosystem share one function per accessor; their
+reference documentation lives in that package.
 
 ## Assembly
 
@@ -31,8 +34,33 @@ Every matrix here is a weighted contraction of tabulated basis derivatives:
   = \Phi_a \, \mathrm{diag}(f \odot w) \, \Phi_b^T .
 ```
 
-That is [`weighted_matrix`](@ref); [`mass_matrix`](@ref), [`stiffness_matrix`](@ref) and
+That is [`weighted_matrix`](@ref); `mass_matrix`, [`stiffness_matrix`](@ref) and
 [`derivative_matrix`](@ref) are the constant-coefficient cases.
+
+## What the assemblies cost
+
+Two structural facts do the work here, and both were arrived at by measuring rather than by
+assumption — the first attempt at optimising this targeted the mass solve, which turned out
+to be 0.1 % of a run.
+
+**The basis tabulation is sparse.** ``\Phi`` is `N` by `n·nq`, but a basis function is
+supported on `p+1` cells, so only `(p+1)·nq` entries per row are structurally nonzero.
+Storing it densely makes every contraction ``\Phi \, \mathrm{diag}(fw) \, \Phi^T``
+cost ``O(N^2 n n_q)`` where it should cost ``O(N p^2 n_q)``. At ``N = 384`` that alone was
+the difference between 6.0 ms and 0.4 ms for one Hessian.
+
+**The constant assemblies are memoised.** The mass, stiffness and derivative matrices and
+``\int \phi_k' \phi_l''`` do not depend on the field, but the Hessian of ``H_1`` is
+``\mathbb{K}^1 + 6\int \phi_i \phi_j u_h`` and was reassembling the stiffness matrix on
+every Newton iteration of every step.
+
+**The mass matrix is circulant on a uniform mesh** — the basis functions are then translates
+of one cardinal spline — so it is diagonalised by the discrete Fourier transform and a solve
+is two planned transforms and a pointwise division. On a graded or random mesh it is banded
+modulo ``N`` but *not* circulant, and a sparse Cholesky is what is left. SimpleSplines
+chooses between the two by mesh type; see its `MassOperator`. This is the right
+representation of the operator, but it is worth being clear that it is not where the time
+goes: at ``N = 384`` a mass solve is 0.001 ms against a 4.2 ms implicit step.
 
 ## Brackets
 
