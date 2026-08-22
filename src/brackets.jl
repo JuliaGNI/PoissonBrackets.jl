@@ -97,22 +97,36 @@ actually formed is neither.
 
 Returns `(residual, scale)` when `normalised = false`, so that both can be inspected.
 """
-function jacobi_residual(b::DiscreteBracket, û::AbstractVector; normalised::Bool = true)
-    P  = poisson_matrix(b, û)
-    dP = poisson_derivative(b, û)
-    N  = size(P, 1)
+jacobi_residual(b::DiscreteBracket, û::AbstractVector; normalised::Bool = true) =
+    jacobi_residual(poisson_matrix(b, û), poisson_derivative(b, û); normalised)
+
+@doc raw"""
+    jacobi_residual(P, dP; normalised = true)
+
+The same quantity for a structure matrix and its derivative tensor `dP[l,i,j]`
+``= \partial \mathbb{P}_{ij} / \partial \hat{u}_l`` given directly, without a
+[`DiscreteBracket`](@ref) to carry them.
+
+This is the entry point the structural scripts use, where the bracket is a Lie-Poisson
+tensor built from structure constants rather than from a discretisation. It is generic in
+the element type, so `Rational{BigInt}` gives an exactly zero residual where one is claimed
+rather than a small floating-point number that has to be argued about.
+"""
+function jacobi_residual(P::AbstractMatrix, dP::AbstractArray{S,3}; normalised::Bool = true) where {S}
+    N = size(P, 1)
+    T = promote_type(eltype(P), S)
 
     # A[i,j,k] = Σ_l P[i,l] ∂_l P[j,k]; the Jacobiator is the cyclic sum of A over (i,j,k)
-    A = zeros(eltype(P), N, N, N)
+    A = zeros(T, N, N, N)
     @inbounds for k in 1:N, j in 1:N, i in 1:N
-        s = zero(eltype(P))
+        s = zero(T)
         for l in 1:N
             s += P[i, l] * dP[l, j, k]
         end
         A[i, j, k] = s
     end
 
-    res = zero(eltype(P))
+    res = zero(real(T))
     @inbounds for k in 1:N, j in 1:N, i in 1:N
         res = max(res, abs(A[i, j, k] + A[j, k, i] + A[k, i, j]))
     end
@@ -142,11 +156,20 @@ this condition.
 
 # Choosing a control
 
-Do **not** validate a routine like this against ``\mathfrak{so}(3)``. Every
-three-dimensional antisymmetric bracket satisfies the Jacobi identity identically, so
-``\mathfrak{so}(3)`` passes even after a generator has been rescaled off the algebra. Use
-``\mathfrak{se}(3)`` as the positive control, and a random antisymmetric `c` in dimension
-five as the negative one.
+Do **not** validate a routine like this against ``\mathfrak{so}(3)``. It lies inside the
+six-parameter family ``c_{ij}^k = \epsilon_{ijl} n^{lk}`` with ``n`` symmetric — Bianchi
+class A — *every* member of which satisfies the Jacobi identity, and the perturbations one
+naturally reaches for stay inside it: rescaling a generator, or rescaling a single structure
+constant, both leave ``n`` symmetric and diagonal. So ``\mathfrak{so}(3)`` keeps passing
+after it has apparently been broken, and passing tells you nothing.
+
+It is *not* the case that antisymmetry alone forces Jacobi in three dimensions — a general
+antisymmetric `c` has nine parameters against this family's six, and random ones fail
+comfortably. The degeneracy is specific to the family, not to the dimension. (The Python
+prototypes state the broader claim; it is an erratum, recorded in `docs/src/verification.md`.)
+
+Use ``\mathfrak{se}(3)`` as the positive control, and a random antisymmetric `c` in
+dimension five as the negative one.
 """
 function structure_constant_residual(C::AbstractArray{T,3}; normalised::Bool = true) where {T}
     N = size(C, 1)
@@ -160,7 +183,7 @@ function structure_constant_residual(C::AbstractArray{T,3}; normalised::Bool = t
         A[n, i, j, k] = s
     end
 
-    res = zero(T)
+    res = zero(real(T))
     @inbounds for k in 1:N, j in 1:N, i in 1:N, n in 1:N
         res = max(res, abs(A[n, i, j, k] + A[n, j, k, i] + A[n, k, i, j]))
     end

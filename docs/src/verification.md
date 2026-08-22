@@ -11,10 +11,16 @@ checked against.
 
 ## Method
 
-  - Python: `./run_all.sh` in both `Scripts/` directories (nine verification scripts for KdV,
-    ten for Lie-Poisson; each exits nonzero on a failed check), plus
-    `plot_kdv_energies.py cos soliton1` for the drift tables, which exist only on stdout.
-  - Julia: the test suite, then `julia --project=scripts scripts/kdv.jl cos soliton1`.
+  - Julia: `julia --project=. -e 'using Pkg; Pkg.test()'`, then
+    `julia --project=scripts scripts/run_all.jl`, which runs all seventeen verification
+    scripts and exits nonzero if any check fails. `search_dirac_variants.jl` is exploratory
+    and slow, and is excluded from that driver as it was from `run_all.sh`; run it by hand.
+  - Figures: `julia --project=scripts scripts/kdv.jl` and `scripts/kdv_bea_sweep.jl`, both of
+    which take `--outdir=PATH`.
+  - Python, *while it existed*: `./run_all.sh` in both `Scripts/` directories, plus
+    `plot_kdv_energies.py` for the drift tables, which existed only on stdout. Those scripts
+    have since been converted and retired; the agreement established before they were removed
+    is recorded below.
   - Both manuscripts recompile with XeTeX — not pdfTeX or LuaTeX; `fontspec` rules out the
     first and a `\boundary` clash with a LuaTeX primitive in `definitions_math.tex` the
     second.
@@ -88,6 +94,10 @@ drifting silently away from the manuscript.
     0.0625 instead of 0.065 and hid the point the benchmark makes, which is that a wide,
     small-amplitude field costs an explicit method no step-count penalty at all.
   - **Window rounding.** `NT ÷ NOUT` against the Python's `round(NT / NOUT)`.
+  - **`casimir_gradient` was exported and never defined.** It appeared in the export list of
+    `src/PoissonBrackets.jl` with no method anywhere in `src/`, which under
+    `checkdocs = :exports` is a latent documentation failure as well as a dangling name. The
+    export is removed; nothing referenced it.
 
 ## Errata found in the Python
 
@@ -107,6 +117,147 @@ drifting silently away from the manuscript.
     displayed ``\mathbb{K}/4``. Both are now the manuscript's ``\bar{u} = \sqrt{u}``.
   - A stale comment in `kdvsim.py` put the explicit cosine run at "two million steps"; it is
     766781.
+
+## The Python prototypes, converted and retired
+
+All eighteen Python scripts were converted to Julia and each was run against its original
+before the Python was removed. The harness `scripts/check.jl` reproduces `common.py`'s output
+format byte for byte — the same two leading spaces, the same three before the detail, the same
+`summary` wording and exit codes — so the comparison was a plain `diff` rather than a reading
+of two tables side by side.
+
+Two standards of agreement apply, and which one is available depends on the script:
+
+  - **Deterministic sections** — fixed initial data, fixed meshes, symbolic computation —
+    were compared digit for digit.
+  - **Random-probe sections** cannot be: Julia's random stream is not Python's, and no attempt
+    was made to make it so. There the verdicts and the orders of magnitude were compared, and
+    wherever the Python used a random probe merely as a witness the Julia prefers the
+    deterministic algebras it already provides — ``\mathfrak{se}(3)``, ``\mathfrak{so}(N)`` —
+    which *do* agree exactly.
+
+| script | agreement |
+|:--|:--|
+| `verify_kdv_continuous` | identical but for `**` vs `^` in two printed expressions |
+| `verify_kdv_discrete` | 46 PASS / 0 FAIL both; support widths, seam jumps and the order-6 contracted Jacobiator identical |
+| `verify_kdv_semidiscrete` | 240 PASS / 0 FAIL both; convergence tables to 3–4 s.f.; the ``n_q`` sweep reproduces exactly, with ``\lvert K_2 + K_2^\top\rvert`` identically zero |
+| `verify_kdv_timedisc` | 73 PASS / 0 FAIL both; the Ge-Marsden table to 3 s.f. on every deterministic row |
+| `verify_kdv_jacobi_family` | all verdicts identical; the flat ``0.4212`` / ``0.4665`` table exact. See the residual-convention erratum below |
+| `verify_kdv_aliasing` | identical but for `**` vs `^`, numpy's `np.float64()` repr, and round-off |
+| `verify_kdv_miura` | 72 PASS / 0 FAIL both; ``\operatorname{cond}(DM)``, the Hill eigenvalue ``-0.3287`` and the whole drift table match |
+| `verify_kdv_nambu` | 48 PASS / 0 FAIL both; **byte-identical** on every deterministic detail, including both symbolic no-go systems (127 and 268 equations, 0 solutions) |
+| `verify_kdv_bea` | 64 PASS / 0 FAIL both; the order test (3.00, 4.99) and the dispersion table identical, exponents 6.07 / 8.11 / 10.22 against ``2p+2`` |
+| `verify_burgers_jacobi_family` | labels and verdicts identical |
+| `verify_burgers_leibniz` | identical but for `**` vs `^` |
+| `verify_burgers_entropy_casimir` | identical but for `**` vs `^` |
+| `verify_burgers_discretisation` | **every deterministic digit identical** — error tables, all convergence rates, energy rates |
+| `verify_liepoisson_structure_constants` | the headline flat ``\approx 0.73`` / ``0.71`` violation identical at every refinement |
+| `verify_liepoisson_4bracket` | all verdicts and all zero/nonzero patterns identical |
+| `verify_gardner_4bracket` | identical but for `True`/`False` capitalisation; every rank matches |
+| `verify_dirac_reduction` | 110 PASS / 0 FAIL both; every structural column identical. See the fixed-point cross-check below |
+| `search_dirac_variants` | 15 PASS / 0 FAIL both; B1a, B1b and B3 byte-identical (**46 candidates / 12 hits** at K=1, **834 / 0** at K=2) |
+
+### The Dirac machinery, cross-checked at a fixed point
+
+`verify_dirac_reduction`'s numbers ride on a random surface point, so a diff of it only
+establishes matching verdicts. Agreement was therefore established a second way: at a **fixed
+rational point with no RNG on either side**, comparing `src/dirac.jl` and `src/hierarchical.jl`
+directly against `diractools.py` and `femtools.py`. Every value matched digit for digit —
+the reduced Jacobiator ``16134943910670/117497863``, ``\det C = 10490880625/50176``,
+``\text{structure-constant residual} = 10368/49``, and the broken-hierarchical mass entry
+``M_{11} = 4/15``. That last one pins the exact shifted-Legendre and Lagrange assembly against
+the SymPy version it replaces. It is now a regression test in `test/dirac_tests.jl`.
+
+## Further errata found in the Python
+
+  - **``\mathfrak{so}(3)``'s degeneracy was attributed to the wrong cause.**
+    `verify_kdv_jacobi_family.py` and `common.py` both assert that *every* three-dimensional
+    antisymmetric bracket satisfies the Jacobi identity identically. It does not: 200 of 200
+    random antisymmetric ``c`` in dimension three fail the structure-constant residual.
+
+    The real reason ``\mathfrak{so}(3)`` is a useless positive control is narrower and more
+    interesting. It lies in the six-parameter family ``c_{ij}^k = \epsilon_{ijl} n^{lk}`` with
+    ``n`` **symmetric** — Bianchi class A — every member of which satisfies Jacobi, and the
+    perturbations one reaches for stay inside it: rescaling a generator, or rescaling a single
+    structure constant, both keep ``n`` symmetric and diagonal. So it goes on passing after it
+    looks broken. Drop the symmetry of ``n`` and 200 of 200 fail.
+
+    The conclusion the Python drew is right; the stated reason is not. Corrected in the
+    docstrings of `so3` and `structure_constant_residual`, and pinned by `test/algebras_tests.jl`.
+  - **`common.py`'s two structure-constant residuals are not the same function.** The exact
+    `structure_constant_residual` and `structure_constant_residual_float` agree precisely when
+    ``C`` is antisymmetric in ``(i,j)``; off that locus one is the other evaluated at ``C``
+    transposed. `verify_kdv_jacobi_family.py`'s ``\beta/\alpha`` scan leaves that locus
+    deliberately, so its off-axis numbers are this package's mirrored about ``\beta/\alpha =
+    1/2``, because ``C(1,t)^\top = -C(1,1-t)`` in that family.
+
+    Nothing turns on it: only ``\alpha = 2\beta`` gives an antisymmetric ``C``, so only there
+    is the tensor a candidate set of structure constants at all, and there both conventions
+    give ``0.4212``, with the family minimum ``0.4184`` either way. The package keeps the exact
+    convention, which every Lie-Poisson script uses and which is verified against
+    ``\mathfrak{se}(3)`` and ``\mathfrak{so}(N)``.
+  - **A threshold on a round-off-limited quantity.** `verify_kdv_timedisc.py` checks that the
+    Gonzalez correction vanishes for a quadratic Hamiltonian by testing the bare
+    ``\big((H(y)-H(x)) - g(\bar{x})\cdot\Delta x\big) / \lvert\Delta x\rvert^2`` against
+    ``10^{-14}``. The numerator is exactly zero in exact arithmetic, so that quantity is
+    round-off *divided by* ``\lvert\Delta x\rvert^2`` — its size depends on how large a step
+    happens to be drawn, and it varies by an order of magnitude across seeds. The Python reports
+    exactly `0.0`, which it is not entitled to. This package measures the rank-one term
+    ``\text{corr} \cdot \Delta x`` **relative to the gradient it corrects**, which sits at
+    ``10^{-15}`` across seeds, and averages over five draws.
+  - **A no-op line.** `verify_dirac_reduction.py:147` computes `ok = all(... or True ...)`,
+    which is unconditionally `True`, and is immediately overwritten by the next line. Only the
+    second line was ever meaningful; the Julia keeps only that.
+  - **A missing suffix.** `verify_kdv_bea.py` ends with `summary("verify_kdv_bea")` where every
+    other script passes its own filename.
+
+## What the port improved
+
+  - **`femtools.py` needed SymPy only for exact integrals of shifted Legendre products.** Those
+    polynomials have *integer* coefficients and ``\int_0^1 \xi^n = 1/(n+1)``, so the whole
+    assembly is rational arithmetic on coefficient vectors. `src/hierarchical.jl` does it over
+    ``\mathbb{Q}`` with no CAS, which is what keeps a symbolic dependency out of this package
+    altogether. The Python also routed its Lagrange shape functions through `float64` and
+    `limit_denominator`; the Julia is exact end to end, and `M_{11} = 4/15` above shows the two
+    agree anyway.
+  - **The exact and floating-point twins collapsed.** `verify_dirac_reduction.py` carried a
+    second copy of the Dirac machinery in numpy, and `femtools.py` a second copy of the
+    hierarchical assembly with an SVD for the ``V_2`` complement. Both are one generic
+    implementation here, parametric in the element type. After `galerkin_c` was rewritten from
+    a direct ``O(n^5)`` sum to two staged contractions, the largest size the refinement study
+    needs assembles **exactly** in 1.7 s, so the floating-point path is not needed at all.
+  - **`sine_algebra` returned a dense ``d^3`` tensor holding only ``d^2`` nonzeros.** At
+    ``N = 41`` that is 75 GB. `sine_coefficient(N, m, n)` gives the single nonzero coefficient
+    directly. Doing so also exposed that the ``N^{-2}`` law is asymptotic in
+    ``N \gg 2\pi(m \times n)``: at ``N = 11`` the observed order is 0.8, at ``N = 161`` it is
+    1.98.
+  - **One `KdVSys`, where the Python had three.** `kdvsim.Sys`, `verify_kdv_timedisc.Sys` and
+    `verify_kdv_miura.Chart` were near-identical copies whose drift under the sign-convention
+    change is recorded below. `scripts/kdvtools.jl` holds one.
+
+## Julia-specific traps met on the way
+
+Recorded because each produced a wrong answer or a failure to load, and the first is the only
+one that did **not** announce itself:
+
+  - `LinearAlgebra.dot(a, b)` conjugates its **first** argument, so numpy's `v.conj() @ (A @ v)`
+    is `dot(v, A, v)` — the three-argument form, which also avoids materialising `A*v`. Writing
+    `dot(conj(v), A*v)` conjugates twice and silently returns a plausible real number: it gave
+    dispersion errors of `1.5e+02` where the correct form gives `1.8e-10`, and turned the
+    ``2p+2`` exponents into ``-2``.
+  - Broadcast orientation. ``\Phi`` is ``(n_b \times n_q)`` and the weights are ``(n_q,)``, so
+    numpy's `W * P[d]`, which scales the *quadrature* axis, is `Φ .* transpose(W)`. This bit
+    three times, always as a loud `DimensionMismatch` — but it would be silent if
+    ``n_b = n_q``.
+  - `let a, b = f()` does not destructure: it declares `a` uninitialised and binds the whole
+    tuple to `b`. Write `let (a, b) = f()`.
+  - Name collisions, all of which forced a rename in `scripts/`: `fld` with `Base.fld`, `Sys`
+    with `Base.Sys`, `integrate` with the re-exported `GeometricBase.integrate`, and
+    `drift`/`growth` with this package's own.
+  - SymPy through `SymPyPythonCall`: `symbols("g[k,l]")` splits on the comma and returns a
+    *tuple* (use `sympy.Symbol`); `Sym(name)` takes no assumptions (use
+    `symbols(name, positive = true)`); and a `Vector` of `Eq` objects passed to `solve` trips a
+    Matrix deprecation, so pass bare expressions, which sympy reads as ``= 0``.
 
 ## The sign convention was flipped, and both sides agree afterwards
 

@@ -33,3 +33,6 @@ docs/site/
 # environment.
 Manifest.toml
 figures/
+
+# Python environment provisioned by CondaPkg for the symbolic verification scripts
+.CondaPkg/

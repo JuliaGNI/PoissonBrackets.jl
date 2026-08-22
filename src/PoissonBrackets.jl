@@ -3,6 +3,7 @@ module PoissonBrackets
     using CompactBasisFunctions
     using LinearAlgebra
     using QuadratureRules
+    using Random
     using SimpleSolvers
     using SimpleSplines
     using SparseArrays
@@ -27,15 +28,37 @@ module PoissonBrackets
            basis_values, basis_integrals,
            quadrature_nodes, quadrature_weights, project, project!, evaluate,
            derivative_matrix, stiffness_matrix, mixed_matrix, weighted_matrix,
-           mass_operator, mass_solve!
+           mass_operator, mass_solve!, nodal_derivative_matrix
 
     include("spaces.jl")
 
+    export rref, exact_rank, kernel
+
+    include("exact.jl")
+
     export DiscreteBracket, ConstantBracket, AffineBracket, GaugedBracket, MiuraBracket
     export poisson_matrix, poisson_apply, poisson_tensor, isantisymmetric,
-           jacobi_residual, structure_constant_residual, casimir_gradient
+           jacobi_residual, structure_constant_residual
 
     include("brackets.jl")
+
+    export lie_poisson_matrix, lie_poisson_derivative,
+           so3, se3, so_n, random_antisymmetric_c, sine_algebra, sine_coefficient,
+           witt_truncation, poly_truncation, torus_truncation, graded_witt,
+           closes_on, leak, galerkin_c
+
+    include("algebras.jl")
+
+    export dirac_blocks, schur_complement, dirac_tensor, dirac_R, dirac_projector,
+           dschur, reduced_bracket, jacobiator, project_jacobiator,
+           restrict_c, is_antisymmetric_c, is_ideal, maximal_second_class
+
+    include("dirac.jl")
+
+    export shifted_legendre, lagrange_coefficients, dg_local_algebra, coarse_in_dg,
+           assemble_dg_hierarchical
+
+    include("hierarchical.jl")
 
     export DiscreteHamiltonian, hamiltonian, gradient, hessian
     export MassCasimir, QuadraticHamiltonian
@@ -75,7 +98,8 @@ module PoissonBrackets
 
     export invariants, invariant_names, integrate, Trajectory, deviation,
            drift, absolute_drift, growth, poisson_defect
-    export energyplot, stateplot, INTEGRATOR_COLORS, FLOW_STYLES, ERROR_FLOOR
+    export energyplot, stateplot, sweepplot, convergenceplot,
+           INTEGRATOR_COLORS, FLOW_STYLES, ERROR_FLOOR
 
     include("diagnostics.jl")
 

@@ -27,7 +27,17 @@
 using CairoMakie
 using PoissonBrackets
 
-const FIGDIR = joinpath(@__DIR__, "figures")
+"""
+Where the figures go. Defaults to `scripts/figures/`; `--outdir=PATH` redirects it, which is
+how the manuscript's own `Scripts/figures/` is regenerated now that `plot_kdv_energies.py`
+is gone.
+"""
+const FIGDIR = let d = joinpath(@__DIR__, "figures")
+    for a in ARGS
+        startswith(a, "--outdir=") && (d = a[10:end])
+    end
+    d
+end
 
 const T_END = 100.0          # the four small examples run to the same final time
 const RK4_SAFETY = 0.8       # fraction of the RK4 stability limit actually used
@@ -345,6 +355,8 @@ function run_case(case::Case)
     note("  wrote 6 energy figures and 2 state figures for $(case.key)")
 end
 
-for k in (isempty(ARGS) ? [c.key for c in CASES] : ARGS)
+let cases = filter(a -> !startswith(a, "--"), ARGS)
+for k in (isempty(cases) ? [c.key for c in CASES] : cases)
     run_case(find_case(k))
+end
 end

@@ -235,6 +235,7 @@ end
 
 @doc raw"""
     energyplot(trajectories, labels; name = :H1, kwargs...)
+    energyplot(trajectories, labels, names; kwargs...)
     stateplot(system, states, labels; xleft = 0, kwargs...)
 
 Plot the error of **one** invariant against time, and the initial and final states.
@@ -255,6 +256,10 @@ The encoding is deliberate and worth keeping if these are adapted: **colour carr
 integrator and line style carries the vector field**, so no series is identified by colour
 alone and the figure survives being printed in grey. The palette is Okabe-Ito.
 
+The three-argument method draws a row of panels, one per invariant, each with its own y
+axis. It exists for the manuscript's own figure layout; the single-panel method remains the
+default for the reason just given.
+
 If the reference value of the invariant vanishes — the mass of the cosine initial condition
 does, to round-off — the panel reports the absolute error instead of the relative one, and
 says so on the axis.
@@ -263,6 +268,47 @@ function energyplot end
 
 @doc (@doc energyplot)
 function stateplot end
+
+@doc raw"""
+    sweepplot(dts, series; kwargs...)
+
+The step-size sweep of the backward error analysis, as two stacked panels: the departure of
+the respective other Hamiltonian against ``\Delta t``, and its **excess over the
+``\Delta t \to 0`` plateau**.
+
+`series` is a vector of `label => values` pairs, one per run, with `values` aligned to `dts`.
+
+Both panels are needed and neither alone will do. On the upper one the curves sit within a
+factor of eight of each other and nothing is visible; the dependence on ``\Delta t`` only
+appears once each run's own plateau — its value at the smallest step size — is subtracted.
+What is then left is the ``O(\Delta t^2)`` of the energy-preserving methods, and *nothing at
+all* for the midpoint rule on the first flow, which is the whole point: its error is spatial,
+and the time discretisation adds none of its own.
+
+A dotted ``O(\Delta t^2)`` guide is drawn on the lower panel, anchored to the first series
+that has a nonzero excess.
+
+Defined in a package extension: load `CairoMakie` to make it available.
+"""
+function sweepplot end
+
+@doc raw"""
+    convergenceplot(xs, series; kwargs...)
+
+A refinement study on log-log axes: `series` is a vector of `label => errors` pairs against
+the resolutions `xs`, with fitted orders shown in the legend.
+
+Written for the claims that are about a rate *not* being achieved as much as for the ones
+where it is. A residual that is flat under refinement — the ``\approx 0.42`` Jacobiator of
+the second KdV bracket, or the ``\approx 0.73`` structure-constant violation of the nodal
+finite elements — reads as a horizontal line against the sloped ones, which is the honest way
+to show that no amount of refinement will fix it.
+
+Pass `guide = q` to draw a dotted ``O(h^q)`` reference line.
+
+Defined in a package extension: load `CairoMakie` to make it available.
+"""
+function convergenceplot end
 
 """
     INTEGRATOR_COLORS
