@@ -6,11 +6,13 @@ PoissonBrackets = "2a9ffa85-4e0d-473f-b05e-278d80d8d306"
 SimpleSolvers = "36b790f5-6434-4fbe-b711-1f64a1e2f6a2"
 SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
 
+# SimpleSplines is not yet registered, so it needs an explicit source. `[sources]` is a
+# Julia 1.11 feature: on 1.10 it is ignored and resolution fails with "expected package
+# SimpleSplines to be registered". That row of the CI matrix will not pass until SimpleSplines
+# is released, at which point this whole block can go.
 [sources]
-CompactBasisFunctions = {path = "/Users/mkraus/Datashare/Julia/CompactBasisFunctions"}
 PoissonBrackets = {path = ".."}
-SimpleSolvers = {path = "/Users/mkraus/Datashare/Julia/SimpleSolvers"}
-SimpleSplines = {path = "/Users/mkraus/Datashare/Julia/SimpleSplines"}
+SimpleSplines = {rev = "main", url = "https://github.com/JuliaDEC/SimpleSplines.jl"}
 
 [compat]
 CairoMakie = "0.12, 0.13, 0.14, 0.15"
