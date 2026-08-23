@@ -7,8 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-`0.1.0` has not shipped, so this may be folded into it; it is kept separate because the
-first item changes what every number in the package means.
+`0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
+because the KdV sign convention below changes what every number in the package means.
+
+### The mixed two-field formulation
+
+`Integrator(...; formulation = :mixed)` solves an implicit-midpoint step as `2N` equations in
+`(y, v)` instead of `N` in `y`:
+
+```
+M (y - uⁿ) - Δt K(ū) v = 0        M v - ∂H/∂u(ū) = 0        ū = (uⁿ + y)/2
+```
+
+Eliminating `v` recovers the dense residual exactly, so it is the same step — verified to 12–14
+digits over single steps and 100-step runs, with the conserved quantities holding to the same
+round-off as before. What it avoids is `Minv * K * Minv`: **the dense Newton matrix is dense
+only because the inverse mass matrix is**, and every dynamical use of `Minv` was a mass solve
+written as a dense multiply. All four blocks of the mixed Jacobian are banded with circular
+bandwidth `p`, and the pattern is fixed for the whole run, so one ordering and symbolic
+factorisation serve every step.
+
+One step of implicit midpoint on the second KdV flow, `p = 3`, in milliseconds, both
+formulations converging in two Newton iterations:
+
+| N | dense | mixed | speedup |
+|---:|---:|---:|---:|
+| 64 | 0.192 | 0.259 | 0.74 |
+| 128 | 0.518 | 0.485 | 1.07 |
+| 384 | 3.34 | 1.56 | **2.1** |
+| 1024 | 22.9 | 4.22 | **5.4** |
+| 1536 | 58.2 | 6.29 | **9.3** |
+
+The crossover is near `N = 125`, so `:dense` remains the default and the small cases are
+unaffected. The gain grows because the dense factorisation is `O(N³)` and the assembly's two
+dense `N × N` products are too, where the mixed form is `O(N)` in both.
+
+Restricted to `ImplicitMidpoint` and to an `AffineBracket`; every other combination is an
+`ArgumentError` rather than a silently different method. `AverageVectorField` would need an
+auxiliary per quadrature node, the discrete-gradient methods carry a rank-one term that would
+have to be bordered, and the remaining brackets store the sandwiched `Minv*K*Minv` rather than
+`K`.
+
+### `K0` is no longer densified
+
+`AffineBracket`'s constructor called `Matrix(_skew(K0))`, throwing away the sparsity of a
+matrix that is banded with circular bandwidth `p` — `mixed_matrix(s, 1, 2)` for KdV, zero for
+Camassa-Holm. It is now kept as given, exactly as `Ψ` already was, which is what makes
+`kernel_operator` banded and hence the mixed formulation possible at all. It also makes
+`poisson_apply`'s `K0 * v` an `O(Np)` matvec instead of `O(N²)`, which the explicit runs pay
+four times a step for millions of steps.
+
+`Minv` stays dense, and the analysis paths that genuinely need it — `poisson_matrix`,
+`poisson_tensor`, `kernel_tensor`, the Jacobi-identity and Casimir diagnostics — are untouched.
+
+### `kernel_operator`
+
+New: `kernel_operator(b::AffineBracket, û)` is `K0 + kernel_matrix(b, û)`, the weak-form block
+without the surrounding inverse mass matrices — `poisson_matrix`'s middle factor, and sparse
+where `poisson_matrix` is dense. Together with `kernel_directional`, which the bracket already
+provided and which is already `∂(K v)/∂û`, it is everything the mixed Jacobian needs.
+
+### The linear solver for the mixed system is a correctness constraint
+
+`SparspakLU`, not the `UmfpackLU` that SimpleSolvers would otherwise select for a sparse
+`Float64` Jacobian. UMFPACK mis-handles this block structure: from `N = 768` upward it returns
+a solution wrong by a factor of 150 while reporting success, which surfaces as Newton diverging
+from a starting point whose residual was already `1e-5`. Sparspak and dense LAPACK both solve
+the same matrices to the accuracy their condition number allows. `Sparspak` is therefore a new
+dependency — pure Julia, and light.
+
+### Requires SimpleSolvers 0.13
+
+For the sparse-Jacobian plumbing (`jacobian_prototype`) and the sparse linear solvers.
 
 ### Changed — the KdV sign convention is now the textbook one
 

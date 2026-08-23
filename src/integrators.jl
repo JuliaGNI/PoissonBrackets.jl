@@ -255,12 +255,57 @@ whole run time.
     `Backtracking`.
   - `fallback_linesearch = Backtracking(T)`: used to *redo* a step whose first attempt did
     not converge. See [`_step!`](@ref).
-  - `linear_solver_method = LapackLU()`: SimpleSolvers' LAPACK-backed factorisation, as
-    against its portable scalar `LU`, which accounted for 74 % of an implicit step at
-    `N = 384`. Both come from SimpleSolvers; pass `SimpleSolvers.LU()` for the scalar one,
-    which is the only choice for element types LAPACK does not provide.
+  - `linear_solver_method`: left to SimpleSolvers, which picks `LapackLU` for the dense
+    formulation and `SparspakLU` for the mixed one. Pass it explicitly to override — e.g.
+    `SimpleSolvers.LU()` for the portable scalar factorisation, which is the only choice for
+    element types LAPACK does not provide, and which accounted for 74 % of an implicit step at
+    `N = 384` before `LapackLU` replaced it.
+  - `formulation = :dense`: see below.
   - `f_abstol = 1e-13`, `max_iterations = 40`: passed through to the solver's options.
   - any other `SimpleSolvers.Options` keyword.
+
+# The mixed two-field formulation
+
+`formulation = :mixed` solves the step as `2N` equations in `(y, v)` rather than `N` in `y`:
+
+```
+M (y - uⁿ) - Δt K(ū) v = 0        M v - ∂H/∂u(ū) = 0        ū = (uⁿ + y)/2
+```
+
+Eliminating `v` gives back the dense residual, so it is the same step — but it never forms
+`Minv * K * Minv`, which is what makes the dense Newton matrix dense. All four blocks of the
+mixed Jacobian are banded with circular bandwidth `p`, and the pattern is fixed for the whole
+run, so one ordering and symbolic factorisation serve every step. See [`mixed_residual!`](@ref)
+and [`kernel_operator`](@ref).
+
+It is not free: `2N` unknowns against `N`, so the dense form wins while `N` is small.
+Measured on implicit midpoint on the second KdV flow at `p = 3`, one step in milliseconds, with
+both formulations converging in two Newton iterations and agreeing to 12–14 digits:
+
+| N | dense | mixed | speedup |
+|---:|---:|---:|---:|
+| 64 | 0.192 | 0.259 | 0.74 |
+| 128 | 0.518 | 0.485 | 1.07 |
+| 384 | 3.34 | 1.56 | **2.1** |
+| 1024 | 22.9 | 4.22 | **5.4** |
+| 1536 | 58.2 | 6.29 | **9.3** |
+
+So the crossover is near `N = 125`, and `:dense` stays the default.
+
+!!! warning "Restrictions"
+    Only [`ImplicitMidpoint`](@ref), and only an [`AffineBracket`](@ref) — the KdV and
+    Camassa-Holm second brackets. [`AverageVectorField`](@ref) would need one auxiliary per
+    quadrature node and the discrete-gradient methods carry a rank-one term in `∂ḡ/∂y` that
+    would have to be bordered; the other brackets store the sandwiched `Minv*K*Minv` rather
+    than `K`, so the weak-form block cannot be recovered. Each of these is an `ArgumentError`
+    rather than a silently different method.
+
+!!! warning "The linear solver is a correctness constraint here"
+    The mixed system is block-structured, and UMFPACK mis-handles it: from `N = 768` upward
+    `SimpleSolvers.UmfpackLU` returns a solution wrong by a factor of 150 while reporting
+    success, which shows up as Newton diverging. `SparspakLU` and dense LAPACK both solve the
+    same matrices to the accuracy their condition number allows, so `SparspakLU` is the default
+    for this formulation. Do not override it without checking the residual.
 """
 struct Integrator{T, FT <: HamiltonianFlow{T}, MT <: IntegratorMethod, ST, CT, BT, BCT}
     flow::FT
@@ -274,6 +319,7 @@ struct Integrator{T, FT <: HamiltonianFlow{T}, MT <: IntegratorMethod, ST, CT, B
     fallbackstate::BCT
     cache::Vector{Vector{T}}
     targets::Vector{T}          # level-set values held by a ProjectionMethod
+    formulation::Symbol         # :dense (the state alone) or :mixed (state + auxiliary)
 end
 
 function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
@@ -283,38 +329,78 @@ function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
                     min_iterations::Integer = 1,
                     max_iterations::Integer = 40, verbosity::Integer = 0,
                     linesearch = Static(T), fallback_linesearch = Backtracking(T),
-                    linear_solver_method = LapackLU(), kwargs...) where {T}
+                    linear_solver_method = missing, formulation::Symbol = :dense,
+                    kwargs...) where {T}
     N = nbasis(f.space)
     dt = convert(T, Δt)
-    cache = [zeros(T, N) for _ in 1:6]
+    formulation in (:dense, :mixed) || throw(ArgumentError(
+        "formulation must be :dense or :mixed, but got :$(formulation)"))
 
     if isexplicit(method)
+        # The explicit methods evaluate `vectorfield` and nothing else, so the formulation is
+        # not a choice they have: `poisson_apply` is already matrix-free.
         return Integrator{T, typeof(f), typeof(method), Nothing, Nothing, Nothing, Nothing}(
-            f, method, dt, nothing, nothing, nothing, nothing, cache, T[])
+            f, method, dt, nothing, nothing, nothing, nothing, [zeros(T, N)], T[], :dense)
     end
 
     # `params` carries the state at the beginning of the step; SimpleSolvers passes it
     # through to both callbacks, so the solver itself can be built once, outside the loop.
-    F!(y, x, params) = residual!(y, method, f, params.un, x, dt)
-    J!(j, x, params) = residual_jacobian!(j, method, f, params.un, x, dt)
+    if formulation === :mixed
+        n = mixed_dimension(method, N)
+        proto = mixed_jacobian_prototype(f, method)
 
-    newton(ls) = NewtonSolver(zeros(T, N), zeros(T, N);
-                              F = F!, (DF!) = J!, refactorize = refactorize,
-                              linesearch = ls,
-                              linear_solver_method = linear_solver_method,
-                              f_abstol = f_abstol,
-                              min_iterations = min_iterations,
-                              max_iterations = max_iterations,
-                              verbosity = verbosity, kwargs...)
+        # The first residual block carries a factor of the mass matrix and the second does
+        # not, so the equation is scaled rather than the tolerance -- see `mixed_row_scale`.
+        # `f_abstol` therefore means the same thing here as in the dense formulation.
+        σ = mixed_row_scale(f.space)
 
-    solver   = newton(linesearch)
-    fallback = newton(fallback_linesearch)
+        # `SparspakLU` rather than the `UmfpackLU` that SimpleSolvers would otherwise pick for
+        # a sparse Float64 Jacobian. This is a correctness requirement, not a preference:
+        # UMFPACK's ordering and threshold pivoting mis-handle this particular *block*
+        # structure, and from N = 768 upward it returns a solution wrong by a factor of 150
+        # while reporting `issuccess`. Sparspak solves the same matrices to the accuracy their
+        # condition number allows, and dense LAPACK agrees with it. See the notes on
+        # `formulation` in the `Integrator` docstring.
+        lsm = linear_solver_method === missing ? SparspakLU() : linear_solver_method
+
+        Fm!(r, z, params) = mixed_residual!(r, method, f, params.un, z, dt, σ)
+        Jm!(j, z, params) = mixed_jacobian!(j, method, f, params.un, z, dt, σ)
+
+        newton_mixed(ls) = NewtonSolver(zeros(T, n), zeros(T, n);
+                                        F = Fm!, (DF!) = Jm!, refactorize = refactorize,
+                                        jacobian_prototype = copy(proto),
+                                        linesearch = ls,
+                                        linear_solver_method = lsm,
+                                        f_abstol = f_abstol,
+                                        min_iterations = min_iterations,
+                                        max_iterations = max_iterations,
+                                        verbosity = verbosity, kwargs...)
+        solver   = newton_mixed(linesearch)
+        fallback = newton_mixed(fallback_linesearch)
+        cache    = [zeros(T, N), zeros(T, n)]
+    else
+        F!(y, x, params) = residual!(y, method, f, params.un, x, dt)
+        J!(j, x, params) = residual_jacobian!(j, method, f, params.un, x, dt)
+
+        newton_dense(ls) = NewtonSolver(zeros(T, N), zeros(T, N);
+                                        F = F!, (DF!) = J!, refactorize = refactorize,
+                                        linesearch = ls,
+                                        linear_solver_method = linear_solver_method,
+                                        f_abstol = f_abstol,
+                                        min_iterations = min_iterations,
+                                        max_iterations = max_iterations,
+                                        verbosity = verbosity, kwargs...)
+        solver   = newton_dense(linesearch)
+        fallback = newton_dense(fallback_linesearch)
+        cache    = [zeros(T, N)]
+    end
+
     state    = SolverState(solver)
     fbstate  = SolverState(fallback)
 
     Integrator{T, typeof(f), typeof(method), typeof(solver), typeof(state),
                typeof(fallback), typeof(fbstate)}(
-        f, method, dt, solver, state, fallback, fbstate, cache, T[])
+        f, method, dt, solver, state, fallback, fbstate, cache, T[], formulation)
 end
 
 Base.eltype(::Integrator{T}) where {T} = T
@@ -489,6 +575,8 @@ does not converge, and only a failure of both is warned about. The cost is paid 
 1 % of steps that need it rather than on all of them.
 """
 function _step!(û, method::IntegratorMethod, integ::Integrator)
+    integ.formulation === :mixed && return _step_mixed!(û, method, integ)
+
     un = integ.cache[1]
     un .= û
     params = (un = un,)
@@ -497,15 +585,47 @@ function _step!(û, method::IntegratorMethod, integ::Integrator)
     # `ldiv!` reports it as a bare `SingularException(k)` naming the zero pivot, which says
     # nothing about what to do; it is caught here and given the context the caller needs.
     _solve_or_explain!(û, integ.solver, integ.state, params)
-    converged(s, st) = SimpleSolvers.isconverged(SimpleSolvers.status(s, st))
     converged(integ.solver, integ.state) && return û
 
     û .= un
     _solve_or_explain!(û, integ.fallback, integ.fallbackstate, params)
-    converged(integ.fallback, integ.fallbackstate) || @warn(
-        "the nonlinear solver did not converge in this step, with or without a line " *
-        "search; the step size is probably too large for the stiffness of this " *
-        "discretisation", maxlog = 3)
+    converged(integ.fallback, integ.fallbackstate) || _warn_not_converged()
+    return û
+end
+
+converged(s, st) = SimpleSolvers.isconverged(SimpleSolvers.status(s, st))
+
+@noinline _warn_not_converged() = @warn(
+    "the nonlinear solver did not converge in this step, with or without a line " *
+    "search; the step size is probably too large for the stiffness of this " *
+    "discretisation", maxlog = 3)
+
+"""
+    _step_mixed!(û, method, integ)
+
+One step of the mixed two-field formulation: solve the `2N` system in `(y, v)` and keep `y`.
+
+The auxiliary is re-seeded by solving `M v = ∂H/∂u(uⁿ)` at the start of each step and each retry
+(see [`mixed_initial_guess!`](@ref)), so the solve starts from a consistent pair rather than
+from whatever the previous step left behind.
+"""
+function _step_mixed!(û, ::IntegratorMethod, integ::Integrator)
+    un = integ.cache[1]
+    z  = integ.cache[2]
+    un .= û
+    params = (un = un,)
+
+    mixed_initial_guess!(z, integ.flow, un)
+    _solve_or_explain!(z, integ.solver, integ.state, params)
+    if converged(integ.solver, integ.state)
+        û .= @view z[eachindex(û)]
+        return û
+    end
+
+    mixed_initial_guess!(z, integ.flow, un)
+    _solve_or_explain!(z, integ.fallback, integ.fallbackstate, params)
+    converged(integ.fallback, integ.fallbackstate) || _warn_not_converged()
+    û .= @view z[eachindex(û)]
     return û
 end
 

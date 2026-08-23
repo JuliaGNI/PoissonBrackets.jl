@@ -130,7 +130,7 @@ one and flat under refinement.
     See [`camassa_holm_bracket_1`](@ref).
 """
 camassa_holm_bracket_2(s::DiscreteSpace) =
-    AffineBracket(s, 1, basis_values(s, 0), zeros(eltype(s), nbasis(s), nbasis(s)))
+    AffineBracket(s, 1, basis_values(s, 0), spzeros(eltype(s), nbasis(s), nbasis(s)))
 
 
 @doc raw"""

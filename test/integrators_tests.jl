@@ -171,6 +171,91 @@ using Test
         @test drift(ta, :H1) ≈ drift(tb, :H1) rtol = 1e-6
     end
 
+    @testset "$(rpad("the mixed two-field formulation reproduces the dense one",76))" begin
+        # The mixed formulation solves 2N equations in (y, v) instead of N in y, and never
+        # forms Minv*K*Minv. Its residual is the dense one premultiplied by the mass matrix,
+        # so it describes the *same* step: the two must agree to solver tolerance, and the
+        # substitution is a performance one exactly as LapackLU-for-LU was.
+        for flow in (sys.flow2,)          # AffineBracket only; see `kernel_operator`
+            a = copy(u0); b = copy(u0)
+            integrate_step!(a, Integrator(flow, ImplicitMidpoint(), 1e-3; û₀ = u0))
+            integrate_step!(b, Integrator(flow, ImplicitMidpoint(), 1e-3; û₀ = u0,
+                                          formulation = :mixed))
+            @test a ≈ b atol = 1e-11
+            @test a != u0
+        end
+
+        # and over a run, including the conserved quantities, which is the real test: an
+        # equivalent step that drifted differently would mean the formulations are not
+        # actually the same method.
+        ta = integrate(sys, Integrator(sys.flow2, ImplicitMidpoint(), 1e-3; û₀ = u0),
+                       u0, 100; stride = 10)
+        tb = integrate(sys, Integrator(sys.flow2, ImplicitMidpoint(), 1e-3; û₀ = u0,
+                                       formulation = :mixed), u0, 100; stride = 10)
+        @test ta.final ≈ tb.final atol = 1e-10
+        # H2 is this flow's Hamiltonian and C0 its Casimir, and both are held to round-off.
+        # H1 is *not* conserved on the second bracket -- it drifts at 5.6e-5 over these 100
+        # steps -- so the test is that the two formulations drift the *same*, which is the
+        # statement that they are the same method. Asserting an absolute bound on H1 here
+        # would be asserting something false about implicit midpoint on flow2.
+        @test drift(tb, :H2) < 1e-12
+        @test drift(ta, :H2) < 1e-12
+        @test absolute_drift(tb, :C0) < 1e-12
+        @test drift(ta, :H1) ≈ drift(tb, :H1) rtol = 1e-6
+    end
+
+    @testset "$(rpad("the mixed formulation keeps its Jacobian sparse",76))" begin
+        import SimpleSolvers
+        import SparseArrays
+        integ = Integrator(sys.flow2, ImplicitMidpoint(), 1e-3; û₀ = u0,
+                           formulation = :mixed)
+        N = nbasis(s)
+        J = SimpleSolvers.jacobianmatrix(SimpleSolvers.cache(integ.solver))
+        @test J isa SparseArrays.SparseMatrixCSC
+        @test size(J) == (2N, 2N)
+        # the pattern is fixed for the whole run, which is what lets the solver reuse one
+        # symbolic factorization -- and `mixed_jacobian!` errors if it ever grows
+        nz = SparseArrays.nnz(J)
+        u = copy(u0)
+        for _ in 1:5
+            integrate_step!(u, integ)
+            @test SparseArrays.nnz(J) == nz
+        end
+        # and it is genuinely sparse: the stored count grows like N, not N². At the N = 20 of
+        # this testset a banded 2N × 2N matrix is still a third full, so the meaningful
+        # assertion is the scaling rather than a fraction at one size.
+        s2 = SplineSpace(UniformMesh(4 * N, 2π), degree(s))
+        sys2 = KdVSystem(s2)
+        integ2 = Integrator(sys2.flow2, ImplicitMidpoint(), 1e-3;
+                            û₀ = project(s2, cosine(2π)), formulation = :mixed)
+        nz2 = SparseArrays.nnz(SimpleSolvers.jacobianmatrix(SimpleSolvers.cache(integ2.solver)))
+        @test nz2 / nz ≈ 4 rtol = 0.05        # O(N), not O(N²) -- which would be 16
+        # SparspakLU, not the UmfpackLU SimpleSolvers would pick for a sparse Float64
+        # Jacobian: UMFPACK mis-handles this block structure from N = 768 up. See the
+        # comment in the Integrator constructor.
+        @test SimpleSolvers.method(SimpleSolvers.linearsolver(integ.solver)) isa SimpleSolvers.SparspakLU
+        # and an explicit method still wins over that choice
+        integ_u = Integrator(sys.flow2, ImplicitMidpoint(), 1e-3; û₀ = u0,
+                             formulation = :mixed,
+                             linear_solver_method = SimpleSolvers.UmfpackLU())
+        @test SimpleSolvers.method(SimpleSolvers.linearsolver(integ_u.solver)) isa SimpleSolvers.UmfpackLU
+    end
+
+    @testset "$(rpad("the mixed formulation refuses what it cannot do",76))" begin
+        # Only ImplicitMidpoint is implemented: AverageVectorField needs one auxiliary per
+        # quadrature node and the discrete-gradient methods carry a rank-one term.
+        for meth in (AverageVectorField(), Gonzalez(), GonzalezMass())
+            @test_throws ArgumentError Integrator(sys.flow2, meth, 1e-3;
+                                                  formulation = :mixed)
+        end
+        # and only an AffineBracket: the others store the sandwiched Minv*K*Minv, so the
+        # weak-form block cannot be recovered
+        @test_throws ArgumentError Integrator(sys.flow1, ImplicitMidpoint(), 1e-3;
+                                              formulation = :mixed)
+        @test_throws ArgumentError Integrator(sys.flow2, ImplicitMidpoint(), 1e-3;
+                                              formulation = :nonsense)
+    end
+
     @testset "$(rpad("an unconverged step is redone with a line search",76))" begin
         # The fast path takes a full Newton step. Where that fails -- implicit midpoint on
         # the second flow does, on about 1 % of the steps of the large-amplitude Miura

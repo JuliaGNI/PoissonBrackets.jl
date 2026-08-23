@@ -74,6 +74,13 @@ Modules = [PoissonBrackets]
 Pages = ["integrators.jl"]
 ```
 
+## The mixed two-field formulation
+
+```@autodocs
+Modules = [PoissonBrackets]
+Pages = ["mixed.jl"]
+```
+
 ## Diagnostics
 
 ```@autodocs

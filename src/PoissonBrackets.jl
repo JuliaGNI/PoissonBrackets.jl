@@ -7,6 +7,9 @@ module PoissonBrackets
     using SimpleSolvers
     using SimpleSplines
     using SparseArrays
+    # Loaded for its SimpleSolvers extension: `SparspakLU` is the linear solver the mixed
+    # formulation uses. See `Integrator`'s `formulation` keyword.
+    import Sparspak
 
     # extended rather than defined here, so that the packages of the ecosystem share one
     # generic function per accessor
@@ -37,6 +40,7 @@ module PoissonBrackets
     include("exact.jl")
 
     export DiscreteBracket, ConstantBracket, AffineBracket, GaugedBracket, MiuraBracket
+    export kernel_operator
     export poisson_matrix, poisson_apply, poisson_tensor, isantisymmetric,
            jacobi_residual, structure_constant_residual
 
@@ -75,6 +79,7 @@ module PoissonBrackets
     export Integrator, integrate_step!, tangent_map, default_f_abstol
 
     include("integrators.jl")
+    include("mixed.jl")
 
     export KdVSystem, kdv_bracket_1, kdv_bracket_2, kdv_miura_bracket,
            KdVHamiltonian1, KdVHamiltonian2, KdVHamiltonian3,

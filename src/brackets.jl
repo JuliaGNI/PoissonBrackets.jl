@@ -305,26 +305,39 @@ practical content of the skew-symmetrisation, and it is not a cosmetic rearrange
 
 Neither of these brackets satisfies the Jacobi identity; see [`DiscreteBracket`](@ref).
 """
-struct AffineBracket{T, ST <: DiscreteSpace{T}, PT <: AbstractMatrix{T}} <: DiscreteBracket{T}
+struct AffineBracket{T, ST <: DiscreteSpace{T}, PT <: AbstractMatrix{T}, KT <: AbstractMatrix{T}} <: DiscreteBracket{T}
     space::ST
     scale::T
     Ψ::PT
-    K0::Matrix{T}
+    K0::KT
     Minv::Matrix{T}
 
-    # `Ψ` is stored AS GIVEN rather than densified. It is the basis tabulation, which both
-    # spaces hand over sparse -- under one per cent full at the resolutions these runs reach
-    # -- and it is contracted on every Newton iteration by `kernel_matrix` and
-    # `kernel_directional`. Calling `Matrix` on it here, as this constructor used to, threw
-    # that away and made each of those contractions cost N² per quadrature point instead of
-    # (p+1)². `K0` stays dense: it is N × N and is skew-symmetrised in place.
+    # `Ψ` and `K0` are both stored AS GIVEN rather than densified. `Ψ` is the basis
+    # tabulation, which both spaces hand over sparse -- under one per cent full at the
+    # resolutions these runs reach -- and it is contracted on every Newton iteration by
+    # `kernel_matrix` and `kernel_directional`. Calling `Matrix` on it here, as this
+    # constructor used to, threw that away and made each of those contractions cost N² per
+    # quadrature point instead of (p+1)².
+    #
+    # `K0` is the same story, and it used to be densified for the same bad reason. It is
+    # `mixed_matrix(s, 1, 2)` for KdV, banded with circular bandwidth p, and zero for
+    # Camassa-Holm; `_skew` preserves that. Keeping it sparse is what makes
+    # `kernel_operator` -- and hence the whole mixed formulation, which never forms
+    # `Minv K Minv` at all -- banded rather than dense. It also makes `poisson_apply`'s
+    # `K0 * v` an O(Np) matvec instead of O(N²), which the explicit runs pay four times a
+    # step for millions of steps.
+    #
+    # `Minv` stays dense, because `M⁻¹` of a banded matrix genuinely is full. It is needed
+    # only by the analysis paths (`poisson_matrix`, `poisson_tensor`, `kernel_tensor`); the
+    # dynamics can always solve with `M` instead. See `kernel_operator`.
     function AffineBracket(s::ST, scale::Real, Ψ::AbstractMatrix,
                            K0::AbstractMatrix) where {T, ST <: DiscreteSpace{T}}
         size(Ψ) == size(basis_values(s, 0)) || throw(DimensionMismatch(
             "the density table has size $(size(Ψ)) but the basis tabulation has " *
             "$(size(basis_values(s, 0)))"))
-        new{T, ST, typeof(Ψ)}(s, convert(T, scale), Ψ, Matrix(_skew(K0)),
-                              inverse_mass_matrix(s))
+        K̄ = _skew(K0)
+        new{T, ST, typeof(Ψ), typeof(K̄)}(s, convert(T, scale), Ψ, K̄,
+                                         inverse_mass_matrix(s))
     end
 end
 
@@ -425,6 +438,41 @@ function kernel_directional(b::AffineBracket, v::AbstractVector)
     vx = Φ1' * v
     b.scale * (Φ0 * Diagonal(w .* vx) * b.Ψ' - Φ1 * Diagonal(w .* vh) * b.Ψ')
 end
+
+@doc raw"""
+    kernel_operator(b::AffineBracket, û)
+
+The weak-form block ``\mathbb{K}(\hat{u}) = \mathbb{K}_0 + \mathbb{K}^\rho(\hat{u})``, without
+the surrounding inverse mass matrices.
+
+This is [`poisson_matrix`](@ref)'s middle factor, and unlike `poisson_matrix` it is **sparse**:
+both terms are banded with circular bandwidth `p`, so at ``N = 384`` and ``p = 3`` it is under
+two per cent full. The densification is entirely in the sandwich
+``\mathbb{M}^{-1} \mathbb{K} \mathbb{M}^{-1}``, which is what the mixed formulation exists to
+avoid — see [`Integrator`](@ref)'s `formulation` keyword.
+
+Together with [`kernel_directional`](@ref), which is ``\partial(\mathbb{K}^\rho v)/\partial\hat{u}``
+and likewise banded, this is everything the mixed Jacobian needs from the bracket.
+"""
+kernel_operator(b::AffineBracket, û::AbstractVector) = b.K0 + kernel_matrix(b, û)
+
+"""
+    kernel_operator(b::DiscreteBracket, û)
+
+Throws: there is no weak-form block to return for the brackets other than
+[`AffineBracket`](@ref).
+
+[`ConstantBracket`](@ref) and [`GaugedBracket`](@ref) both store the *sandwiched*
+``\\mathbb{M}^{-1}\\mathbb{K}\\mathbb{M}^{-1}``, formed once in the constructor, and
+[`MiuraBracket`](@ref) stores a congruence ``\\mathbb{L}\\mathbb{P}_1\\mathbb{L}^T`` of one, so
+``\\mathbb{K}`` cannot be recovered from any of them without inverting the mass matrix again.
+Only [`AffineBracket`](@ref) — the KdV and Camassa-Holm second brackets — supports the mixed
+formulation, and this method is what makes asking for it anywhere else an `ArgumentError`
+rather than a silently different method.
+"""
+kernel_operator(b::DiscreteBracket, ::AbstractVector) = throw(ArgumentError(
+    "kernel_operator is only defined for an AffineBracket; $(nameof(typeof(b))) stores the " *
+    "sandwiched Minv*K*Minv rather than K, so the mixed formulation is not available for it"))
 
 poisson_matrix(b::AffineBracket, û::AbstractVector) =
     b.Minv * (b.K0 + kernel_matrix(b, û)) * b.Minv

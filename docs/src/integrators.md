@@ -55,24 +55,89 @@ is factorised once and reused for several iterations.
 The Jacobian supplied is analytic, including for the Gonzalez discrete gradient, whose
 rank-one correction is differentiated in closed form.
 
-Two departures from SimpleSolvers' defaults are worth knowing about, both measured rather
-than assumed:
+Two choices about the solve are worth knowing about, both measured rather than assumed:
 
   - **No line search.** The residual is a small perturbation of the identity at these step
     sizes and Newton converges in two or three iterations from the previous state, so the
     default `Backtracking` spends several extra residual evaluations per iteration probing a
     step length that is always accepted at one. The default here is `Static`. Pass
     `linesearch = Backtracking(Float64)` if a run is pushed to a step size that needs it.
-  - **`LapackLU` for the factorisation.** SimpleSolvers' default is a hand-written scalar
-    LU, portable and the right choice for the small dense systems it is usually pointed at.
-    At ``N = 384`` it accounted for **74 % of the cost of an implicit step** — about 17 ms
-    against LAPACK's 0.6 ms. `SimpleSolvers.LapackLU` keeps the whole nonlinear driver and
-    replaces only the factorisation; the test suite checks that the two produce the same
-    step. It is restricted to the element types LAPACK provides, so `SimpleSolvers.LU()`
-    remains the only option for e.g. `BigFloat`.
+  - **A LAPACK-backed factorisation.** The factorisation is left to SimpleSolvers, which
+    since 0.13 selects `LapackLU` for a dense Jacobian — it used to default to a hand-written
+    scalar LU, portable and the right choice for the small dense systems it is usually
+    pointed at, but at ``N = 384`` that accounted for **74 % of the cost of an implicit
+    step**, about 17 ms against LAPACK's 0.6 ms. LAPACK is restricted to the element types it
+    provides, so `linear_solver_method = SimpleSolvers.LU()` remains the only option for
+    e.g. `BigFloat`.
 
 Together with the assembly changes of the [Discretisation](@ref) page this took an implicit
 step at ``N = 384`` from 45 ms to 4.2 ms.
+
+## The mixed two-field formulation
+
+The Newton matrix of the dense formulation is dense, and it is dense for one reason: the
+Poisson matrix is the sandwich ``\mathbb{M}^{-1} \mathbb{K}(\hat{u}) \mathbb{M}^{-1}``, and
+``\mathbb{M}^{-1}`` of a banded mass matrix genuinely is full. Every factor around it is
+banded. `formulation = :mixed` never forms that sandwich, by carrying the intermediate as an
+unknown of its own — solving ``2N`` equations in ``(y, v)`` rather than ``N`` in ``y``:
+
+```math
+\begin{aligned}
+\mathbb{M} (y - \hat{u}^n) - \Delta t \, \mathbb{K}(\bar{u}) \, v &= 0, \\
+\mathbb{M} v - \partial H/\partial u(\bar{u}) &= 0,
+\end{aligned}
+\qquad \bar{u} = \tfrac{1}{2}(\hat{u}^n + y).
+```
+
+Eliminating ``v`` from the first equation recovers the dense residual exactly, up to a factor
+of the mass matrix. It is not an approximation of the dense step, or a different method that
+happens to be close to it — it is the **same step**, and the test suite holds the two to that,
+to 12–14 digits over single steps and over 100-step runs, conserved quantities included. See
+[`mixed_residual!`](@ref).
+
+What changes is the linear algebra. All four blocks of the mixed Jacobian are built from
+``\mathbb{M}``, ``\mathbb{K}``, ``\partial(\mathbb{K}v)/\partial u`` and ``\partial^2 H`` —
+each banded with circular bandwidth ``p``, none of them requiring ``\mathbb{M}^{-1}``. The
+weak-form block is exposed as [`kernel_operator`](@ref), which is [`poisson_matrix`](@ref)'s
+middle factor and is sparse where `poisson_matrix` is dense. Better still, the sparsity pattern
+is fixed for the whole run, so one ordering and one symbolic factorisation serve every step.
+
+It is not free: ``2N`` unknowns against ``N``, so the dense form wins while ``N`` is small.
+One step of implicit midpoint on the second KdV flow at ``p = 3``, in milliseconds, both
+formulations converging in two Newton iterations:
+
+| ``N`` | dense | mixed | speedup |
+|---:|---:|---:|---:|
+| 64 | 0.192 | 0.259 | 0.74 |
+| 128 | 0.518 | 0.485 | 1.07 |
+| 384 | 3.34 | 1.56 | **2.1** |
+| 1024 | 22.9 | 4.22 | **5.4** |
+| 1536 | 58.2 | 6.29 | **9.3** |
+
+The crossover is near ``N = 125``, so `:dense` remains the default and the small cases are
+untouched. The gain widens because the dense factorisation is ``O(N^3)`` and the assembly's
+two dense ``N \times N`` products are too, where the mixed form is ``O(N)`` in both.
+
+Two restrictions, and both are an `ArgumentError` from [`Integrator`](@ref) rather than a
+silently different method:
+
+  - **[`ImplicitMidpoint`](@ref) only.** [`AverageVectorField`](@ref) would need one auxiliary
+    per quadrature node, and the discrete-gradient methods carry a rank-one term in
+    ``\partial \bar{g}/\partial y`` that would have to be bordered.
+  - **[`AffineBracket`](@ref) only** — the KdV and Camassa-Holm second brackets. The other
+    brackets store the sandwiched ``\mathbb{M}^{-1}\mathbb{K}\mathbb{M}^{-1}``, formed once in
+    the constructor, so ``\mathbb{K}`` cannot be recovered from them without inverting the
+    mass matrix again.
+
+!!! warning "The linear solver is a correctness constraint here"
+    The mixed system is block-structured, and UMFPACK mishandles it. From ``N = 768`` upward
+    `SimpleSolvers.UmfpackLU` returns a solution wrong by a factor of 150 *while reporting
+    success*, which surfaces as Newton diverging from a starting point whose residual was
+    already ``10^{-5}``. `SparspakLU` and dense LAPACK both solve the same matrices to the
+    accuracy their condition number allows, so `SparspakLU` — pure Julia, and light — is the
+    default for this formulation, in place of the `UmfpackLU` that SimpleSolvers would
+    otherwise select for a sparse `Float64` Jacobian. Do not override it without checking the
+    residual.
 
 ## Diagnostics
 
