@@ -1,9 +1,15 @@
+```@meta
+CurrentModule = PoissonBrackets
+```
+
 # Verification
 
 This page records what the package has been checked against, claim by claim, and what came
-out of it. The two references are the manuscripts —
-`discrete-kdv-brackets{,-notes}.tex` and `discrete-lie-poisson-brackets{,-notes}.tex` — and
-the Python prototypes in their `Scripts/` directories, which the Julia is a port of.
+out of it. What each script *checks*, as opposed to what it agreed with, is indexed in
+[The verification scripts](@ref). The references are the manuscripts —
+`discrete-kdv-brackets{,-notes}.tex`, `discrete-lie-poisson-brackets{,-notes}.tex` and its
+companion `discrete-lie-poisson-dirac-brackets.tex` — and the Python prototypes in their
+`Scripts/` directories, which the Julia is a port of.
 
 It is written so that the *absence* of an entry is informative: everything examined is listed,
 including the things that turned out to be correct and the one system that has nothing to be
@@ -135,6 +141,9 @@ Two standards of agreement apply, and which one is available depends on the scri
     wherever the Python used a random probe merely as a witness the Julia prefers the
     deterministic algebras it already provides — ``\mathfrak{se}(3)``, ``\mathfrak{so}(N)`` —
     which *do* agree exactly.
+
+Each entry is a Julia script under `scripts/`; see [The verification scripts](@ref) for what
+each one establishes and where the theory behind it is written down.
 
 | script | agreement |
 |:--|:--|

@@ -139,15 +139,14 @@ silently different method:
     otherwise select for a sparse `Float64` Jacobian. Do not override it without checking the
     residual.
 
-## Diagnostics
+## Measuring what survives
 
 [`integrate`](@ref) evaluates the invariants at **every** step but reports **windowed
-maxima**. The error envelope of a geometric integrator oscillates with a period of tens of
-steps; sampling it every `stride` steps over a run of millions aliases that oscillation into
-noise an order of magnitude below the true envelope, and the resulting figure shows a method
-conserving an invariant far better than it does.
+maxima**, [`drift`](@ref) and [`absolute_drift`](@ref) are not interchangeable, and
+[`growth`](@ref) is what separates a bounded oscillation from a secular drift. What each of
+those measures, and how to tell a drift from accumulated round-off, is on the
+[Diagnostics](@ref) page.
 
-Use [`drift`](@ref) for the Hamiltonians and [`absolute_drift`](@ref) for a quantity whose
-reference value is zero — the mass of the cosine initial condition, for one.
-[`growth`](@ref) separates a bounded oscillation from a secular drift, which a single
-end-of-run number cannot.
+The *size* of the one error this table does not account for — the respective other Hamiltonian
+along a Poisson integrator — is not arbitrary either. It has a closed form, and it is the
+subject of [Backward error analysis](@ref).

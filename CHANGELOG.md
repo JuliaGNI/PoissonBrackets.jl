@@ -192,6 +192,39 @@ already owns the "step size is probably too large" warning.
 
 ### Added — documentation
 
+- **Seven new pages, for the material the port added and never explained.** Commit `f897fb0`
+  added four source modules, twenty-four scripts and three plotting routines, and touched
+  `docs/` only with bare `@autodocs` blocks — everything was reachable and almost nothing was
+  explained.
+
+  | page | covers |
+  |:--|:--|
+  | `diagnostics.md` | the theory of every measurement the package makes, organised by what is being measured: whether the *bracket* is Poisson, whether the *flow* conserves what it should, whether the *method* preserves the structure. Why `jacobi_residual` is normalised the way it is, why a flat residual is the answer and not a failure to converge, why `integrate` reports windowed maxima, why `drift` throws on a vanishing reference, and how to tell a drift from accumulated round-off |
+  | `liepoisson.md` | the second manuscript: the Dubrovin-Novikov factorisation, prescribing the Casimir, the structure-constant condition and the closure/consistency split, the algebra zoo, and the two four-bracket ansätze |
+  | `dirac.md` | the Dirac companion: the Dirac bracket, the tensorial transport of the Jacobiator that makes reduction faithful but never curative, the four realisations, the broken hierarchical space, and the repair search |
+  | `bea.md` | §6 of the KdV notes: the modified Hamiltonian, `H₂` as the momentum of the projected translation, the closed-form defect, the exact increment lemma, and how to read `sweepplot` |
+  | `aliasing.md` | the zero-mode theorem and the cocycle obstruction — why Zeitlin-style aliasing cannot repair the second KdV bracket |
+  | `nambu.md` | the Vandermonde lemma, the wedge tensor that repackages nothing, the one genuinely new three-bracket, and the decomposability theorem |
+  | `scripts.md` | an index of all eighteen verification scripts against the claims they check and the pages that carry the theory |
+
+- **Three module-overview docstrings were being dropped from the build without a word.** The
+  headers of `src/algebras.jl`, `src/dirac.jl` and `src/hierarchical.jl` were `@doc raw"…"`
+  blocks attached to no binding — the `C[m,i,j]` index convention, the definition of the Dirac
+  bracket and the second-class condition, and the whole rationale for the broken space reached
+  no reader of the manual. The prose now lives on the pages above and the file headers are plain
+  comments.
+
+- `DiscreteGradient` was exported with no docstring, so it rendered nowhere and
+  `[`DiscreteGradient`](@ref)` could not resolve. It has one.
+
+- **`docs/src/discretisation.md` contradicted `docs/src/verification.md`.** Testing trap 1 still
+  asserted that every three-dimensional antisymmetric bracket satisfies the Jacobi identity — the
+  claim recorded three sections away as an erratum. Corrected to Bianchi class A.
+
+- The `exact.jl`, `algebras.jl`, `dirac.jl`, `hierarchical.jl` and `diagnostics.jl` `@autodocs`
+  blocks move from `library.md` to their topic pages, as the equation modules already had.
+  `@index` is unchanged and complete.
+
 - `docs/src/verification.md`, recording what the package has been checked against claim by
   claim: the RK4 comparison, the `ρ` cross-check against three independent sources, the
   divergences found and fixed, the errata found in the Python, every item of the manuscript's

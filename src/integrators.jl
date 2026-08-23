@@ -161,6 +161,16 @@ struct Gonzalez <: IntegratorMethod end
 @doc (@doc Gonzalez)
 struct GonzalezMass <: IntegratorMethod end
 
+"""
+    DiscreteGradient
+
+Either discrete-gradient method, [`Gonzalez`](@ref) or [`GonzalezMass`](@ref).
+
+The two differ only in the metric their rank-one correction is taken in, so every dispatch
+that cares about the *property* — exact conservation of the generating Hamiltonian for any
+`H`, at the cost of the Poisson-map property — is written against this union rather than
+against either of them.
+"""
 const DiscreteGradient = Union{Gonzalez, GonzalezMass}
 
 @doc raw"""

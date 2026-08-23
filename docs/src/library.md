@@ -4,86 +4,55 @@ CurrentModule = PoissonBrackets
 
 # Library
 
-The three equation modules are documented on their own pages —
-[Korteweg-de Vries](@ref), [Burgers](@ref) and [Camassa-Holm](@ref) — and are not repeated
-here.
+The docstrings that belong to a topic live with it and are not repeated here: the three
+equation modules on their own pages — [Korteweg-de Vries](@ref), [Camassa-Holm](@ref) and
+[Burgers](@ref) — the Lie algebras and the exact linear algebra under
+[Discrete Lie-Poisson brackets](@ref), the reduction and the broken hierarchical space under
+[Dirac reduction](@ref), and the measurement layer under [Diagnostics](@ref).
+
+The index below is complete regardless.
 
 ```@index
 ```
 
-## Spaces
+## Spaces — `spaces.jl`
 
 ```@autodocs
 Modules = [PoissonBrackets]
 Pages = ["spaces.jl"]
 ```
 
-## Exact linear algebra
-
-```@autodocs
-Modules = [PoissonBrackets]
-Pages = ["exact.jl"]
-```
-
-## Brackets
+## Brackets — `brackets.jl`
 
 ```@autodocs
 Modules = [PoissonBrackets]
 Pages = ["brackets.jl"]
 ```
 
-## Lie algebras
-
-```@autodocs
-Modules = [PoissonBrackets]
-Pages = ["algebras.jl"]
-```
-
-## Dirac reduction
-
-```@autodocs
-Modules = [PoissonBrackets]
-Pages = ["dirac.jl"]
-```
-
-## The broken hierarchical space
-
-```@autodocs
-Modules = [PoissonBrackets]
-Pages = ["hierarchical.jl"]
-```
-
-## Hamiltonians
+## Hamiltonians — `hamiltonians.jl`
 
 ```@autodocs
 Modules = [PoissonBrackets]
 Pages = ["hamiltonians.jl"]
 ```
 
-## Flows
+## Flows — `flows.jl`
 
 ```@autodocs
 Modules = [PoissonBrackets]
 Pages = ["flows.jl"]
 ```
 
-## Integrators
+## Integrators — `integrators.jl`
 
 ```@autodocs
 Modules = [PoissonBrackets]
 Pages = ["integrators.jl"]
 ```
 
-## The mixed two-field formulation
+## The mixed formulation — `mixed.jl`
 
 ```@autodocs
 Modules = [PoissonBrackets]
 Pages = ["mixed.jl"]
-```
-
-## Diagnostics
-
-```@autodocs
-Modules = [PoissonBrackets]
-Pages = ["diagnostics.jl"]
 ```

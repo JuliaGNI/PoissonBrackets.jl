@@ -1,30 +1,29 @@
 
-@doc raw"""
-The broken (discontinuous Galerkin) hierarchical space, and the direct discretisation of the
-Burgers bracket on it.
-
-This is the fourth realisation of the Dirac companion note. The continuous degree-``p``
-Lagrange space ``V_1`` sits inside the broken degree-``2p-1`` space, and ``V_2`` is taken as
-its ``L^2``-orthogonal complement there. The point of the construction is that
-``[V_1, V_1] \subseteq V_1 \oplus V_2`` *exactly* — a product of two degree-``p``
-polynomials with one derivative has degree ``2p-1`` — which is the closure premise that a
-continuous finite element basis cannot supply, since ``\varphi'`` jumps across element
-interfaces.
-
-Everything here is exact over ``\mathbb{Q}``. The shifted Legendre polynomials
-``\tilde{L}_k(\xi) = P_k(2\xi - 1)`` have *integer* coefficients,
-
-```math
-\tilde{L}_k(\xi) = \sum_{j=0}^{k} (-1)^{k+j} \binom{k}{j} \binom{k+j}{j} \xi^j ,
-```
-
-and ``\int_0^1 \xi^n \, d\xi = 1/(n+1)``, so every integral in the assembly is rational
-arithmetic on coefficient vectors. The Python prototype reached for SymPy here, and for the
-Lagrange shape functions went through `float64` and `limit_denominator`; neither is needed,
-and dropping them is what keeps a symbolic dependency out of this package altogether.
-
-Polynomials are coefficient vectors in *ascending* powers throughout.
-"""
+#
+# The broken (discontinuous Galerkin) hierarchical space, and the direct discretisation of the
+# Burgers bracket on it.
+#
+# This is the fourth realisation of the Dirac companion note. The continuous degree-p Lagrange
+# space V1 sits inside the broken degree-(2p-1) space, and V2 is taken as its L2-orthogonal
+# complement there. The point of the construction is that [V1, V1] is contained in V1 + V2
+# EXACTLY -- a product of two degree-p polynomials with one derivative has degree 2p-1 --
+# which is the closure premise that a continuous finite element basis cannot supply, since
+# phi' jumps across element interfaces.
+#
+# Everything here is exact over Q. The shifted Legendre polynomials L~_k(x) = P_k(2x - 1) have
+# INTEGER coefficients,
+#
+#     L~_k(x) = sum_{j=0}^{k} (-1)^{k+j} binom(k,j) binom(k+j,j) x^j ,
+#
+# and int_0^1 x^n dx = 1/(n+1), so every integral in the assembly is rational arithmetic on
+# coefficient vectors. The Python prototype reached for SymPy here, and for the Lagrange shape
+# functions went through `float64` and `limit_denominator`; neither is needed, and dropping
+# them is what keeps a symbolic dependency out of this package altogether.
+#
+# Polynomials are coefficient vectors in ASCENDING powers throughout.
+#
+# This was a file-level `@doc` block, which Julia attached to `_polymul` below and Documenter
+# then dropped: none of it reached the manual. The prose now lives in `docs/src/dirac.md`.
 
 _polymul(a::AbstractVector{T}, b::AbstractVector{T}) where {T} = begin
     c = zeros(T, length(a) + length(b) - 1)

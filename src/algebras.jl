@@ -1,23 +1,24 @@
 
-@doc raw"""
-Finite-dimensional Lie algebras, as the structure constants of a Lie-Poisson bracket.
-
-Throughout this file a three-tensor `C` holds ``c_{ij}^m`` at `C[m, i, j]`, so that
-
-```math
-[e_i, e_j] = \sum_m c_{ij}^m e_m , \qquad
-\mathbb{J}_{ij}(z) = \sum_m c_{ij}^m z_m .
-```
-
-The leading-index convention is the one [`structure_constant_residual`](@ref) already uses
-and is the reason it is `C[m,i,j]` rather than the `c[i][j][m]` of the Python prototypes:
-`C[m, :, :]` is then a matrix, and the whole tensor contracts against a coefficient vector
-with a single `lie_poisson_matrix` call.
-
-The mode algebras at the end — Witt, one-sided Witt, torus — return a named tuple
-`(; C, keep, con, labels)` splitting the generators into a coarse block `V₁ = keep` and a
-constrained block `V₂ = con`, which is what the Dirac reduction of `src/dirac.jl` consumes.
-"""
+#
+# Finite-dimensional Lie algebras, as the structure constants of a Lie-Poisson bracket.
+#
+# Throughout this file a three-tensor `C` holds c_ij^m at `C[m, i, j]`, so that
+#
+#     [e_i, e_j] = sum_m c_ij^m e_m ,      J_ij(z) = sum_m c_ij^m z_m .
+#
+# The leading-index convention is the one `structure_constant_residual` already uses, and is
+# the reason it is `C[m,i,j]` rather than the `c[i][j][m]` of the Python prototypes:
+# `C[m, :, :]` is then a matrix, and the whole tensor contracts against a coefficient vector
+# with a single `lie_poisson_matrix` call.
+#
+# The mode algebras at the end -- Witt, one-sided Witt, torus -- return a named tuple
+# `(; C, keep, con, labels)` splitting the generators into a coarse block V1 = keep and a
+# constrained block V2 = con, which is what the Dirac reduction of `src/dirac.jl` consumes.
+#
+# This was a file-level `@doc` block attached to no binding, which Documenter drops without
+# a word: none of it reached the manual. The prose now lives in `docs/src/liepoisson.md`,
+# where it is rendered; the comment stays so that a reader of the source is not sent
+# elsewhere for the index convention.
 
 @doc raw"""
     lie_poisson_matrix(C, z)

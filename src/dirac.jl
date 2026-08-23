@@ -1,33 +1,31 @@
 
-@doc raw"""
-Dirac reduction of a Poisson tensor onto a constraint surface.
-
-Split the coordinates into a coarse block ``V_1`` (`keep`) and a constrained block ``V_2``
-(`con`), and impose ``u_a = 0`` for ``a \in V_2``. When the constraint matrix
-``C = \mathbb{J}_{22}`` is invertible — the constraints are *second class* — the Dirac
-bracket
-
-```math
-\mathbb{J}^*_{ij} = \mathbb{J}_{ij} - \mathbb{J}_{ia} (C^{-1})_{ab} \mathbb{J}_{bj}
-```
-
-has the constraints as Casimirs, and its restriction to ``V_1`` is the Schur complement
-``\hat{\mathbb{J}} = \mathbb{J}_{11} - \mathbb{J}_{12}\mathbb{J}_{22}^{-1}\mathbb{J}_{21}``.
-
-Everything here is written once and generically in the element type. With
-`Rational{BigInt}` the identities come out exactly — `iszero`, not "below `1e-12`" — and
-with `Float64` the same code runs the refinement studies. The Python prototypes carried an
-exact and a floating-point copy of each of these routines; keeping one is what stops the
-two drifting apart, which is a failure mode those prototypes actually recorded.
-
-!!! note "Sign convention of the Jacobiator"
-    [`jacobiator`](@ref) uses the convention of [`jacobi_residual`](@ref),
-    ``\sum_l (\mathbb{J}_{il}\partial_l\mathbb{J}_{jk} + \text{cyclic})``, which for
-    antisymmetric ``\mathbb{J}`` is the negative of the form used in the Python prototypes.
-    Every claim these tools serve is either "this vanishes" or "these two agree", so a
-    global sign is invisible to all of them — but it is worth knowing when comparing
-    intermediate numbers against the Python.
-"""
+#
+# Dirac reduction of a Poisson tensor onto a constraint surface.
+#
+# Split the coordinates into a coarse block V1 (`keep`) and a constrained block V2 (`con`),
+# and impose u_a = 0 for a in V2. When the constraint matrix C = J22 is invertible -- the
+# constraints are SECOND CLASS -- the Dirac bracket
+#
+#     J*_ij = J_ij - J_ia (C^-1)_ab J_bj
+#
+# has the constraints as Casimirs, and its restriction to V1 is the Schur complement
+# Jhat = J11 - J12 J22^-1 J21.
+#
+# Everything here is written once and generically in the element type. With `Rational{BigInt}`
+# the identities come out exactly -- `iszero`, not "below 1e-12" -- and with `Float64` the same
+# code runs the refinement studies. The Python prototypes carried an exact and a
+# floating-point copy of each of these routines; keeping one is what stops the two drifting
+# apart, which is a failure mode those prototypes actually recorded.
+#
+# SIGN CONVENTION OF THE JACOBIATOR. `jacobiator` uses the convention of `jacobi_residual`,
+# sum_l (J_il d_l J_jk + cyclic), which for antisymmetric J is the negative of the form used
+# in the Python prototypes. Every claim these tools serve is either "this vanishes" or "these
+# two agree", so a global sign is invisible to all of them -- but it is worth knowing when
+# comparing intermediate numbers against the Python.
+#
+# This was a file-level `@doc` block attached to no binding, which Documenter drops without a
+# word: none of it reached the manual. The prose now lives in `docs/src/dirac.md`, where it is
+# rendered; the comment stays so that a reader of the source has the definition to hand.
 
 """
     dirac_blocks(J, keep, con) -> (J11, J12, J21, J22)

@@ -66,7 +66,7 @@ pairing of convention with data that is preserved.) What does move is the
 second structure, and not by an overall sign: ``4u\partial_x + 2u_x - \partial_x^3`` becomes
 ``-4u\partial_x - 2u_x - \partial_x^3``, the third derivative keeping its sign while the
 transport part flips. That asymmetry is checked symbolically in
-`verify_kdv_continuous.py` rather than asserted.
+`verify_kdv_continuous.jl` rather than asserted.
 
 Getting the sign wrong gives a profile that steepens and blows up instead of translating.
 

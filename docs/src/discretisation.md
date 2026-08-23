@@ -131,10 +131,17 @@ precisely the nonlocality that carries the Jacobi identity.
 Four of these are worth knowing before writing a test against any of this:
 
 1. **Never use ``\mathfrak{so}(3)`` as a positive control** for a Jacobi or
-   structure-constant routine. Every three-dimensional antisymmetric bracket satisfies the
-   Jacobi identity identically, so it passes even after a generator has been rescaled off
-   the algebra. Use ``\mathfrak{se}(3)``, with a random antisymmetric `c` in dimension five
-   as the negative control.
+   structure-constant routine. It lies in the six-parameter family
+   ``c_{ij}^k = \epsilon_{ijl} n^{lk}`` with ``n`` **symmetric** — Bianchi class A — every
+   member of which satisfies the Jacobi identity, and the perturbations one reaches for stay
+   inside it: rescaling a generator, or rescaling a single structure constant, both keep ``n``
+   symmetric and diagonal. So it goes on passing after it looks broken.
+
+   Note that this is *not* because antisymmetry forces Jacobi in dimension three. A general
+   antisymmetric `c` has nine parameters against this family's six, and 200 of 200 random ones
+   fail. The degeneracy is the family, not the dimension. Use [`se3`](@ref) as the positive
+   control and [`random_antisymmetric_c`](@ref) in dimension five as the negative one; see
+   [Discrete Lie-Poisson brackets](@ref).
 2. **An antisymmetric matrix has even rank.** For an even number of degrees of freedom the
    corank is two, and the extra sawtooth kernel vector is a *spurious* Casimir. Use an odd
    number.
