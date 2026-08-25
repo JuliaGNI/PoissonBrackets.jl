@@ -17,3 +17,12 @@ SymPyPythonCall = "bc8888f7-b21e-4b7c-a06a-5d9c9496438c"
 [sources]
 PoissonBrackets = {path = ".."}
 SimpleSplines = {rev = "main", url = "https://github.com/JuliaDEC/SimpleSplines.jl"}
+# Repeated from the package's own `[sources]` rather than inherited: a relative source path is
+# resolved against the *active* project, so the root's `../SimpleSolvers` becomes
+# `PoissonBrackets/SimpleSolvers` when this environment is the active one, and resolution
+# fails outright. Every nested environment needs its own copy, at its own depth.
+#
+# `path` rather than the root's `{rev = "main", url = ...}`: the url form resolves against a
+# cached clone of the sibling repository, which pinned this environment to 0.12.2 while the
+# working tree was already at the 0.13 the package requires. A local sibling is a path.
+SimpleSolvers = {path = "../../SimpleSolvers"}

@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Fixed — a relative `[sources]` path does not compose
+
+`scripts/Project.toml` now carries its own `SimpleSolvers` entry. A relative source path is
+resolved against the *active* project, so the package's own `../SimpleSolvers` became
+`PoissonBrackets/SimpleSolvers` whenever `scripts/` was the active environment and resolution
+failed outright — which left the scripts manifest stranded without `Sparspak` and every script
+unable to load the package. The entry uses `path` rather than `{rev, url}`: the url form resolves
+against a cached clone, which had pinned that environment to 0.12.2 while the working tree was
+already at the 0.13 the package requires. `docs/Project.toml` will need the same when it next
+resolves.
+
 ### The mixed two-field formulation
 
 `Integrator(...; formulation = :mixed)` solves an implicit-midpoint step as `2N` equations in
