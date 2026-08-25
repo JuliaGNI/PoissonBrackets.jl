@@ -30,6 +30,7 @@ makedocs(;
                         "Burgers" => "burgers.md"],
         "Discrete Lie-Poisson brackets" => ["Structure constants" => "liepoisson.md",
                                             "Dirac reduction" => "dirac.md"],
+        "Four-brackets" => "fourbrackets.md",
         "Integrators" => "integrators.md",
         "Diagnostics" => "diagnostics.md",
         "Backward error analysis" => "bea.md",

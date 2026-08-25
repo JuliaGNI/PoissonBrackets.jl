@@ -194,6 +194,12 @@ asked to close, and cannot.
 
 ## Four-brackets
 
+!!! note "The continuum companion"
+    Everything in this section is finite-dimensional and settled over ``\mathbb{Q}``. The same
+    construction on the periodic two-torus — where the two-brackets reduce to
+    ``\int u [A_u, B_u]`` exactly, and the weight that forces the reduction turns out to be
+    singular — is [Poisson brackets from four-brackets](@ref).
+
 Section 5 of the manuscript asks whether an antisymmetric **four**-bracket
 
 ```math

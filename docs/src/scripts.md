@@ -4,10 +4,11 @@ CurrentModule = PoissonBrackets
 
 # The verification scripts
 
-`scripts/` holds eighteen scripts that machine-verify the claims of the two manuscripts, plus
-two that draw their figures. They are the converted Python prototypes that used to live in the
-manuscripts' `Scripts/` directories; [Verification](@ref) records the agreement claim by claim
-and the errata the comparison turned up.
+`scripts/` holds twenty-two scripts that machine-verify the claims of the three manuscripts,
+plus two that draw their figures. Eighteen of them are the converted Python prototypes that used
+to live in the manuscripts' `Scripts/` directories; [Verification](@ref) records the agreement
+claim by claim and the errata the comparison turned up. The four `verify_fourbracket_*` scripts
+had no Python ancestor — they arrived as standalone Julia and were refactored onto the package.
 
 This page is an **index**: what each script checks, and where the theory behind it is written
 down. Each script's own header carries the authoritative section-by-section detail, which is
@@ -16,7 +17,7 @@ why the entries here are one line long.
 ## Running them
 
 ```sh
-julia --project=scripts scripts/run_all.jl          # all seventeen; nonzero exit on failure
+julia --project=scripts scripts/run_all.jl          # all twenty-one; nonzero exit on failure
 julia --project=scripts scripts/verify_kdv_bea.jl   # or just one
 ```
 
@@ -44,6 +45,20 @@ the Python's ranges so residuals land in the same ballpark — not the same numb
 random streams differ, and no attempt was made to make them agree. Where a claim can be settled
 on deterministic data instead — ``\mathfrak{se}(3)``, ``\mathfrak{so}(N)``, a fixed mesh — that
 is preferred, and those *do* agree exactly.
+
+Two idioms sit alongside `check` for claims about a continuum identity rather than a matrix.
+`check_exact` settles one against an absolute threshold, for an identity that is algebra plus
+integration by parts on band-limited fields and must therefore land at roundoff. `check_refined`
+settles one against the factor by which the residual drops when the resolution is doubled, for an
+identity involving a quotient, a power or a logarithm, where no absolute threshold applies
+because the residual is discretisation error. It prints both residuals and the factor —
+`3.14e-08 -> 1.25e-10   251x` — because with a predicted 256 the factor *is* the evidence;
+a bare PASS would say only that someone chose the threshold well. Neither knows anything about
+grids: which resolutions a refinement uses is the calling manuscript's business.
+
+`scripts/torustools.jl` holds that business for the four-bracket manuscript — the fixed test
+fields, and the two- and four-grid refinement drivers. The fields were carried in three copies
+before it existed, and one of them in a fourth as a local variable.
 
 `scripts/kdvtools.jl` is the shared KdV assembly. The Python carried `nq_for` in four files, a
 `Sys` class in three and the ``\mathbb{K}^2`` blocks in two; [Verification](@ref) records what
@@ -77,6 +92,18 @@ each, here.
 | `verify_gardner_4bracket.jl` | the Gardner-like ansatz is decomposable, hence rank ``\le 2``; Jacobi ``\iff`` Frobenius involutivity | [Four-brackets](@ref) |
 | `verify_dirac_reduction.jl` | the Jacobiator transports tensorially through the Dirac projector, so reduction preserves the Jacobi identity and never creates it; the four realisations; what survives | [Dirac reduction](@ref) |
 | `search_dirac_variants.jl` | an exhaustive search for a variant that *does* create it — B1a–B4. **Exploratory and slow; excluded from `run_all.jl`** | [The search for a repair](@ref) |
+
+## The four-bracket manuscript
+
+The continuum companion to the four-bracket sections above: fields on the periodic two-torus
+rather than structure constants over ``\mathbb{Q}``.
+
+| script | what it establishes | theory |
+|:--|:--|:--|
+| `verify_fourbracket_metriplectic.jl` | Proposition 2.1: the two-bracket induced by a Kulkarni-Nomizu product of positive semi-definite tensors is positive semi-definite, at every rank pair — and that relaxing semi-definiteness breaks it, so the proposition is not vacuous | [Poisson brackets from four-brackets](@ref) |
+| `verify_fourbracket_identities.jl` | every displayed identity of Sections 3 to 6: the Gardner auxiliary identities, both reductions to ``\int u[A_u,B_u]`` and the factor of two between them, the Plücker relation, Theorem 4.5 for five unrelated structure functions, the Casimirs, the weighted brackets, Section 6's vanishing bracket, and Lemma 3.1 — that each family satisfies exactly **one** of the two antisymmetry conditions | [Poisson brackets from four-brackets](@ref) |
+| `verify_fourbracket_convergence.jl` | that the six identities involving non-band-limited fields converge at the design order of the stencil, so their residuals are discretisation error and not a defect of the identity; observed orders 7.2 to 8.1 | [Poisson brackets from four-brackets](@ref) |
+| `verify_fourbracket_log_entropy.jl` | the log-entropy weight: the pole at ``u = e^{-1}`` cancels in the two-bracket and diverges in the four-bracket, no regular weight can replace it, and the Casimir shift moves it out of range | [Poisson brackets from four-brackets](@ref) |
 
 ## The figures
 
@@ -112,7 +139,11 @@ The rule is that a script **diagnoses what the package ships** rather than a cop
 `verify_burgers_discretisation.jl` uses [`LagrangeSpace`](@ref), [`burgers_bracket`](@ref) and
 [`burgers_casimir`](@ref); `verify_kdv_miura.jl` uses [`miura_map`](@ref),
 [`miura_invert`](@ref), [`hill_lambda0`](@ref) and [`kdv_miura_bracket`](@ref);
-`verify_dirac_reduction.jl` uses `src/dirac.jl` and `src/hierarchical.jl` unchanged.
+`verify_dirac_reduction.jl` uses `src/dirac.jl` and `src/hierarchical.jl` unchanged; the four
+`verify_fourbracket_*` scripts use [`TorusGrid`](@ref), every bracket in `src/fourbrackets.jl`
+and [`metriplectic_bracket`](@ref), and define between them one helper apiece — a random
+positive semi-definite matrix, and the entropy ``s_\alpha = u\log u + \alpha u`` of
+Example 5.4, which is one example rather than a family the package should ship.
 
 The exceptions are deliberate and are flagged in the scripts that make them. Sections 1 and 3 of
 `verify_burgers_jacobi_family.jl` write out ``\mathbb{J}_{ij} = g_i\mathbb{K}_{ij}g_j`` by hand

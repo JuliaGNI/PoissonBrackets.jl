@@ -53,6 +53,27 @@ module PoissonBrackets
 
     include("algebras.jl")
 
+    export TorusGrid, spectral_grid, finite_difference_grid, FD8_COEFFICIENTS
+    export ∂x, ∂y, sample, canonical_bracket
+
+    include("torus.jl")
+
+    export gardner_x, gardner_y, symmetric_x, symmetric_y
+    export gardner_2bracket, gardner_2bracket_density,
+           gardner_4bracket, gardner_4bracket_density,
+           symmetric_2bracket, symmetric_2bracket_density,
+           symmetric_4bracket, symmetric_4bracket_density,
+           weighted_2bracket, weighted_2bracket_density,
+           weighted_4bracket, weighted_4bracket_density,
+           lie_poisson_2bracket
+    export antisymmetry_residuals, plucker_residual
+
+    include("fourbrackets.jl")
+
+    export kulkarni_nomizu, metriplectic_bracket
+
+    include("metriplectic.jl")
+
     export dirac_blocks, schur_complement, dirac_tensor, dirac_R, dirac_projector,
            dschur, reduced_bracket, jacobiator, project_jacobiator,
            restrict_c, is_antisymmetric_c, is_ideal, maximal_second_class

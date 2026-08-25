@@ -24,9 +24,13 @@ Pages = ["spaces.jl"]
 
 ## Brackets — `brackets.jl`
 
+`Pages` is matched against the *end* of each source path, so this filter has to be qualified:
+a bare `"brackets.jl"` also matches `fourbrackets.jl`, whose docstrings belong to
+[Poisson brackets from four-brackets](@ref) and would otherwise be emitted twice.
+
 ```@autodocs
 Modules = [PoissonBrackets]
-Pages = ["brackets.jl"]
+Pages = ["src/brackets.jl"]
 ```
 
 ## Hamiltonians — `hamiltonians.jl`

@@ -87,6 +87,26 @@ discretisation that misses it by ``0.73`` at ``h`` misses it by ``0.73`` at ``h/
 ([`se3`](@ref), [`sine_algebra`](@ref), [`witt_truncation`](@ref)), and [Dirac reduction](@ref)
 for what happens when the obvious repair is tried.
 
+## The third question: Poisson brackets out of four-brackets
+
+Both manuscripts above discretise a bracket that is already known. The third builds one, in the
+continuum: feed a fixed entropy ``S`` into two of the four slots of an antisymmetric
+four-bracket and ask what comes out.
+
+On the periodic two-torus, what comes out is the Lie-Poisson bracket of two-dimensional ideal
+flow — **exactly**, not to leading order, at ``S_u = \sqrt{2u}`` for the Gardner family and
+``S_u = \sqrt{u}`` for the symmetric one. The Jacobi identity then holds for *every* structure
+function ``c`` in ``\{A,B\}_c = \int c(u)[A_u,B_u]``, because a pointwise Plücker relation
+collapses a twenty-four-term obstruction to nothing — a fact available only in two dimensions.
+
+The difficulty is the weight. Demanding Lie-Poisson from a *weighted* bracket fixes
+``\omega = 1/(2 s' s'')``, which for the Boltzmann entropy ``u \log u`` has a pole at
+``u = e^{-1}``; it cancels in the two-bracket and genuinely diverges in the four-bracket, no
+regular weight can replace it, and only a Casimir shift moves it out of range. See
+[Poisson brackets from four-brackets](@ref), and
+[The Casimir is an input, not an output](@ref) for the same pole reached from the
+finite-dimensional side.
+
 ## Measuring it
 
 Three unrelated things can go wrong with a structure-preserving discretisation, and
@@ -122,7 +142,7 @@ errors sit orders of magnitude apart, so a shared axis flattens them, and the co
 matters is *within* a family rather than across.
 
 `scripts/kdv_bea_sweep.jl` writes the one figure `kdv.jl` does not, the step-size sweep of the
-[Backward error analysis](@ref); both take `--outdir=PATH`. The seventeen verification scripts
+[Backward error analysis](@ref); both take `--outdir=PATH`. The verification scripts
 alongside them are indexed in [The verification scripts](@ref).
 
 Only the `miura` case has Miura runs, and it is the only one that can: the image of the

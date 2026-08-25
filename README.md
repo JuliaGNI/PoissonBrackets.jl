@@ -10,10 +10,10 @@ Structure-preserving discretisations of the Poisson brackets of one-dimensional 
 partial differential equations, with the discrete brackets, Hamiltonians, Casimirs and
 geometric integrators kept as separate, composable objects.
 
-The package collects the prototype discretisations and numerical experiments behind two
+The package collects the prototype discretisations and numerical experiments behind three
 manuscripts on discrete Poisson brackets, and turns the structural claims they make — exact
 antisymmetry, the Jacobi identity or its failure, conservation of Hamiltonians and Casimirs —
-into a test suite and eighteen verification scripts.
+into a test suite and twenty-two verification scripts.
 
 Three equations are covered:
 
@@ -33,9 +33,20 @@ brackets are special cases of:
 | the broken hierarchical space | the DG realisation in which `[V₁, V₁] ⊆ V₁ ⊕ V₂` holds exactly, assembled over `Rational{BigInt}` with no CAS |
 | exact linear algebra | `rref`, `exact_rank` and `kernel` over ℚ, where the SVD-based `rank` and `nullspace` do not run |
 
+The third manuscript works in the continuum instead, on the periodic two-torus, and asks which
+**four**-brackets reduce to a Poisson bracket when a fixed entropy is fed into two of their four
+slots:
+
+| topic | what is here |
+|:--|:--|
+| the torus | `TorusGrid` with spectral or 8th-order finite-difference differentiation, stored as one matrix, and the canonical bracket `[f,k] = f_x k_y − f_y k_x` |
+| four-brackets | the Gardner and symmetric families with their weighted variants, both reductions to `∫u[A_u,B_u]` — reached exactly, not asymptotically — the Plücker relation that collapses the Jacobi obstruction, and the two antisymmetry conditions that each family satisfies exactly one of |
+| metriplectic | the Kulkarni-Nomizu product and the positivity of the two-bracket it induces |
+
 The [documentation](https://JuliaGNI.github.io/PoissonBrackets.jl/latest/) carries the theory:
-what each diagnostic measures, the backward error analysis of the implicit midpoint rule, and
-the no-go results for aliasing and for antisymmetric three-brackets.
+what each diagnostic measures, the backward error analysis of the implicit midpoint rule, the
+singularity of the log-entropy weight, and the no-go results for aliasing and for antisymmetric
+three-brackets.
 
 ## Development
 

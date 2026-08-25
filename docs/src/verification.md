@@ -18,7 +18,7 @@ checked against.
 ## Method
 
   - Julia: `julia --project=. -e 'using Pkg; Pkg.test()'`, then
-    `julia --project=scripts scripts/run_all.jl`, which runs all seventeen verification
+    `julia --project=scripts scripts/run_all.jl`, which runs all twenty-one verification
     scripts and exits nonzero if any check fails. `search_dirac_variants.jl` is exploratory
     and slow, and is excluded from that driver as it was from `run_all.sh`; run it by hand.
   - Figures: `julia --project=scripts scripts/kdv.jl` and `scripts/kdv_bea_sweep.jl`, both of
@@ -409,6 +409,83 @@ Neither was reachable before, which is why neither had been noticed.
 
     The two ``O(N^3)`` tensor routines densify locally and on purpose — they random-access the
     table rather than contracting it — and are off the time loop by construction.
+
+## The four-bracket manuscript's scripts, folded in
+
+The `verify_fourbracket_*` scripts are the odd ones out in the table above, because there is no
+row for them: they had **no Python ancestor**. `poisson-brackets-from-four-brackets.tex` arrived
+with a Julia suite of its own — a `BracketChecks.jl` carrying spectral and 8th-order
+finite-difference differentiation on the two-torus, a `CheckSet` harness, four drivers and a
+`run_all.jl`, stdlib-only and with no `Project.toml`. So the standard of agreement here is not
+"matches a retired prototype" but "matches itself after being refactored onto the package".
+
+Where each piece went:
+
+| was | is now |
+|:--|:--|
+| `BracketChecks.jl` grids and differentiation | `src/torus.jl` |
+| its `cbracket`, `gardner_x`, `gardner_y`, and the bracket forms the drivers defined inline | `src/fourbrackets.jl` |
+| `03`'s `metric_bracket` | `src/metriplectic.jl`, with `kulkarni_nomizu` alongside it |
+| its `CheckSet` / `check!` / `report` harness | `scripts/check.jl`, as `check_exact` and `check_refined` |
+| the test fields, carried in three copies | `scripts/torustools.jl` |
+| `01`–`04` and `run_all.jl` | the four `verify_fourbracket_*.jl`, and rows in `scripts/run_all.jl` |
+
+Every check was run before and after. **Every finite-difference residual and every observed rate
+reproduced to all printed digits** — `1.52e-08` at `204x`, `6.30e-11` at `251x`, the twenty
+Monte-Carlo minima of Proposition 2.1 from `7.303e-09` up to `1.747e+01`, the whole refinement
+table of the log-entropy section. The spectral residuals moved, in the band `1e-14` to `1e-16`,
+and uniformly *downward*: `4.50e-15` to `3.05e-15` for cyclicity, `2.23e-14` to `9.21e-15` for
+the Gardner total-derivative identity, `1.07e-15` to `5.28e-16` for Section 6. That is the one
+place a difference was expected. The original evaluated each spectral derivative by a naive DFT
+and its inverse per call, at ``O(N^4)``; `src/torus.jl` assembles the differentiation matrix once
+and applies it, so fewer floating-point operations accumulate and roundoff is smaller. Nothing
+about the identities changed.
+
+One residual went the other way, from `0.00e+00` to `2.40e-16` — the alternative pairing of
+Section 6. An exact zero became a roundoff-level nonzero, which is the same claim.
+
+### What the fold-in turned up
+
+Three defects, none affecting a verdict:
+
+  - `04_log_entropy_weight.jl` defined a `weighted_4bracket`, gave it a docstring, and never
+    called it; the refinement loop below re-inlined its body by hand. There is now one
+    definition, in `src/fourbrackets.jl`, and both sites call it.
+  - `02_convergence.jl` defined `resolutions = (32, 64, 128, 256)` and then invoked `main` with
+    a duplicated literal tuple, so editing the constant would have changed nothing.
+  - The test fields `Au`, `Bu`, `Cu`, `chi`, `uu` were copy-pasted across three drivers, and
+    `Cu` a fourth time as a local `c3` inside one study of `02`. `04`'s `ushift` was
+    character-for-character `01`'s `uu` under a second name. All of it is now
+    `scripts/torustools.jl`.
+
+Two pieces of dead weight went with them: `BracketChecks.jl` imported `Random` and
+`LinearAlgebra` and used neither, and `03_metriplectic_positivity.jl` imported `LinearAlgebra`
+without calling anything from it.
+
+### What the fold-in improved
+
+`BracketChecks.Grid` stored its two derivative operators as `Dx::Function` and `Dy::Function`,
+which leaves the field type abstract at every call site, and computed a spectral derivative by
+transforming and inverse-transforming with explicit quadruple loops — ``O(N^4)`` per derivative,
+which is why the original could only afford `spectral(16)`. [`TorusGrid`](@ref) stores one
+differentiation matrix: dense for the spectral scheme, sparse circulant for the stencil. A
+derivative is `D * f` or `f * transpose(D)`, so both schemes share a type instead of forming a
+hierarchy, and the matrix is antisymmetric — exactly for the centred stencil — which is where
+the antisymmetry of [`canonical_bracket`](@ref) now comes from rather than being asserted
+separately.
+
+The structural fact the refactoring exposed, and which the original's copies obscured: a
+two-bracket **is** its four-bracket with the entropy in the second and fourth slots.
+[`gardner_2bracket`](@ref) is defined as `gardner_4bracket(g, a, s, b, s)` and
+[`symmetric_2bracket`](@ref) likewise, rather than written out a second time; and the weighted
+brackets are the symmetric densities times the weight. `test/fourbrackets_tests.jl` asserts both
+identifications with `==`, not `≈`.
+
+One claim was added that the original did not make. `metriplectic_bracket` evaluates equation
+(2.6) in closed form at ``O(n^2)``; `kulkarni_nomizu` now builds the four-index tensor from the
+definition so that the closed form can be checked against what it is supposed to implement.
+Without that, the positivity sweep would be evidence about a rearrangement rather than about the
+bracket. Worst relative difference over dimensions two to five: `1.12e-14`.
 
 ## What cannot be verified
 

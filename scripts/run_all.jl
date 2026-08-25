@@ -6,8 +6,9 @@
 #
 # With no arguments it runs the whole suite, in the order below: the KdV scripts follow the
 # sections of `discrete-kdv-brackets-notes.tex`, the Burgers and Lie-Poisson ones those of
-# `discrete-lie-poisson-brackets.tex` and its Dirac companion.  Naming each script after the
-# bracket it diagnoses is what keeps the two manuscripts apart in one flat directory.
+# `discrete-lie-poisson-brackets.tex` and its Dirac companion, the four-bracket ones those of
+# `poisson-brackets-from-four-brackets.tex`.  Naming each script after the bracket it diagnoses
+# is what keeps the three manuscripts apart in one flat directory.
 #
 # Each script runs in its own process, so a failure -- or an `exit(1)` from `summary` -- is
 # contained and reported rather than taking the runner down with it.  The symbolic scripts
@@ -36,6 +37,11 @@ const SCRIPTS = [
     "verify_liepoisson_4bracket.jl",
     "verify_gardner_4bracket.jl",
     "verify_dirac_reduction.jl",
+    # the continuum four-brackets, and which of them reduce to a Lie-Poisson bracket
+    "verify_fourbracket_metriplectic.jl",
+    "verify_fourbracket_identities.jl",
+    "verify_fourbracket_convergence.jl",
+    "verify_fourbracket_log_entropy.jl",
 ]
 
 const RULE = "="^67

@@ -18,10 +18,22 @@
 #     summary("verify_something.jl")
 #
 # `summary` exits 1 if any check failed, so `run_all.jl` and CI see a nonzero status.
+#
+# `check_exact` and `check_refined` are the same thing for a claim about a continuum identity
+# rather than a matrix: one settles it against an absolute threshold, the other against the
+# factor by which the residual drops when the resolution is doubled.  They came in with the
+# four-bracket manuscript, which has no Python original, so the format note above does not
+# constrain them -- but they print through `check`, so one line per claim still holds.
+#
+# The functions here know nothing about grids.  Which resolutions a refinement uses is the
+# calling manuscript's business and lives in `torustools.jl`.
 
 module Checks
 
-export header, check, summary, fmt, failures, reset_failures!
+using Printf
+
+export header, check, check_exact, check_refined, summary, fmt, relerr, normerr,
+       failures, reset_failures!
 
 const _failures = String[]
 
@@ -56,6 +68,38 @@ function check(label, condition, detail = "")
 end
 
 """
+    check_exact(label, residual; atol = 1e-11)
+
+One claim whose identity is exact algebra plus integration by parts, so that on a spectral
+grid the residual must be at roundoff.  Passes if `abs(residual) <= atol`.
+"""
+check_exact(label, residual; atol = 1e-11) =
+    check(label, abs(residual) <= atol, @sprintf("%.2e   (atol %.0e)", abs(residual), atol))
+
+"""
+    check_refined(label, coarse, fine; atol = 1e-11, minrate = 40)
+
+One claim whose identity involves fields that are not band-limited -- a quotient, a power, a
+logarithm -- so that the residual is discretisation error and no absolute threshold applies.
+Passes if the residual on the finer grid is already at roundoff, or if it fell by at least
+`minrate` when the resolution was doubled.
+
+`minrate` defaults to 40 against the 256 an 8th-order scheme predicts.  The margin absorbs
+the constant in the leading error term, which is not close to one for the quotient
+identities, without admitting anything that converges at 5th order or worse.
+
+The detail records both residuals and the factor between them, because the factor *is* the
+evidence here: a bare PASS would say only that someone chose `minrate` well, whereas 251x
+against a predicted 256 says the identity holds and the scheme is behaving.
+"""
+function check_refined(label, coarse, fine; atol = 1e-11, minrate = 40.0)
+    c, f = abs(coarse), abs(fine)
+    rate = c / max(f, 1e-300)
+    return check(label, f <= atol || rate >= minrate,
+                 @sprintf("%.2e -> %.2e   %.0fx", c, f, rate))
+end
+
+"""
     summary(title)
 
 Print the tally and exit 1 if anything failed.  Call it once, at the end of a script.
@@ -83,6 +127,25 @@ fmt(x::Rational) = isone(denominator(x)) ? string(numerator(x)) :
                    string(numerator(x), "/", denominator(x))
 fmt(x::AbstractFloat) = string(x)
 fmt(x) = string(x)
+
+"""
+    relerr(a, b)
+
+The relative error of the claim `a == b`, measured against the larger of the two.
+"""
+relerr(a, b) = abs(a - b) / max(abs(a), abs(b), 1e-300)
+
+"""
+    normerr(a, b, scale)
+
+The error of `a == b` measured against an externally supplied `scale`.
+
+For some test fields both sides of an identity vanish, and then [`relerr`](@ref) divides one
+small number by another and reports noise.  Pass the integral of the absolute value of the
+integrand as `scale`: it is the size of the terms that were actually formed and cancelled,
+which is the quantity the residual has to be small compared with.
+"""
+normerr(a, b, scale) = abs(a - b) / max(abs(scale), 1e-300)
 
 "The labels of the checks that have failed so far."
 failures() = copy(_failures)

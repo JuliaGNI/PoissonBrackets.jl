@@ -10,6 +10,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Added — the four-bracket manuscript
+
+`poisson-brackets-from-four-brackets.tex` arrived with a standalone Julia verification suite of
+its own: a `BracketChecks.jl` carrying spectral and 8th-order finite-difference differentiation
+on the periodic two-torus, a `CheckSet` harness, and four drivers. It is now part of the package,
+on the same terms as the two manuscripts converted from Python in `f897fb0` — shared machinery in
+`src/`, diagnoses in `scripts/`.
+
+Three new source files, and no new dependencies:
+
+| file | contains |
+|:--|:--|
+| `src/torus.jl` | `TorusGrid`, `spectral_grid`, `finite_difference_grid`, `∂x`, `∂y`, `sample`, `integrate`, `canonical_bracket` |
+| `src/fourbrackets.jl` | the Gardner and symmetric operators, the Gardner/symmetric/weighted two- and four-brackets with their densities, `lie_poisson_2bracket`, `antisymmetry_residuals`, `plucker_residual`, and a `jacobi_residual` method for the continuum obstruction of Theorem 4.5 |
+| `src/metriplectic.jl` | `kulkarni_nomizu` and `metriplectic_bracket`, Section 2 |
+
+`TorusGrid` stores a differentiation **matrix** rather than the original's `Dx::Function` /
+`Dy::Function` closures: a derivative is `D * f` or `f * transpose(D)`, so the two schemes share
+one concrete type, the spectral derivative costs `O(N³)` through BLAS instead of `O(N⁴)` per call,
+and the matrix is antisymmetric — exactly, for the centred stencil — which is where the
+antisymmetry of `canonical_bracket` now comes from.
+
+The refactoring exposed one structural fact the original's copies obscured: a two-bracket **is**
+its four-bracket with the entropy in the second and fourth slots. `gardner_2bracket` is defined
+as `gardner_4bracket(g, a, s, b, s)` and `symmetric_2bracket` likewise, and the weighted brackets
+are the symmetric densities times the weight. The tests assert both identifications with `==`.
+
+Four new scripts — `verify_fourbracket_metriplectic.jl`, `_identities.jl`, `_convergence.jl` and
+`_log_entropy.jl` — plus `scripts/torustools.jl` for the fixed test fields, which the drivers
+carried in three copies. 124 new tests in `test/torus_tests.jl`, `test/fourbrackets_tests.jl` and
+`test/metriplectic_tests.jl`.
+
+Every finite-difference residual and observed rate reproduced the original suite to all printed
+digits. The spectral residuals moved within `1e-14`–`1e-16` and uniformly downward, the matrix
+form accumulating less round-off than a per-call DFT. `docs/src/verification.md` records the
+comparison, three defects the fold-in turned up, and the one claim that was added.
+
+### Changed — `scripts/check.jl` learned the convergence idiom
+
+`check_exact` and `check_refined` join `check`, for claims about a continuum identity rather than
+a matrix: one settles against an absolute threshold, the other against the factor by which the
+residual falls when the resolution is doubled. `check_refined` prints
+`3.14e-08 -> 1.25e-10   251x`, because against a predicted 256 the factor *is* the evidence.
+`relerr` and `normerr` came along with them. The twenty existing scripts are untouched, and the
+new functions know nothing about grids — resolutions are the calling manuscript's business.
+
+`CheckSet`, `check!`, `check_pointwise!` and `report` are gone; the LaTeX labels their table
+carried in a column (`eq:cyclicity`, `thm:jacobi`) are now in the check labels, so a line of
+output still names the equation it settles.
+
 ### Fixed — a relative `[sources]` path does not compose
 
 `scripts/Project.toml` now carries its own `SimpleSolvers` entry. A relative source path is
@@ -216,7 +266,8 @@ already owns the "step size is probably too large" warning.
   | `bea.md` | §6 of the KdV notes: the modified Hamiltonian, `H₂` as the momentum of the projected translation, the closed-form defect, the exact increment lemma, and how to read `sweepplot` |
   | `aliasing.md` | the zero-mode theorem and the cocycle obstruction — why Zeitlin-style aliasing cannot repair the second KdV bracket |
   | `nambu.md` | the Vandermonde lemma, the wedge tensor that repackages nothing, the one genuinely new three-bracket, and the decomposability theorem |
-  | `scripts.md` | an index of all eighteen verification scripts against the claims they check and the pages that carry the theory |
+  | `scripts.md` | an index of all twenty-two verification scripts against the claims they check and the pages that carry the theory |
+  | `fourbrackets.md` | the third manuscript: Kulkarni-Nomizu positivity, the two antisymmetry conditions and why there are two families, the Gardner operators, both reductions to `∫u[A_u,B_u]` and the factor of two between them, the Plücker relation that collapses the Jacobi obstruction, the log-entropy weight's singularity, and Section 6's construction that generates nothing |
 
 - **Three module-overview docstrings were being dropped from the build without a word.** The
   headers of `src/algebras.jl`, `src/dirac.jl` and `src/hierarchical.jl` were `@doc raw"…"`
