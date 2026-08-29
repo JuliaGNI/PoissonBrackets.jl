@@ -12,9 +12,6 @@ SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
 # is released, at which point this whole block can go.
 [sources]
 PoissonBrackets = {path = ".."}
-# See the note in `scripts/Project.toml`: a relative source path resolves against the active
-# project, so the package's own `../SimpleSolvers` cannot be inherited here either.
-SimpleSolvers = {path = "../../SimpleSolvers"}
 SimpleSplines = {rev = "main", url = "https://github.com/JuliaDEC/SimpleSplines.jl"}
 
 [compat]
