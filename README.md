@@ -2,7 +2,7 @@
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaGNI.github.io/PoissonBrackets.jl/stable/)
 [![Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://JuliaGNI.github.io/PoissonBrackets.jl/latest/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 [![Build Status](https://github.com/JuliaGNI/PoissonBrackets.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/JuliaGNI/PoissonBrackets.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/JuliaGNI/PoissonBrackets.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/JuliaGNI/PoissonBrackets.jl)
 
