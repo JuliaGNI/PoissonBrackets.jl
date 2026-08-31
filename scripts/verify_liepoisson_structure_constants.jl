@@ -34,7 +34,8 @@ using LinearAlgebra
 using Printf
 using Random
 
-include(joinpath(@__DIR__, "check.jl")); using .Checks: header, check, summary
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary
 
 # `structure_constant_residual(C; normalised = false)` returns exactly the pair the Python
 # helper did -- the same cyclic sum and the same scale max|c·c| -- once the tensor is stored
@@ -49,7 +50,7 @@ println("   c_ij^m = b_m sum_pq M^-1_ip [phi_p, phi_q](x_m) M^-1_qj ,")
 println("   [phi_p, phi_q] = phi_p phi_q' - phi_q phi_p' ,  b_m = int phi_m .")
 println()
 for p in (1, 2)
-    rows = NTuple{4,Float64}[]
+    rows = NTuple{4, Float64}[]
     for ne in (8, 16, 32, 64)
         s = LagrangeSpace(p, ne)
         N = nbasis(s)
@@ -74,8 +75,8 @@ for p in (1, 2)
     check("P$p: c is anti-symmetric in i,j", maximum(r[3] for r in rows) < 1e-10)
     check("P$p: c violates the structure-constant condition", rows[end][4] > 1e-3)
     check("P$p: the violation does not decrease under refinement",
-          rows[end][4] > 0.5 * rows[1][4],
-          @sprintf("residual %.4f -> %.4f over a 8x refinement", rows[1][4], rows[end][4]))
+        rows[end][4] > 0.5 * rows[1][4],
+        @sprintf("residual %.4f -> %.4f over a 8x refinement", rows[1][4], rows[end][4]))
 end
 
 header("2. The sine bracket closes into su(N), from clock and shift matrices")
@@ -88,15 +89,16 @@ for N in (3, 5)
     check("N = $N: dim = N^2 - 1 = $(N*N-1) = dim su($N)", d == N * N - 1)
     check("N = $N: c is anti-symmetric in i,j", antisym_defect(C) < 1e-10)
     check("N = $N: the sine bracket satisfies the structure-constant condition",
-          res / scale < 1e-10, @sprintf("normalised residual = %.2e", res / scale))
+        res / scale < 1e-10, @sprintf("normalised residual = %.2e", res / scale))
     err = 0.0
     for m in modes, n in modes
+
         s, closed = sine_coefficient(N, m, n)
         s == (0, 0) && continue
         err = max(err, abs(C[pos[s], pos[m], pos[n]] - closed))
     end
     check("N = $N: c_mn^(m+n) = (N/2pi) sin( (2pi/N) m x n )", err < 1e-9,
-          @sprintf("max deviation = %.2e", err))
+        @sprintf("max deviation = %.2e", err))
 end
 
 # convergence of the sine structure constants to the continuum ones:
@@ -108,28 +110,30 @@ for z in (1, 3)
     vals = [(N, (N / 2π) * sin(2π * z / N)) for N in Ns]
     println("     z = $z: " * join([@sprintf("N=%d: %.6f", N, v) for (N, v) in vals], ", "))
     errs = [abs(v - z) for (_, v) in vals]
-    rates = [log(errs[i] / errs[i+1]) / log(Ns[i+1] / Ns[i]) for i in 1:length(Ns)-1]
+    rates = [log(errs[i] / errs[i + 1]) / log(Ns[i + 1] / Ns[i])
+             for i in 1:(length(Ns) - 1)]
     println("              rates: " * join([@sprintf("%.3f", r) for r in rates], ", "))
     check("z = $z: convergence to z at rate N^-2", abs(rates[end] - 2.0) < 0.05,
-          @sprintf("finest rate = %.3f", rates[end]))
+        @sprintf("finest rate = %.3f", rates[end]))
 end
 
 header("3. A plain Fourier truncation does not close")
 
 for N in (5, 7)
-    modes = [(m1, m2) for m1 in 0:(N-1) for m2 in 0:(N-1) if (m1, m2) != (0, 0)]
+    modes = [(m1, m2) for m1 in 0:(N - 1) for m2 in 0:(N - 1) if (m1, m2) != (0, 0)]
     pos = Dict(m => i for (i, m) in enumerate(modes))
     d = length(modes)
     rep(a) = a > N ÷ 2 ? a - N : a                        # symmetric representatives
     C = zeros(d, d, d)
     for m in modes, n in modes
+
         s = (mod(m[1] + n[1], N), mod(m[2] + n[2], N))
         s == (0, 0) && continue
         C[pos[s], pos[m], pos[n]] = rep(m[1]) * rep(n[2]) - rep(m[2]) * rep(n[1])
     end
     res, scale = resid(C)
     check("N = $N: truncated Fourier structure constants do NOT close",
-          res / scale > 1e-3, @sprintf("normalised residual = %.3f", res / scale))
+        res / scale > 1e-3, @sprintf("normalised residual = %.3f", res / scale))
 end
 
 header("4. Zeitlin's bracket as an instance of Theorem 5.7")
@@ -149,11 +153,11 @@ let N = 3
         J4 .+= w[a] .* C[a, :, :] .* w[a]
     end
     check("the four-bracket contraction reproduces sum_m c_ij^m z_m",
-          maximum(abs, J - J4) < 1e-10)
+        maximum(abs, J - J4) < 1e-10)
     worst = first(jacobi_residual(J, lie_poisson_derivative(C); normalised = false))
     nrm = worst / maximum(abs, J)^2
     check("the induced two-bracket satisfies the Jacobi identity", nrm < 1e-10,
-          @sprintf("normalised residual = %.2e", nrm))
+        @sprintf("normalised residual = %.2e", nrm))
 end
 
 summary("verify_liepoisson_structure_constants.jl")

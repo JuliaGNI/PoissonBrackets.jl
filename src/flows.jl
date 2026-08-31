@@ -38,7 +38,7 @@ part vanishes only for resolved fields. A time integrator can inherit identities
 inherit a statement about which modes happen to be resolved.
 """
 struct HamiltonianFlow{T, ST <: DiscreteSpace{T}, BT <: DiscreteBracket{T},
-                       HT <: DiscreteHamiltonian{T}}
+    HT <: DiscreteHamiltonian{T}}
     space::ST
     bracket::BT
     hamiltonian::HT
@@ -51,28 +51,27 @@ space(f::HamiltonianFlow) = f.space
 bracket(f::HamiltonianFlow) = f.bracket
 hamiltonian(f::HamiltonianFlow) = f.hamiltonian
 
-hamiltonian(f::HamiltonianFlow, û::AbstractVector) =
-    hamiltonian(f.hamiltonian, f.space, û)
-gradient(f::HamiltonianFlow, û::AbstractVector) =
-    gradient(f.hamiltonian, f.space, û)
-hessian(f::HamiltonianFlow, û::AbstractVector) =
-    hessian(f.hamiltonian, f.space, û)
+hamiltonian(f::HamiltonianFlow, û::AbstractVector) = hamiltonian(f.hamiltonian, f.space, û)
+gradient(f::HamiltonianFlow, û::AbstractVector) = gradient(f.hamiltonian, f.space, û)
+hessian(f::HamiltonianFlow, û::AbstractVector) = hessian(f.hamiltonian, f.space, û)
 
 """
     vectorfield(flow, û)
 
 The right-hand side ``\\mathbb{P}(\\hat{u}) \\, \\partial H / \\partial \\hat{u}``.
 """
-vectorfield(f::HamiltonianFlow, û::AbstractVector) =
+function vectorfield(f::HamiltonianFlow, û::AbstractVector)
     poisson_apply(f.bracket, û, gradient(f, û))
+end
 
 """
     vectorfield!(du, flow, û)
 
 In-place [`vectorfield`](@ref).
 """
-vectorfield!(du::AbstractVector, f::HamiltonianFlow, û::AbstractVector) =
+function vectorfield!(du::AbstractVector, f::HamiltonianFlow, û::AbstractVector)
     (du .= vectorfield(f, û); du)
+end
 
 @doc raw"""
     jacobian(flow, û)
@@ -109,7 +108,8 @@ Dispatching the second term of the Jacobian on the *bracket* rather than on the 
 the specialisations unambiguous, and lets the brackets that contribute nothing skip
 building an `N × N` matrix of zeros on every Newton iteration.
 """
-add_bracket_term!(J::AbstractMatrix, b::DiscreteBracket, û, g) =
+function add_bracket_term!(J::AbstractMatrix, b::DiscreteBracket, û, g)
     (J .+= bracket_directional(b, û, g); J)
+end
 
 add_bracket_term!(J::AbstractMatrix, ::ConstantBracket, û, g) = J

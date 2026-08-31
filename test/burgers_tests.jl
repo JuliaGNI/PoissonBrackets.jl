@@ -6,7 +6,6 @@ uex(x) = 2 + sin(x) + 0.3cos(2x)
 dudx(x) = cos(x) - 0.6sin(2x)
 
 @testset "$(rpad("Burgers Tests",80))" begin
-
     @testset "$(rpad("K is antisymmetric with the basis integrals in its kernel",76))" begin
         for (p, ne) in ((1, 25), (2, 13), (1, 24), (2, 12))
             s = LagrangeSpace(p, ne)
@@ -46,14 +45,15 @@ dudx(x) = cos(x) - 0.6sin(2x)
             @test maximum(abs, J * gradient(sys.C, s, u)) < 1e-10
             # and it is a consistent quadrature of the continuous 2 ∫ √u
             xs = range(0, 2π, length = 20001)
-            cont = 2 * sum(sqrt.(uex.(xs[1:end-1]))) * (2π / 20000)
+            cont = 2 * sum(sqrt.(uex.(xs[1:(end - 1)]))) * (2π / 20000)
             @test abs(hamiltonian(sys.C, s, u) - cont) / cont < 1e-3
         end
     end
 
     @testset "$(rpad("consistency: J grad H reproduces 3 u u_x at order >= 2",76))" begin
         for p in 1:2
-            errs = Float64[]; hs = Float64[]
+            errs = Float64[]
+            hs = Float64[]
             for ne in (16, 32, 64, 128)
                 s = LagrangeSpace(p, ne)
                 sys = BurgersSystem(s)
@@ -63,7 +63,7 @@ dudx(x) = cos(x) - 0.6sin(2x)
                 push!(errs, maximum(abs, ud .- ex) / maximum(abs, ex))
                 push!(hs, 2π / ne)
             end
-            rate = log(errs[end-1] / errs[end]) / log(hs[end-1] / hs[end])
+            rate = log(errs[end - 1] / errs[end]) / log(hs[end - 1] / hs[end])
             @test rate > 1.8
         end
     end
@@ -92,20 +92,20 @@ dudx(x) = cos(x) - 0.6sin(2x)
         # test can see it -- a constant rescaling of a Poisson field keeps every Casimir,
         # every energy and every convergence rate. Only a comparison against the pushforward
         # of the u-space field catches it, so that is what is checked here.
-        s  = LagrangeSpace(2, 13)
-        u  = uex.(nodes(s))
+        s = LagrangeSpace(2, 13)
+        u = uex.(nodes(s))
         Minv = inverse_mass_matrix(s)
-        S    = derivative_matrix(s)
-        K    = Minv * (S - transpose(S)) * Minv
+        S = derivative_matrix(s)
+        K = Minv * (S - transpose(S)) * Minv
 
-        sys  = BurgersSystem(s)
+        sys = BurgersSystem(s)
         udot = vectorfield(sys.flow, u)                      # u-space, reproduces 3 u u_x
 
-        ū    = PoissonBrackets.to_sqrt_variables(u)
+        ū = PoissonBrackets.to_sqrt_variables(u)
         # d(√u)/dt = u̇ / (2√u), the pushforward of the u-space field
         ūdot = udot ./ (2 .* sqrt.(u))
         # ∂H/∂ū_i = 2 √u_i (M u)_i
-        gū   = 2 .* sqrt.(u) .* (mass_matrix(s) * u)
+        gū = 2 .* sqrt.(u) .* (mass_matrix(s) * u)
 
         @test (K * gū) ./ 4 ≈ ūdot
         @test !isapprox(K * gū, ūdot; rtol = 1e-3)          # the factor is not 1
@@ -125,9 +125,8 @@ dudx(x) = cos(x) - 0.6sin(2x)
         sys = BurgersSystem(s)
         u0 = uex.(nodes(s))
         traj = integrate(sys, Integrator(sys.flow, ImplicitMidpoint(), 1e-3), u0, 200;
-                         stride = 20)
+            stride = 20)
         @test drift(traj, :H) < 1e-10       # H is quadratic and the method symplectic
         @test drift(traj, :C) < 1e-6
     end
-
 end

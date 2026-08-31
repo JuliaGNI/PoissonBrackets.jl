@@ -20,30 +20,30 @@ makedocs(;
         # large; the default warning threshold is aimed at pages that are large by accident
         size_threshold_warn = 400 * 1024,
         size_threshold = 800 * 1024,
-        assets = String[],
+        assets = String[]
     ),
     pages = [
         "Home" => "index.md",
         "Discretisation" => "discretisation.md",
         "Equations" => ["Korteweg-de Vries" => "kdv.md",
-                        "Camassa-Holm" => "camassaholm.md",
-                        "Burgers" => "burgers.md"],
+            "Camassa-Holm" => "camassaholm.md",
+            "Burgers" => "burgers.md"],
         "Discrete Lie-Poisson brackets" => ["Structure constants" => "liepoisson.md",
-                                            "Dirac reduction" => "dirac.md"],
+            "Dirac reduction" => "dirac.md"],
         "Four-brackets" => "fourbrackets.md",
         "Integrators" => "integrators.md",
         "Diagnostics" => "diagnostics.md",
         "Backward error analysis" => "bea.md",
         "No-go results" => ["Aliasing and the zero-mode theorem" => "aliasing.md",
-                            "Antisymmetric three-brackets" => "nambu.md"],
+            "Antisymmetric three-brackets" => "nambu.md"],
         "Verification" => ["What was checked" => "verification.md",
-                           "The scripts" => "scripts.md"],
-        "Library" => "library.md",
-    ],
+            "The scripts" => "scripts.md"],
+        "Library" => "library.md"
+    ]
 )
 
 deploydocs(;
     repo = "github.com/JuliaGNI/PoissonBrackets.jl",
     devurl = "latest",
-    devbranch = "main",
+    devbranch = "main"
 )

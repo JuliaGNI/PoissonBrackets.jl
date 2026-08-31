@@ -62,8 +62,9 @@ ustraddle(g) = sample(g, (x, y) -> 0.40 + 0.15sin(x) + 0.10cos(y))
 
 # The pointwise Lie-Poisson integrand, (1/2)(A_u [B_u,u] - B_u [A_u,u]). Its integral is
 # int u[A_u,B_u] by cyclicity, but it is the integrand that has to stay bounded here.
-lp_density(g, a, b, u) =
+function lp_density(g, a, b, u)
     (a .* canonical_bracket(g, b, u) .- b .* canonical_bracket(g, a, u)) ./ 2
+end
 
 header("1. the pole cancels in the two-bracket but not in the four-bracket")
 
@@ -79,7 +80,7 @@ check_refined("2-bracket integrand is regular across u = 1/e  [rem:pole-cancels]
         u = ustraddle(g)
         a, b = Au(g), Bu(g)
         weighted_2bracket_density(g, a, b, sprime.(u, 0.0), weight.(u, 0.0)) .-
-            lp_density(g, a, b, u)
+        lp_density(g, a, b, u)
     end)...)
 
 check_refined("2-bracket = int u[A_u,B_u] with u straddling 1/e  [rem:pole-cancels]",
@@ -91,7 +92,8 @@ check_refined("2-bracket = int u[A_u,B_u] with u straddling 1/e  [rem:pole-cance
 
 println()
 println("       behaviour under refinement (u ranges over [0.15, 0.65], straddling 1/e):")
-@printf("       %6s %14s %20s %20s\n", "N", "max|omega|", "max|4-bracket|", "max|2-bracket|")
+@printf("       %6s %14s %20s %20s\n", "N", "max|omega|", "max|4-bracket|",
+    "max|2-bracket|")
 let growth = Float64[], bounded = Float64[]
     for N in REFINEMENT_RESOLUTIONS
         g = finite_difference_grid(N)
@@ -106,12 +108,12 @@ let growth = Float64[], bounded = Float64[]
     end
     println()
     check("4-bracket integrand DIVERGES under refinement  [rem:pole-cancels]",
-          growth[end] > 3 * growth[1],
-          @sprintf("grew by %.2fx from N=%d to N=%d", growth[end] / growth[1],
-                   first(REFINEMENT_RESOLUTIONS), last(REFINEMENT_RESOLUTIONS)))
+        growth[end] > 3 * growth[1],
+        @sprintf("grew by %.2fx from N=%d to N=%d", growth[end] / growth[1],
+            first(REFINEMENT_RESOLUTIONS), last(REFINEMENT_RESOLUTIONS)))
     check("2-bracket integrand stays bounded under refinement  [rem:pole-cancels]",
-          maximum(bounded) / minimum(bounded) < 1.2,
-          @sprintf("spread %.3fx over the same range", maximum(bounded) / minimum(bounded)))
+        maximum(bounded) / minimum(bounded) < 1.2,
+        @sprintf("spread %.3fx over the same range", maximum(bounded) / minimum(bounded)))
 end
 
 header("2. no weight regular at the critical level reproduces the Lie-Poisson bracket")
@@ -120,11 +122,11 @@ header("2. no weight regular at the critical level reproduces the Lie-Poisson br
 # c'(u*) = 2 omega(u*) s'(u*) s''(u*) = 0 for every bounded omega, whereas Lie-Poisson needs 1.
 let α = 0.0, worst = 0.0
     regular_weights = [
-        ("omega = 1",       u -> 1.0),
-        ("omega = u",       u -> u),
+        ("omega = 1", u -> 1.0),
+        ("omega = u", u -> u),
         ("omega = u^2 + 3", u -> u^2 + 3),
-        ("omega = exp(u)",  u -> exp(u)),
-        ("omega = 1/(1+u)", u -> 1 / (1 + u)),
+        ("omega = exp(u)", u -> exp(u)),
+        ("omega = 1/(1+u)", u -> 1 / (1 + u))
     ]
     println()
     println("       c'(u*) at the critical level u* = 1/e, for weights regular there:")
@@ -135,7 +137,7 @@ let α = 0.0, worst = 0.0
     end
     println()
     check("c'(u*) = 0 for every regular weight  [prop:no-regular-weight]", worst < 1e-14,
-          @sprintf("largest of the five is %.2e, against the 1 required", worst))
+        @sprintf("largest of the five is %.2e, against the 1 required", worst))
 end
 
 header("3. the Casimir shift moves the critical level out of the range of u")
@@ -147,14 +149,16 @@ println()
 println("       critical level u* = exp(-(1+alpha)) vs. the range of u = [2.1, 4.0]:")
 for α in (0.0, -1.0, -2.0, -3.0, -4.0)
     ustar = exp(-(1 + α))
-    @printf("       alpha = %5.1f   u* = %8.4f   %s\n", α, ustar,
-            2.1 <= ustar <= 4.0 ? "INSIDE the range -> weight singular" :
-                                  "outside the range -> weight smooth")
+    @printf("       alpha = %5.1f   u* = %8.4f   %s\n", α,
+        ustar,
+        2.1 <= ustar <= 4.0 ? "INSIDE the range -> weight singular" :
+        "outside the range -> weight smooth")
 end
 println()
 
 for α in (-3.0, -4.0, -5.0)
-    check_refined("shifted entropy alpha = $(α) still gives LP  [rem:moving-critical-level]",
+    check_refined(
+        "shifted entropy alpha = $(α) still gives LP  [rem:moving-critical-level]",
         refined_residuals(g -> begin
             u = uu(g)
             relerr(entropy_2bracket(g, Au(g), Bu(g), u, α), lie_poisson_2bracket(g, Au(g), Bu(g), u))
@@ -162,7 +166,7 @@ for α in (-3.0, -4.0, -5.0)
     let g = finite_difference_grid(FINE_N)
         wmax = maximum(abs, weight.(uu(g), α))
         check("  and its weight is bounded, max|omega| < 10  [rem:moving-critical-level]",
-              wmax < 10.0, @sprintf("max|omega| = %.2e", wmax))
+            wmax < 10.0, @sprintf("max|omega| = %.2e", wmax))
     end
 end
 

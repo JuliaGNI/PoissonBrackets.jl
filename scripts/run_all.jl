@@ -41,7 +41,7 @@ const SCRIPTS = [
     "verify_fourbracket_metriplectic.jl",
     "verify_fourbracket_identities.jl",
     "verify_fourbracket_convergence.jl",
-    "verify_fourbracket_log_entropy.jl",
+    "verify_fourbracket_log_entropy.jl"
 ]
 
 const RULE = "="^67
@@ -53,7 +53,8 @@ function main(args)
 
     for s in requested
         path = joinpath(@__DIR__, s)
-        isfile(path) || (push!(failed, "$s (missing)"); @error "no such script" script=s; continue)
+        isfile(path) ||
+            (push!(failed, "$s (missing)"); @error "no such script" script=s; continue)
         println(RULE)
         println(s)
         println(RULE)

@@ -8,7 +8,6 @@ using Test
 # structural properties as for KdV, and nothing beyond them.
 
 @testset "$(rpad("Camassa-Holm Tests (prototype)",80))" begin
-
     @testset "$(rpad("Helmholtz map between velocity and momentum",76))" begin
         s = SplineSpace(UniformMesh(32, 2π), 3)
         sys = CamassaHolmSystem(s)
@@ -93,7 +92,7 @@ using Test
         m0 = momentum(sys, project(s, x -> 1 + 0.5sin(x)))
 
         mid = integrate(sys, Integrator(sys.flow2, ImplicitMidpoint(), 1e-3), m0, 300;
-                        stride = 10)
+            stride = 10)
         @test drift(mid, :H1) < 1e-12          # H₁ is quadratic in m̂ and midpoint symplectic
         @test absolute_drift(mid, :C0) < 1e-12
 
@@ -114,5 +113,4 @@ using Test
         @test (u(π + h) - u(π)) / h < 0
         @test (u(π) - u(π - h)) / h > 0
     end
-
 end

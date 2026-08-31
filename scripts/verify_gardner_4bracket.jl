@@ -32,8 +32,10 @@
 using PoissonBrackets
 using Random
 
-include(joinpath(@__DIR__, "check.jl"));     using .Checks: header, check, summary, fmt
-include(joinpath(@__DIR__, "rationals.jl")); using .Rationals
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary, fmt
+include(joinpath(@__DIR__, "rationals.jl"));
+using .Rationals
 
 const N = 5
 const Q = Rational{BigInt}
@@ -50,12 +52,13 @@ function make_s(separable::Bool)
     C = zeros(Q, N, N)
     T = zeros(Q, N, N, N)
     for a in 1:N, b in a:N
+
         (separable && a != b) && continue
         C[a, b] = C[b, a] = rnd(rng)
     end
     for a in 1:N, b in a:N, c in b:N
         v = (separable && !(a == b == c)) ? zero(Q) : rnd(rng)
-        for p in ((a,b,c), (a,c,b), (b,a,c), (b,c,a), (c,a,b), (c,b,a))
+        for p in ((a, b, c), (a, c, b), (b, a, c), (b, c, a), (c, a, b), (c, b, a))
             T[p...] = v
         end
     end
@@ -72,11 +75,11 @@ end
 "J, dJ, m, s, P, Q and [m,s] for the single-term Gardner-like K (s1 = s2 = s)."
 function gardner(mu, sg, C, T, z)
     gs, H = grad_hess(C, T, z)
-    m  = mu * gs
-    s  = sg * gs
+    m = mu * gs
+    s = sg * gs
     dm = mu * H
     ds = sg * H
-    J  = [m[i] * s[j] - s[i] * m[j] for i in 1:N, j in 1:N]
+    J = [m[i] * s[j] - s[i] * m[j] for i in 1:N, j in 1:N]
     dJ = [dm[i, l] * s[j] + m[i] * ds[j, l] - ds[i, l] * m[j] - s[i] * dm[j, l]
           for l in 1:N, i in 1:N, j in 1:N]
     P = sg * H * mu * gs
@@ -86,15 +89,18 @@ function gardner(mu, sg, C, T, z)
 end
 
 "J_ij straight from the tensor definition, as a cross-check on the closed form."
-contract_K(mu, sg, gs) =
-    [sum(gs[a] * (mu[i, a] * sg[j, b] - mu[j, a] * sg[i, b]) * gs[b] for a in 1:N, b in 1:N)
+function contract_K(mu, sg, gs)
+    [sum(gs[a] * (mu[i, a] * sg[j, b] - mu[j, a] * sg[i, b]) * gs[b]
+     for a in 1:N, b in 1:N)
      for i in 1:N, j in 1:N]
+end
 
 "The 3×3 determinant of three vectors restricted to components i, j, k."
-det3(a, b, c, i, j, k) =
+function det3(a, b, c, i, j, k)
     a[i] * (b[j] * c[k] - b[k] * c[j]) -
     a[j] * (b[i] * c[k] - b[k] * c[i]) +
     a[k] * (b[i] * c[j] - b[j] * c[i])
+end
 
 pad(x, n) = rpad(string(x), n)
 
@@ -128,9 +134,9 @@ end
 header("4. The Frobenius criterion decides Jacobi")
 
 for (mu_kind, s_kind, expect) in ((:diagonal, :separable, true),
-                                  (:diagonal, :general,   false),
-                                  (:general,  :separable, false),
-                                  (:general,  :general,   false))
+    (:diagonal, :general, false),
+    (:general, :separable, false),
+    (:general, :general, false))
     mu, sg = rnd_mat(rng, N, mu_kind), rnd_mat(rng, N, mu_kind)
     C, T = make_s(s_kind === :separable)
     z = rnd_vec(rng, N; lo = 1, hi = 9, dmax = 2)
@@ -140,7 +146,7 @@ for (mu_kind, s_kind, expect) in ((:diagonal, :separable, true),
     jac = first(jacobi_residual(J, dJ; normalised = false))
     tag = "mu,sigma $(pad(mu_kind, 9)) / s $(pad(s_kind, 9))"
     check("$tag: Jacobi <=> m ^ s ^ [m,s] = 0", iszero(jac) == involutive,
-          "jacobi=$(iszero(jac) ? "0" : "nonzero"), involutive=$involutive")
+        "jacobi=$(iszero(jac) ? "0" : "nonzero"), involutive=$involutive")
     check("$tag: Poisson = $expect", iszero(jac) == expect)
 end
 
@@ -151,7 +157,8 @@ C, T = make_s(true)          # separable s ⟹ diagonal Hessian ⟹ everything c
 z = rnd_vec(rng, N; lo = 1, hi = 9, dmax = 2)
 _, H = grad_hess(C, T, z)
 SHM = sg * H * mu
-check("sigma H mu is symmetric for diagonal mu, sigma and separable s", SHM == transpose(SHM))
+check("sigma H mu is symmetric for diagonal mu, sigma and separable s", SHM ==
+                                                                        transpose(SHM))
 J, dJ, m, s, P, Qv, _ = gardner(mu, sg, C, T, z)
 check("P = Q in that case", P == Qv)
 check("hence Jacobi holds", iszero(first(jacobi_residual(J, dJ; normalised = false))))
@@ -161,30 +168,31 @@ header("6. Multi-term ansatz: arbitrary antisymmetric K, recovering Section 1")
 const NC = 4
 mus = [rnd_vec(rng, N) for _ in 1:NC]
 sgs = [rnd_vec(rng, N) for _ in 1:NC]
-Kmat = [sum(mus[x][i] * sgs[x][j] - mus[x][j] * sgs[x][i] for x in 1:NC) for i in 1:N, j in 1:N]
+Kmat = [sum(mus[x][i] * sgs[x][j] - mus[x][j] * sgs[x][i] for x in 1:NC)
+        for i in 1:N, j in 1:N]
 K1 = [mus[1][i] * sgs[1][j] - mus[1][j] * sgs[1][i] for i in 1:N, j in 1:N]
 check("K is antisymmetric", Kmat == -transpose(Kmat))
 r1, rn = exact_rank(K1), exact_rank(Kmat)
 check("a single term has rank 2, $NC terms reach higher rank", r1 == 2 && rn > 2,
-      "rank(1 term) = $r1, rank($NC terms) = $rn")
+    "rank(1 term) = $r1, rank($NC terms) = $rn")
 
 # separable s = Σ_i f_i(z_i) with f_i' = p_i z² + q_i z + r_i
 p, q, r = rnd_vec(rng, N), rnd_vec(rng, N), rnd_vec(rng, N)
 z = rnd_vec(rng, N; lo = 1, hi = 9, dmax = 2)
-fp  = [p[i] * z[i]^2 + q[i] * z[i] + r[i] for i in 1:N]
+fp = [p[i] * z[i]^2 + q[i] * z[i] + r[i] for i in 1:N]
 fpp = [2 * p[i] * z[i] + q[i] for i in 1:N]
-J  = [fp[i] * Kmat[i, j] * fp[j] for i in 1:N, j in 1:N]
+J = [fp[i] * Kmat[i, j] * fp[j] for i in 1:N, j in 1:N]
 dJ = [(l == i ? fpp[i] * Kmat[i, j] * fp[j] : zero(Q)) +
       (l == j ? fp[i] * Kmat[i, j] * fpp[j] : zero(Q)) for l in 1:N, i in 1:N, j in 1:N]
 check("multi-term diagonal mu, sigma with separable s is Poisson",
-      iszero(first(jacobi_residual(J, dJ; normalised = false))))
+    iszero(first(jacobi_residual(J, dJ; normalised = false))))
 
 # f_i' = sqrt(z_i): use w_i = sqrt(z_i) as the primitive variable to stay exact
 w = rnd_vec(rng, N; lo = 1, hi = 9, dmax = 2)
-J  = [w[i] * Kmat[i, j] * w[j] for i in 1:N, j in 1:N]
+J = [w[i] * Kmat[i, j] * w[j] for i in 1:N, j in 1:N]
 dJ = [(l == i ? Kmat[i, j] * w[j] // (2 * w[i]) : zero(Q)) +
       (l == j ? w[i] * Kmat[i, j] // (2 * w[j]) : zero(Q)) for l in 1:N, i in 1:N, j in 1:N]
 check("f_i' = sqrt(z_i) recovers the Section 1 bracket, and it is Poisson",
-      iszero(first(jacobi_residual(J, dJ; normalised = false))))
+    iszero(first(jacobi_residual(J, dJ; normalised = false))))
 
 summary("verify_gardner_4bracket.jl")

@@ -71,7 +71,6 @@ By the chain rule through ``\\hat{u} = \\mathbb{A}^{-1}\\mathbb{M}\\hat{m}`` thi
 """
 pullback(H::HelmholtzMap, g::AbstractVector) = H.M * (H.Afact \ g)
 
-
 @doc raw"""
     camassa_holm_bracket_1(space)
 
@@ -129,9 +128,8 @@ one and flat under refinement.
 !!! note "Prototype"
     See [`camassa_holm_bracket_1`](@ref).
 """
-camassa_holm_bracket_2(s::DiscreteSpace) =
-    AffineBracket(s, 1, basis_values(s, 0), spzeros(eltype(s), nbasis(s), nbasis(s)))
-
+camassa_holm_bracket_2(s::DiscreteSpace) = AffineBracket(
+    s, 1, basis_values(s, 0), spzeros(eltype(s), nbasis(s), nbasis(s)))
 
 @doc raw"""
     CamassaHolmHamiltonian1(space)
@@ -153,20 +151,22 @@ struct CamassaHolmHamiltonian1{T} <: DiscreteHamiltonian{T}
     helmholtz::HelmholtzMap{T}
 end
 
-CamassaHolmHamiltonian1(s::DiscreteSpace{T}) where {T} =
+function CamassaHolmHamiltonian1(s::DiscreteSpace{T}) where {T}
     CamassaHolmHamiltonian1{T}(HelmholtzMap(s))
+end
 
 function hamiltonian(H::CamassaHolmHamiltonian1, s::DiscreteSpace, m̂::AbstractVector)
     û = velocity(H.helmholtz, m̂)
     dot(û, H.helmholtz.A, û) / 2
 end
 
-gradient(H::CamassaHolmHamiltonian1, s::DiscreteSpace, m̂::AbstractVector) =
+function gradient(H::CamassaHolmHamiltonian1, s::DiscreteSpace, m̂::AbstractVector)
     H.helmholtz.M * velocity(H.helmholtz, m̂)
+end
 
-hessian(H::CamassaHolmHamiltonian1, s::DiscreteSpace, m̂::AbstractVector) =
+function hessian(H::CamassaHolmHamiltonian1, s::DiscreteSpace, m̂::AbstractVector)
     (B = H.helmholtz.M * (H.helmholtz.Afact \ H.helmholtz.M); (B + B') / 2)
-
+end
 
 @doc raw"""
     CamassaHolmHamiltonian2(space)
@@ -196,40 +196,40 @@ struct CamassaHolmHamiltonian2{T} <: DiscreteHamiltonian{T}
     helmholtz::HelmholtzMap{T}
 end
 
-CamassaHolmHamiltonian2(s::DiscreteSpace{T}) where {T} =
+function CamassaHolmHamiltonian2(s::DiscreteSpace{T}) where {T}
     CamassaHolmHamiltonian2{T}(HelmholtzMap(s))
+end
 
 function hamiltonian(H::CamassaHolmHamiltonian2, s::DiscreteSpace, m̂::AbstractVector)
-    û  = velocity(H.helmholtz, m̂)
-    w  = quadrature_weights(s)
+    û = velocity(H.helmholtz, m̂)
+    w = quadrature_weights(s)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     dot(w, uh .^ 3 .+ uh .* ux .^ 2) / 2
 end
 
 function gradient(H::CamassaHolmHamiltonian2, s::DiscreteSpace, m̂::AbstractVector)
-    û  = velocity(H.helmholtz, m̂)
-    w  = quadrature_weights(s)
+    û = velocity(H.helmholtz, m̂)
+    w = quadrature_weights(s)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     gu = (3 // 2) .* (basis_values(s, 0) * (w .* uh .^ 2)) .+
          (1 // 2) .* (basis_values(s, 0) * (w .* ux .^ 2)) .+
-                     (basis_values(s, 1) * (w .* uh .* ux))
+         (basis_values(s, 1) * (w .* uh .* ux))
     pullback(H.helmholtz, gu)
 end
 
 function hessian(H::CamassaHolmHamiltonian2, s::DiscreteSpace, m̂::AbstractVector)
-    û  = velocity(H.helmholtz, m̂)
+    û = velocity(H.helmholtz, m̂)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     Hu = 3 .* weighted_matrix(s, uh, 0, 0) .+
          weighted_matrix(s, ux, 0, 1) .+ weighted_matrix(s, ux, 1, 0) .+
          weighted_matrix(s, uh, 1, 1)
     Hu = (Hu + Hu') / 2
-    B  = H.helmholtz.M * (H.helmholtz.Afact \ Hu) * (H.helmholtz.Afact \ H.helmholtz.M)
+    B = H.helmholtz.M * (H.helmholtz.Afact \ Hu) * (H.helmholtz.Afact \ H.helmholtz.M)
     (B + B') / 2
 end
-
 
 @doc raw"""
     peakon(c, x₀, L)
@@ -256,7 +256,6 @@ function peakon(c::Real, x₀::Real, L::Real)
         return v
     end
 end
-
 
 @doc raw"""
     CamassaHolmSystem(space)
@@ -318,11 +317,12 @@ function CamassaHolmSystem(s::DiscreteSpace{T}) where {T}
     f1 = HamiltonianFlow(s, b1, h2)      # constant bracket with the cubic Hamiltonian
     f2 = HamiltonianFlow(s, b2, h1)      # momentum-dependent bracket with the quadratic one
     CamassaHolmSystem{T, typeof(s), typeof(b1), typeof(b2), typeof(h1), typeof(h2),
-                      typeof(f1), typeof(f2)}(s, hm, b1, b2, h1, h2, MassCasimir(s), f1, f2)
+        typeof(f1), typeof(f2)}(s, hm, b1, b2, h1, h2, MassCasimir(s), f1, f2)
 end
 
-CamassaHolmSystem(n::Integer, p::Integer; L = 2π, kwargs...) =
+function CamassaHolmSystem(n::Integer, p::Integer; L = 2π, kwargs...)
     CamassaHolmSystem(SplineSpace(n, p; L = L, kwargs...))
+end
 
 """
     velocity(sys::CamassaHolmSystem, m̂)

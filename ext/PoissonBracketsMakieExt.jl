@@ -16,7 +16,7 @@ figure is identified by colour alone.
 """
 function _series_style(label::AbstractString)
     parts = split(label, ',')
-    name  = strip(parts[1])
+    name = strip(parts[1])
     color = get(INTEGRATOR_COLORS, name, "#666666")
     flow = 1
     for p in parts[2:end]
@@ -31,11 +31,11 @@ end
 _clamped(v) = max.(v, ERROR_FLOOR)
 
 function PoissonBrackets.energyplot(trajs, labels;
-                                    name::Symbol = :H1,
-                                    title = "",
-                                    ylabel = nothing,
-                                    size = (620, 380),
-                                    resolution = nothing)
+        name::Symbol = :H1,
+        title = "",
+        ylabel = nothing,
+        size = (620, 380),
+        resolution = nothing)
     isempty(trajs) && throw(ArgumentError("no trajectories to plot"))
     length(trajs) == length(labels) || throw(DimensionMismatch(
         "got $(length(trajs)) trajectories but $(length(labels)) labels"))
@@ -48,18 +48,18 @@ function PoissonBrackets.energyplot(trajs, labels;
 
     fig = Figure(size = resolution === nothing ? size : resolution)
     ax = Axis(fig[1, 1];
-              xlabel = "t",
-              ylabel = ylabel === nothing ?
-                       (relative ? "relative error" : "absolute error") : ylabel,
-              title = isempty(title) ? string(name) : "$(title):  $(name)",
-              yscale = log10)
+        xlabel = "t",
+        ylabel = ylabel === nothing ?
+                 (relative ? "relative error" : "absolute error") : ylabel,
+        title = isempty(title) ? string(name) : "$(title):  $(name)",
+        yscale = log10)
 
     for (traj, label) in zip(trajs, labels)
         st = _series_style(label)
         d = deviation(traj, name)
         y = relative ? d ./ abs(getproperty(traj.reference, name)) : d
         lines!(ax, traj.t, _clamped(y);
-               color = st.color, linestyle = st.linestyle, label = label)
+            color = st.color, linestyle = st.linestyle, label = label)
     end
 
     Legend(fig[2, 1], ax; orientation = :horizontal, nbanks = 2, framevisible = false)
@@ -67,11 +67,11 @@ function PoissonBrackets.energyplot(trajs, labels;
 end
 
 function PoissonBrackets.stateplot(system, states, labels;
-                                   npoints = 601,
-                                   title = "",
-                                   xleft = 0.0,
-                                   size = (900, 400),
-                                   resolution = nothing)
+        npoints = 601,
+        title = "",
+        xleft = 0.0,
+        size = (900, 400),
+        resolution = nothing)
     length(states) == length(labels) || throw(DimensionMismatch(
         "got $(length(states)) states but $(length(labels)) labels"))
 
@@ -92,8 +92,8 @@ function PoissonBrackets.stateplot(system, states, labels;
     for (i, (û, label)) in enumerate(zip(states, labels))
         st = _series_style(label)
         lines!(ax, xs .+ xleft, evaluate(s, û, xs);
-               color = st.color, linestyle = st.linestyle,
-               linewidth = widths[i], label = label)
+            color = st.color, linestyle = st.linestyle,
+            linewidth = widths[i], label = label)
     end
 
     # The legend goes BESIDE the axes, not inside them: the final states of these runs lie
@@ -103,7 +103,6 @@ function PoissonBrackets.stateplot(system, states, labels;
     isempty(title) || Label(fig[0, 1:2], title; fontsize = 16)
     fig
 end
-
 
 """
     energyplot(trajs, labels, names; kwargs...)
@@ -116,9 +115,9 @@ for the manuscript's own figure layout, which puts H1, H2 and C0 side by side, a
 keeps its own y axis.
 """
 function PoissonBrackets.energyplot(trajs, labels, names;
-                                    title = "",
-                                    size = (300 * length(names) + 160, 380),
-                                    resolution = nothing)
+        title = "",
+        size = (300 * length(names) + 160, 380),
+        resolution = nothing)
     isempty(names) && throw(ArgumentError("no invariants to plot"))
     fig = Figure(size = resolution === nothing ? size : resolution)
     local ax
@@ -126,17 +125,17 @@ function PoissonBrackets.energyplot(trajs, labels, names;
         refs = [abs(getproperty(t.reference, nm)) for t in trajs]
         relative = all(r -> r > sqrt(eps(Float64)), refs)
         ax = Axis(fig[1, col];
-                  xlabel = "t",
-                  ylabel = col == 1 ? (relative ? "relative error" : "absolute error") : "",
-                  title = string(nm),
-                  yscale = log10)
+            xlabel = "t",
+            ylabel = col == 1 ? (relative ? "relative error" : "absolute error") : "",
+            title = string(nm),
+            yscale = log10)
         col == 1 || hideydecorations!(ax; grid = false)
         for (traj, label) in zip(trajs, labels)
             st = _series_style(label)
             d = deviation(traj, nm)
             y = relative ? d ./ abs(getproperty(traj.reference, nm)) : d
             lines!(ax, traj.t, _clamped(y); color = st.color, linestyle = st.linestyle,
-                   label = label)
+                label = label)
         end
     end
     isempty(title) || Label(fig[0, :], title; halign = :left, font = :bold)
@@ -157,19 +156,19 @@ function _order(xs, ys)
 end
 
 function PoissonBrackets.sweepplot(dts, series;
-                                   title = "",
-                                   xlabel = "Δt",
-                                   size = (620, 520),
-                                   resolution = nothing)
+        title = "",
+        xlabel = "Δt",
+        size = (620, 520),
+        resolution = nothing)
     isempty(series) && throw(ArgumentError("no series to plot"))
     all(length(last(sv)) == length(dts) for sv in series) || throw(DimensionMismatch(
         "every series must have one value per step size"))
 
     fig = Figure(size = resolution === nothing ? size : resolution)
     ax1 = Axis(fig[1, 1]; ylabel = "departure", xscale = log10, yscale = log10,
-               title = title)
+        title = title)
     ax2 = Axis(fig[2, 1]; ylabel = "excess over the plateau", xlabel = xlabel,
-               xscale = log10, yscale = log10)
+        xscale = log10, yscale = log10)
     linkxaxes!(ax1, ax2)
     hidexdecorations!(ax1; grid = false)
 
@@ -177,22 +176,23 @@ function PoissonBrackets.sweepplot(dts, series;
     for (label, values) in series
         st = _series_style(label)
         v = collect(float.(values))
-        lines!(ax1, dts, _clamped(v); color = st.color, linestyle = st.linestyle, label = label)
+        lines!(ax1, dts, _clamped(v); color = st.color,
+            linestyle = st.linestyle, label = label)
         scatter!(ax1, dts, _clamped(v); color = st.color, markersize = 5)
         # each run's own plateau is its value at the smallest step size
-        excess = _clamped(v[1:end-1] .- v[end])
-        lines!(ax2, dts[1:end-1], excess; color = st.color, linestyle = st.linestyle,
-               label = label)
-        scatter!(ax2, dts[1:end-1], excess; color = st.color, markersize = 5)
+        excess = _clamped(v[1:(end - 1)] .- v[end])
+        lines!(ax2, dts[1:(end - 1)], excess; color = st.color, linestyle = st.linestyle,
+            label = label)
+        scatter!(ax2, dts[1:(end - 1)], excess; color = st.color, markersize = 5)
         if ref === nothing && v[1] - v[end] > 0
             ref = v[1] - v[end]
         end
     end
 
     if ref !== nothing
-        guide = [1.35 * ref * (dt / dts[1])^2 for dt in dts[1:end-1]]
-        lines!(ax2, dts[1:end-1], _clamped(guide); color = GUIDE_GREY,
-               linestyle = (:dot, :dense), linewidth = 1.0, label = "O(Δt²)")
+        guide = [1.35 * ref * (dt / dts[1])^2 for dt in dts[1:(end - 1)]]
+        lines!(ax2, dts[1:(end - 1)], _clamped(guide); color = GUIDE_GREY,
+            linestyle = (:dot, :dense), linewidth = 1.0, label = "O(Δt²)")
     end
 
     Legend(fig[3, 1], ax2; orientation = :horizontal, nbanks = 2, framevisible = false)
@@ -200,12 +200,12 @@ function PoissonBrackets.sweepplot(dts, series;
 end
 
 function PoissonBrackets.convergenceplot(xs, series;
-                                         title = "",
-                                         xlabel = "N",
-                                         ylabel = "error",
-                                         guide = nothing,
-                                         size = (620, 400),
-                                         resolution = nothing)
+        title = "",
+        xlabel = "N",
+        ylabel = "error",
+        guide = nothing,
+        size = (620, 400),
+        resolution = nothing)
     isempty(series) && throw(ArgumentError("no series to plot"))
     all(length(last(sv)) == length(xs) for sv in series) || throw(DimensionMismatch(
         "every series must have one value per resolution"))
@@ -214,7 +214,7 @@ function PoissonBrackets.convergenceplot(xs, series;
     # the resolutions rarely span a decade, so label the actual values rather than
     # letting Makie print 10^1.1, 10^1.2, ...
     ax = Axis(fig[1, 1]; xlabel, ylabel, title, xscale = log10, yscale = log10,
-              xticks = (collect(float.(xs)), string.(xs)))
+        xticks = (collect(float.(xs)), string.(xs)))
 
     for (label, values) in series
         st = _series_style(label)
@@ -233,7 +233,7 @@ function PoissonBrackets.convergenceplot(xs, series;
         y0 = maximum(maximum(float.(last(sv))) for sv in series)
         g = [y0 * (float(x) / float(xs[1]))^(-guide) for x in xs]
         lines!(ax, xs, _clamped(g); color = GUIDE_GREY, linestyle = (:dot, :dense),
-               linewidth = 1.0, label = @sprintf("O(h^%g)", guide))
+            linewidth = 1.0, label = @sprintf("O(h^%g)", guide))
     end
 
     axislegend(ax; position = :lb, framevisible = false)

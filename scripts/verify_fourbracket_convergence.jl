@@ -29,52 +29,59 @@ include(joinpath(@__DIR__, "torustools.jl"))
 using .TorusTools
 
 const STUDIES = [
-    ("Lemma 4.1  G_x(A,S) + (1/2) S_u^2 d_x(A_u/S_u)", g -> begin
-        a, s = Au(g), chi(g)
-        gardner_x(g, a, s) .+ s .^ 2 .* ∂x(g, a ./ s) ./ 2
-     end),
-    ("eq. (4.18)  G_{x,y} - G_{y,x} + [A_u,B_u]", g -> begin
-        a, b = Au(g), Bu(g)
-        ∂y(g, gardner_x(g, a, b)) .- ∂x(g, gardner_y(g, a, b)) .+ canonical_bracket(g, a, b)
-     end),
-    ("Lemma 4.2  int X^2[Xa,Xb] - (1/2) int X^4[a,b]", g -> begin
-        s = chi(g)
-        a, b = Au(g) ./ s, Bu(g) ./ s
-        integrate(g, s .^ 2 .* canonical_bracket(g, s .* a, s .* b)) -
+    ("Lemma 4.1  G_x(A,S) + (1/2) S_u^2 d_x(A_u/S_u)",
+        g -> begin
+            a, s = Au(g), chi(g)
+            gardner_x(g, a, s) .+ s .^ 2 .* ∂x(g, a ./ s) ./ 2
+        end),
+    ("eq. (4.18)  G_{x,y} - G_{y,x} + [A_u,B_u]",
+        g -> begin
+            a, b = Au(g), Bu(g)
+            ∂y(g, gardner_x(g, a, b)) .- ∂x(g, gardner_y(g, a, b)) .+
+            canonical_bracket(g, a, b)
+        end),
+    ("Lemma 4.2  int X^2[Xa,Xb] - (1/2) int X^4[a,b]",
+        g -> begin
+            s = chi(g)
+            a, b = Au(g) ./ s, Bu(g) ./ s
+            integrate(g, s .^ 2 .* canonical_bracket(g, s .* a, s .* b)) -
             integrate(g, s .^ 4 .* canonical_bracket(g, a, b)) / 2
-     end),
-    ("Prop. 4.3  {A,B}_S - (1/4) int S_u^4 [a,b]", g -> begin
-        a, b, s = Au(g), Bu(g), chi(g)
-        gardner_2bracket(g, a, b, s) -
+        end),
+    ("Prop. 4.3  {A,B}_S - (1/4) int S_u^4 [a,b]",
+        g -> begin
+            a, b, s = Au(g), Bu(g), chi(g)
+            gardner_2bracket(g, a, b, s) -
             integrate(g, s .^ 4 .* canonical_bracket(g, a ./ s, b ./ s)) / 4
-     end),
-    ("Thm. 4.5  Jacobi obstruction, c = (1+log u)^2/2", g -> begin
-        u = uu(g)
-        cu, dcu = (1 .+ log.(u)) .^ 2 ./ 2, (1 .+ log.(u)) ./ u
-        first(jacobi_residual(g, Au(g), Bu(g), Cu(g), cu, dcu; normalised = false))
-     end),
-    ("Ex. 5.4  weighted log-entropy bracket - int u[A_u,B_u]", g -> begin
-        a, b, u = Au(g), Bu(g), uu(g)
-        s = 1 .+ log.(u)
-        weighted_2bracket(g, a, b, s, u ./ (2 .* s)) - lie_poisson_2bracket(g, a, b, u)
-     end),
+        end),
+    ("Thm. 4.5  Jacobi obstruction, c = (1+log u)^2/2",
+        g -> begin
+            u = uu(g)
+            cu, dcu = (1 .+ log.(u)) .^ 2 ./ 2, (1 .+ log.(u)) ./ u
+            first(jacobi_residual(g, Au(g), Bu(g), Cu(g), cu, dcu; normalised = false))
+        end),
+    ("Ex. 5.4  weighted log-entropy bracket - int u[A_u,B_u]",
+        g -> begin
+            a, b, u = Au(g), Bu(g), uu(g)
+            s = 1 .+ log.(u)
+            weighted_2bracket(g, a, b, s, u ./ (2 .* s)) - lie_poisson_2bracket(g, a, b, u)
+        end)
 ]
 
 header("FINITE-DIFFERENCE CONVERGENCE (8th-order stencil; expected factor 256 per doubling)")
 
 @printf("%-50s %s\n", "RESIDUAL OF",
-        join([lpad("N=$N", 12) for N in REFINEMENT_RESOLUTIONS], ""))
+    join([lpad("N=$N", 12) for N in REFINEMENT_RESOLUTIONS], ""))
 println("-"^100)
 
 for (label, f) in STUDIES
     errs = refinement_sweep(f)
-    rates = [log2(errs[i] / errs[i+1]) for i in 1:length(errs)-1]
+    rates = [log2(errs[i] / errs[i + 1]) for i in 1:(length(errs) - 1)]
     @printf("%-50s %s\n", first(label, 50),
-            join([@sprintf("%12.2e", e) for e in errs], ""))
+        join([@sprintf("%12.2e", e) for e in errs], ""))
     @printf("%-50s %12s%s\n", "    observed order", "",
-            join([@sprintf("%12.1f", r) for r in rates], ""))
+        join([@sprintf("%12.1f", r) for r in rates], ""))
     check(first(label, 50), errs[end] < 1e-13 || rates[end] > 6.0,
-          @sprintf("order %.1f at the finest doubling", rates[end]))
+        @sprintf("order %.1f at the finest doubling", rates[end]))
 end
 
 summary("verify_fourbracket_convergence.jl")

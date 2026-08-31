@@ -15,14 +15,14 @@ function fd_hessian(H, s, û; h = 1e-6)
     N = length(û)
     J = zeros(N, N)
     for m in 1:N
-        e = zeros(N); e[m] = h
+        e = zeros(N)
+        e[m] = h
         J[:, m] = (gradient(H, s, û .+ e) .- gradient(H, s, û .- e)) ./ 2h
     end
     J
 end
 
 @testset "$(rpad("Discrete Hamiltonian Tests",80))" begin
-
     @testset "$(rpad("quadratic Hamiltonian",76))" begin
         s = SplineSpace(12, 3)
         H = KdVHamiltonian2(s)
@@ -44,12 +44,14 @@ end
             @test gradient(C, s, û) == gradient(C, s, randn(N))     # constant
             @test maximum(abs, hessian(C, s, û)) == 0
             # the mass of the discrete field is the integral of the field
-            @test hamiltonian(C, s, û) ≈ dot(quadrature_weights(s), PoissonBrackets.field(s, û))
+            @test hamiltonian(C, s, û) ≈
+                  dot(quadrature_weights(s), PoissonBrackets.field(s, û))
         end
     end
 
     @testset "$(rpad("KdV gradients against finite differences",76))" begin
         for (nm, mk) in SPLINE_MESHES, p in (2, 3)
+
             s = SplineSpace(mk(12), p)
             û = 0.3 .* randn(12)
             for H in (KdVHamiltonian1(), KdVHamiltonian2(s), PoissonBrackets.MassCasimir(s))
@@ -81,7 +83,8 @@ end
         w = quadrature_weights(s)
         Φ = basis_values(s, 0)
         direct = Φ * (w .* (-3 .* PoissonBrackets.field(s, û) .^ 2
-                            .- PoissonBrackets.field(s, û, 2)))
+                   .-
+                   PoissonBrackets.field(s, û, 2)))
         @test maximum(abs, g .- direct) < 1e-8 * maximum(abs, g)
     end
 
@@ -101,5 +104,4 @@ end
         @test gradient(C, s, u) ≈ basis_integrals(s) ./ sqrt.(u)
         @test gradient(C, s, u) ≈ fd_gradient(C, s, u) atol = 1e-6
     end
-
 end

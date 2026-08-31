@@ -32,8 +32,9 @@
 
 The four blocks of `J` under the splitting into `keep` and `con`.
 """
-dirac_blocks(J::AbstractMatrix, keep, con) =
+function dirac_blocks(J::AbstractMatrix, keep, con)
     (J[keep, keep], J[keep, con], J[con, keep], J[con, con])
+end
 
 @doc raw"""
     schur_complement(J, keep, con)
@@ -108,7 +109,7 @@ terms
 `l` must lie in `keep`. Differentiating along a constrained direction does not commute with
 restricting to the surface, and is not what the Jacobiator of the reduced bracket asks for.
 """
-function dschur(C3::AbstractArray{T,3}, u::AbstractVector, keep, con, l::Int) where {T}
+function dschur(C3::AbstractArray{T, 3}, u::AbstractVector, keep, con, l::Int) where {T}
     l ∈ keep || throw(ArgumentError("differentiate along kept directions only, got l = $l"))
     J = lie_poisson_matrix(C3, u)
     _, J12, J21, J22 = dirac_blocks(J, keep, con)
@@ -127,11 +128,11 @@ The reduced bracket and its derivative tensor on the constraint surface, in the
 `u` must be a point with `u[a] == 0` for `a in con`. Both outputs are indexed by position
 *within* `keep`, so the pair goes straight into [`jacobi_residual`](@ref).
 """
-function reduced_bracket(C3::AbstractArray{T,3}, u::AbstractVector, keep, con) where {T}
+function reduced_bracket(C3::AbstractArray{T, 3}, u::AbstractVector, keep, con) where {T}
     J = lie_poisson_matrix(C3, u)
     Ĵ = schur_complement(J, keep, con)
     nk = length(keep)
-    dĴ = Array{eltype(Ĵ),3}(undef, nk, nk, nk)
+    dĴ = Array{eltype(Ĵ), 3}(undef, nk, nk, nk)
     for (pos, l) in enumerate(keep)
         dĴ[pos, :, :] = dschur(C3, u, keep, con, l)
     end
@@ -150,7 +151,7 @@ structural tests run at there is no reason to store less.
 
 [`jacobi_residual`](@ref) is `maximum(abs, jacobiator(J, dJ))` up to its normalisation.
 """
-function jacobiator(J::AbstractMatrix, dJ::AbstractArray{T,3}) where {T}
+function jacobiator(J::AbstractMatrix, dJ::AbstractArray{T, 3}) where {T}
     N = size(J, 1)
     E = promote_type(eltype(J), T)
     A = zeros(E, N, N, N)
@@ -185,7 +186,7 @@ It transports *tensorially*. So the reduced bracket is Poisson whenever the ambi
 and — the point — Dirac reduction cannot repair a Jacobiator that was already nonzero
 unless the projector happens to annihilate it.
 """
-function project_jacobiator(BJ::AbstractArray{T,3}, P::AbstractMatrix) where {T}
+function project_jacobiator(BJ::AbstractArray{T, 3}, P::AbstractMatrix) where {T}
     nk, N = size(P)
     E = promote_type(T, eltype(P))
     # contract one index at a time: O(nk N^3) rather than the O(nk^3 N^3) of the direct sum
@@ -226,15 +227,17 @@ The comparison against [`reduced_bracket`](@ref): the naive truncation throws th
 constrained directions away, Dirac reduction eliminates them. They agree only when ``V_2``
 is an ideal.
 """
-restrict_c(C3::AbstractArray{T,3}, keep) where {T} = C3[keep, keep, keep]
+restrict_c(C3::AbstractArray{T, 3}, keep) where {T} = C3[keep, keep, keep]
 
 """
     is_antisymmetric_c(C3)
 
 Whether ``c_{ij}^m = -c_{ji}^m`` exactly.
 """
-is_antisymmetric_c(C3::AbstractArray{T,3}) where {T} =
-    all(C3[m, i, j] == -C3[m, j, i] for m in axes(C3, 1), i in axes(C3, 2), j in axes(C3, 3))
+function is_antisymmetric_c(C3::AbstractArray{T, 3}) where {T}
+    all(C3[m, i, j] == -C3[m, j, i]
+    for m in axes(C3, 1), i in axes(C3, 2), j in axes(C3, 3))
+end
 
 """
     is_ideal(C3, con, keep)
@@ -244,8 +247,9 @@ Whether ``V_2`` is an ideal, i.e. ``[\\,\\cdot\\,, V_2]`` has no ``V_1`` compone
 When it is, the naive truncation of [`restrict_c`](@ref) is already a Lie algebra and Dirac
 reduction has nothing to add. The interesting cases are the ones where it is not.
 """
-is_ideal(C3::AbstractArray{T,3}, con, keep) where {T} =
+function is_ideal(C3::AbstractArray{T, 3}, con, keep) where {T}
     all(iszero(C3[m, i, a]) for i in axes(C3, 2), a in con, m in keep)
+end
 
 _nonsingular(A::AbstractMatrix{<:Union{Rational, Integer}}, _) = !iszero(det(A))
 _nonsingular(A::AbstractMatrix, tol) = rank(A; atol = tol) == size(A, 1)
@@ -272,6 +276,7 @@ function maximal_second_class(J::AbstractMatrix{T}, con; tol = nothing) where {T
     while true
         grew = false
         for ia in 1:length(rest), ib in (ia + 1):length(rest)
+
             trial = vcat(sel, rest[ia], rest[ib])
             if _nonsingular(J[trial, trial], atol)
                 sel = trial

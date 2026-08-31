@@ -4,14 +4,13 @@ using SimpleSplines: UniformMesh
 using Test
 
 @testset "$(rpad("Integrator Tests",80))" begin
-
-    s   = SplineSpace(UniformMesh(20, 2π), 3)
+    s = SplineSpace(UniformMesh(20, 2π), 3)
     sys = KdVSystem(s)
-    u0  = project(s, cosine(2π))
+    u0 = project(s, cosine(2π))
 
     @testset "$(rpad("one step of every method runs and stays finite",76))" begin
         for meth in (ExplicitEuler(), RungeKutta4(), ImplicitMidpoint(),
-                     AverageVectorField(), Gonzalez(), GonzalezMass())
+            AverageVectorField(), Gonzalez(), GonzalezMass())
             for flow in (sys.flow1, sys.flow2)
                 integ = Integrator(flow, meth, 1e-4)
                 û = copy(u0)
@@ -60,7 +59,8 @@ using Test
             J = PoissonBrackets.discrete_gradient_jacobian(m, sys.flow1, x, y)
             h = 1e-6
             for k in (1, 7, 15)
-                e = zeros(length(y)); e[k] = h
+                e = zeros(length(y))
+                e[k] = h
                 fd = (PoissonBrackets.discrete_gradient(m, sys.flow1, x, y .+ e) .-
                       PoissonBrackets.discrete_gradient(m, sys.flow1, x, y .- e)) ./ 2h
                 @test J[:, k] ≈ fd atol = 1e-4 * max(1, maximum(abs, fd))
@@ -74,9 +74,12 @@ using Test
             DΦ = tangent_map(integ, copy(u0))
             h = 1e-6
             for k in (1, 9, 17)
-                e = zeros(length(u0)); e[k] = h
-                yp = u0 .+ e; ym = u0 .- e
-                integrate_step!(yp, integ); integrate_step!(ym, integ)
+                e = zeros(length(u0))
+                e[k] = h
+                yp = u0 .+ e
+                ym = u0 .- e
+                integrate_step!(yp, integ)
+                integrate_step!(ym, integ)
                 @test DΦ[:, k] ≈ (yp .- ym) ./ 2h atol = 1e-5
             end
         end
@@ -121,7 +124,7 @@ using Test
         ρ_ref = (12 => 115.0, 16 => 274.0, 24 => 907.0, 32 => 2170.0)
         ρ = Float64[]
         for (N, ref) in ρ_ref
-            sN  = SplineSpace(N, 3; L = 2π)
+            sN = SplineSpace(N, 3; L = 2π)
             sysN = KdVSystem(sN)
             r = 2 * sqrt(2) / PoissonBrackets.stability_limit(sysN.flow1, project(sN, sin))
             push!(ρ, r)
@@ -129,14 +132,14 @@ using Test
         end
         # and it grows as h^-3
         for (i, (a, b)) in enumerate(((12, 16), (16, 24), (24, 32)))
-            @test isapprox(ρ[i+1] / ρ[i], (b / a)^3; rtol = 0.03)
+            @test isapprox(ρ[i + 1] / ρ[i], (b / a)^3; rtol = 0.03)
         end
     end
 
     @testset "$(rpad("projection method holds several invariants at once",76))" begin
         # projecting onto both Hamiltonians alone LOSES the Casimir, because the correction
         # direction is not mass-neutral; a third multiplier along g restores all three
-        both  = ProjectionMethod(ImplicitMidpoint(), (sys.H1, sys.H2))
+        both = ProjectionMethod(ImplicitMidpoint(), (sys.H1, sys.H2))
         three = ProjectionMethod(ImplicitMidpoint(), (sys.H1, sys.H2, sys.C0))
 
         t2 = integrate(sys, Integrator(sys.flow1, both, 2e-3), u0, 100; stride = 10)
@@ -155,18 +158,27 @@ using Test
         # performance substitution, not a different method.
         import SimpleSolvers
         for meth in (ImplicitMidpoint(), AverageVectorField(), Gonzalez())
-            a = copy(u0); b = copy(u0)
+            a = copy(u0)
+            b = copy(u0)
             integrate_step!(a, Integrator(sys.flow1, meth, 1e-3;
-                                          linear_solver_method = LapackLU()))
+                linear_solver_method = LapackLU()))
             integrate_step!(b, Integrator(sys.flow1, meth, 1e-3;
-                                          linear_solver_method = SimpleSolvers.LU()))
+                linear_solver_method = SimpleSolvers.LU()))
             @test a ≈ b atol = 1e-11
         end
         # and over a run
-        ta = integrate(sys, Integrator(sys.flow1, ImplicitMidpoint(), 1e-3;
-                                       linear_solver_method = LapackLU()), u0, 100; stride = 10)
-        tb = integrate(sys, Integrator(sys.flow1, ImplicitMidpoint(), 1e-3;
-                                       linear_solver_method = SimpleSolvers.LU()), u0, 100; stride = 10)
+        ta = integrate(sys,
+            Integrator(sys.flow1, ImplicitMidpoint(), 1e-3;
+                linear_solver_method = LapackLU()),
+            u0,
+            100;
+            stride = 10)
+        tb = integrate(sys,
+            Integrator(sys.flow1, ImplicitMidpoint(), 1e-3;
+                linear_solver_method = SimpleSolvers.LU()),
+            u0,
+            100;
+            stride = 10)
         @test ta.final ≈ tb.final atol = 1e-10
         @test drift(ta, :H1) ≈ drift(tb, :H1) rtol = 1e-6
     end
@@ -177,10 +189,11 @@ using Test
         # so it describes the *same* step: the two must agree to solver tolerance, and the
         # substitution is a performance one exactly as LapackLU-for-LU was.
         for flow in (sys.flow2,)          # AffineBracket only; see `kernel_operator`
-            a = copy(u0); b = copy(u0)
+            a = copy(u0)
+            b = copy(u0)
             integrate_step!(a, Integrator(flow, ImplicitMidpoint(), 1e-3; û₀ = u0))
             integrate_step!(b, Integrator(flow, ImplicitMidpoint(), 1e-3; û₀ = u0,
-                                          formulation = :mixed))
+                formulation = :mixed))
             @test a ≈ b atol = 1e-11
             @test a != u0
         end
@@ -189,9 +202,12 @@ using Test
         # equivalent step that drifted differently would mean the formulations are not
         # actually the same method.
         ta = integrate(sys, Integrator(sys.flow2, ImplicitMidpoint(), 1e-3; û₀ = u0),
-                       u0, 100; stride = 10)
-        tb = integrate(sys, Integrator(sys.flow2, ImplicitMidpoint(), 1e-3; û₀ = u0,
-                                       formulation = :mixed), u0, 100; stride = 10)
+            u0, 100; stride = 10)
+        tb = integrate(sys,
+            Integrator(sys.flow2, ImplicitMidpoint(), 1e-3; û₀ = u0,
+                formulation = :mixed),
+            u0,
+            100; stride = 10)
         @test ta.final ≈ tb.final atol = 1e-10
         # H2 is this flow's Hamiltonian and C0 its Casimir, and both are held to round-off.
         # H1 is *not* conserved on the second bracket -- it drifts at 5.6e-5 over these 100
@@ -208,7 +224,7 @@ using Test
         import SimpleSolvers
         import SparseArrays
         integ = Integrator(sys.flow2, ImplicitMidpoint(), 1e-3; û₀ = u0,
-                           formulation = :mixed)
+            formulation = :mixed)
         N = nbasis(s)
         J = SimpleSolvers.jacobianmatrix(SimpleSolvers.cache(integ.solver))
         @test J isa SparseArrays.SparseMatrixCSC
@@ -227,18 +243,20 @@ using Test
         s2 = SplineSpace(UniformMesh(4 * N, 2π), degree(s))
         sys2 = KdVSystem(s2)
         integ2 = Integrator(sys2.flow2, ImplicitMidpoint(), 1e-3;
-                            û₀ = project(s2, cosine(2π)), formulation = :mixed)
+            û₀ = project(s2, cosine(2π)), formulation = :mixed)
         nz2 = SparseArrays.nnz(SimpleSolvers.jacobianmatrix(SimpleSolvers.cache(integ2.solver)))
         @test nz2 / nz ≈ 4 rtol = 0.05        # O(N), not O(N²) -- which would be 16
         # SparspakLU, not the UmfpackLU SimpleSolvers would pick for a sparse Float64
         # Jacobian: UMFPACK mis-handles this block structure from N = 768 up. See the
         # comment in the Integrator constructor.
-        @test SimpleSolvers.method(SimpleSolvers.linearsolver(integ.solver)) isa SimpleSolvers.SparspakLU
+        @test SimpleSolvers.method(SimpleSolvers.linearsolver(integ.solver)) isa
+              SimpleSolvers.SparspakLU
         # and an explicit method still wins over that choice
         integ_u = Integrator(sys.flow2, ImplicitMidpoint(), 1e-3; û₀ = u0,
-                             formulation = :mixed,
-                             linear_solver_method = SimpleSolvers.UmfpackLU())
-        @test SimpleSolvers.method(SimpleSolvers.linearsolver(integ_u.solver)) isa SimpleSolvers.UmfpackLU
+            formulation = :mixed,
+            linear_solver_method = SimpleSolvers.UmfpackLU())
+        @test SimpleSolvers.method(SimpleSolvers.linearsolver(integ_u.solver)) isa
+              SimpleSolvers.UmfpackLU
     end
 
     @testset "$(rpad("the mixed formulation refuses what it cannot do",76))" begin
@@ -246,14 +264,14 @@ using Test
         # quadrature node and the discrete-gradient methods carry a rank-one term.
         for meth in (AverageVectorField(), Gonzalez(), GonzalezMass())
             @test_throws ArgumentError Integrator(sys.flow2, meth, 1e-3;
-                                                  formulation = :mixed)
+                formulation = :mixed)
         end
         # and only an AffineBracket: the others store the sandwiched Minv*K*Minv, so the
         # weak-form block cannot be recovered
         @test_throws ArgumentError Integrator(sys.flow1, ImplicitMidpoint(), 1e-3;
-                                              formulation = :mixed)
+            formulation = :mixed)
         @test_throws ArgumentError Integrator(sys.flow2, ImplicitMidpoint(), 1e-3;
-                                              formulation = :nonsense)
+            formulation = :nonsense)
     end
 
     @testset "$(rpad("an unconverged step is redone with a line search",76))" begin
@@ -261,9 +279,9 @@ using Test
         # the second flow does, on about 1 % of the steps of the large-amplitude Miura
         # initial condition -- the step is redone from uⁿ with a line search rather than
         # accepted as it stands.
-        sm  = SplineSpace(64, 3; L = 2π)
+        sm = SplineSpace(64, 3; L = 2π)
         sysm = KdVSystem(sm)
-        w0  = miura_map(sm, project(sm, miura_initial_v(2π)))
+        w0 = miura_map(sm, project(sm, miura_initial_v(2π)))
 
         integ = Integrator(sysm.flow2, ImplicitMidpoint(), 1e-3)
         @test integ.fallback !== integ.solver
@@ -278,7 +296,7 @@ using Test
 
         # and the trajectory matches the one a line search would have produced throughout
         back = Integrator(sysm.flow2, ImplicitMidpoint(), 1e-3;
-                          linesearch = SimpleSolvers.Backtracking(Float64))
+            linesearch = SimpleSolvers.Backtracking(Float64))
         wb = copy(w0)
         for _ in 1:400
             integrate_step!(wb, back)
@@ -295,5 +313,4 @@ using Test
         end
         @test integ.solver === solver
     end
-
 end

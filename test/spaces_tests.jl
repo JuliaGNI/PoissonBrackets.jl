@@ -5,11 +5,10 @@ using SparseArrays
 using Test
 
 const SPLINE_MESHES = ((:uniform, n -> UniformMesh(n, 2π)),
-                       (:graded,  n -> GradedMesh(n, 2π)),
-                       (:random,  n -> RandomMesh(n, 2π)))
+    (:graded, n -> GradedMesh(n, 2π)),
+    (:random, n -> RandomMesh(n, 2π)))
 
 @testset "$(rpad("Discrete Space Tests",80))" begin
-
     @testset "$(rpad("spline space accessors",76))" begin
         s = SplineSpace(16, 3)
         @test nbasis(s) == 16
@@ -44,7 +43,7 @@ const SPLINE_MESHES = ((:uniform, n -> UniformMesh(n, 2π)),
         # are nonzero in any quadrature column. Storing that densely is what this asserts
         # against: at p = 2, ne = 192 a dense table is 0.8 % full.
         for (p, ne) in ((1, 25), (2, 13), (3, 16))
-            s  = LagrangeSpace(p, ne)
+            s = LagrangeSpace(p, ne)
             nq = 2p + 4
             for d in 0:1
                 Φ = basis_values(s, d)
@@ -74,11 +73,11 @@ const SPLINE_MESHES = ((:uniform, n -> UniformMesh(n, 2π)),
         # has no method, so every in-place projection onto a Lagrange space was a MethodError.
         # Nothing exercised it until the tabulation was made sparse.
         for (p, ne) in ((1, 25), (2, 13))
-            s  = LagrangeSpace(p, ne)
-            f  = x -> 2.0 + sin(x) + 0.3cos(2x)
-            u  = project(s, f)
+            s = LagrangeSpace(p, ne)
+            f = x -> 2.0 + sin(x) + 0.3cos(2x)
+            u = project(s, f)
             fv = f.(quadrature_nodes(s))
-            û  = similar(u)
+            û = similar(u)
             project!(û, s, fv)
             @test û ≈ u
         end
@@ -86,7 +85,7 @@ const SPLINE_MESHES = ((:uniform, n -> UniformMesh(n, 2π)),
 
     @testset "$(rpad("mass matrix and partition of unity",76))" begin
         for s in (SplineSpace(16, 3), SplineSpace(GradedMesh(16, 2π), 2),
-                  LagrangeSpace(1, 25), LagrangeSpace(2, 13))
+            LagrangeSpace(1, 25), LagrangeSpace(2, 13))
             M = mass_matrix(s)
             N = nbasis(s)
             @test M ≈ M'
@@ -101,7 +100,7 @@ const SPLINE_MESHES = ((:uniform, n -> UniformMesh(n, 2π)),
 
     @testset "$(rpad("S is antisymmetric on every space",76))" begin
         for s in (SplineSpace(16, 3), SplineSpace(RandomMesh(16, 2π), 3),
-                  LagrangeSpace(1, 25), LagrangeSpace(2, 13))
+            LagrangeSpace(1, 25), LagrangeSpace(2, 13))
             S = derivative_matrix(s)
             @test maximum(abs, S + S') < 1e-10
         end
@@ -162,5 +161,4 @@ const SPLINE_MESHES = ((:uniform, n -> UniformMesh(n, 2π)),
         A = [dot(basis_integrals(s) .* E[:, m], ones(nbasis(s))) for m in eachindex(x)]
         @test length(A) == nbasis(s)
     end
-
 end

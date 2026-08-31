@@ -204,7 +204,6 @@ end
 
 isexplicit(m::ProjectionMethod) = isexplicit(m.base)
 
-
 @doc raw"""
     default_f_abstol(T, ndofs, û₀ = nothing)
 
@@ -232,9 +231,12 @@ constant.
 Pass `û₀` to [`Integrator`](@ref) so the amplitude is known; without it the factor is one,
 which is right for a field of order one and too tight for anything much larger.
 """
-default_f_abstol(::Type{T}, ndofs::Integer, û₀ = nothing) where {T} =
-    4 * max(8, ndofs) * eps(T) *
-    (û₀ === nothing ? one(T) : max(one(T), convert(T, maximum(abs, û₀))))
+default_f_abstol(::Type{T}, ndofs::Integer, û₀ = nothing) where {T} = 4 * max(8, ndofs) *
+                                                                      eps(T) *
+                                                                      (û₀ === nothing ?
+                                                                       one(T) :
+                                                                       max(one(T),
+                                                                          convert(T, maximum(abs, û₀))))
 
 @doc raw"""
     Integrator(flow, method, Δt; kwargs...)
@@ -333,14 +335,14 @@ struct Integrator{T, FT <: HamiltonianFlow{T}, MT <: IntegratorMethod, ST, CT, B
 end
 
 function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
-                    refactorize::Integer = 5,
-                    û₀ = nothing,
-                    f_abstol = default_f_abstol(T, nbasis(f.space), û₀),
-                    min_iterations::Integer = 1,
-                    max_iterations::Integer = 40, verbosity::Integer = 0,
-                    linesearch = Static(T), fallback_linesearch = Backtracking(T),
-                    linear_solver_method = missing, formulation::Symbol = :dense,
-                    kwargs...) where {T}
+        refactorize::Integer = 5,
+        û₀ = nothing,
+        f_abstol = default_f_abstol(T, nbasis(f.space), û₀),
+        min_iterations::Integer = 1,
+        max_iterations::Integer = 40, verbosity::Integer = 0,
+        linesearch = Static(T), fallback_linesearch = Backtracking(T),
+        linear_solver_method = missing, formulation::Symbol = :dense,
+        kwargs...) where {T}
     N = nbasis(f.space)
     dt = convert(T, Δt)
     formulation in (:dense, :mixed) || throw(ArgumentError(
@@ -377,45 +379,44 @@ function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
         Jm!(j, z, params) = mixed_jacobian!(j, method, f, params.un, z, dt, σ)
 
         newton_mixed(ls) = NewtonSolver(zeros(T, n), zeros(T, n);
-                                        F = Fm!, (DF!) = Jm!, refactorize = refactorize,
-                                        jacobian_prototype = copy(proto),
-                                        linesearch = ls,
-                                        linear_solver_method = lsm,
-                                        f_abstol = f_abstol,
-                                        min_iterations = min_iterations,
-                                        max_iterations = max_iterations,
-                                        verbosity = verbosity, kwargs...)
-        solver   = newton_mixed(linesearch)
+            F = Fm!, (DF!) = Jm!, refactorize = refactorize,
+            jacobian_prototype = copy(proto),
+            linesearch = ls,
+            linear_solver_method = lsm,
+            f_abstol = f_abstol,
+            min_iterations = min_iterations,
+            max_iterations = max_iterations,
+            verbosity = verbosity, kwargs...)
+        solver = newton_mixed(linesearch)
         fallback = newton_mixed(fallback_linesearch)
-        cache    = [zeros(T, N), zeros(T, n)]
+        cache = [zeros(T, N), zeros(T, n)]
     else
         F!(y, x, params) = residual!(y, method, f, params.un, x, dt)
         J!(j, x, params) = residual_jacobian!(j, method, f, params.un, x, dt)
 
         newton_dense(ls) = NewtonSolver(zeros(T, N), zeros(T, N);
-                                        F = F!, (DF!) = J!, refactorize = refactorize,
-                                        linesearch = ls,
-                                        linear_solver_method = linear_solver_method,
-                                        f_abstol = f_abstol,
-                                        min_iterations = min_iterations,
-                                        max_iterations = max_iterations,
-                                        verbosity = verbosity, kwargs...)
-        solver   = newton_dense(linesearch)
+            F = F!, (DF!) = J!, refactorize = refactorize,
+            linesearch = ls,
+            linear_solver_method = linear_solver_method,
+            f_abstol = f_abstol,
+            min_iterations = min_iterations,
+            max_iterations = max_iterations,
+            verbosity = verbosity, kwargs...)
+        solver = newton_dense(linesearch)
         fallback = newton_dense(fallback_linesearch)
-        cache    = [zeros(T, N)]
+        cache = [zeros(T, N)]
     end
 
-    state    = SolverState(solver)
-    fbstate  = SolverState(fallback)
+    state = SolverState(solver)
+    fbstate = SolverState(fallback)
 
     Integrator{T, typeof(f), typeof(method), typeof(solver), typeof(state),
-               typeof(fallback), typeof(fbstate)}(
+        typeof(fallback), typeof(fbstate)}(
         f, method, dt, solver, state, fallback, fbstate, cache, T[], formulation)
 end
 
 Base.eltype(::Integrator{T}) where {T} = T
 timestep(integ::Integrator) = integ.Δt
-
 
 ## Residuals of the implicit methods
 #
@@ -463,8 +464,8 @@ function residual!(r, m::DiscreteGradient, f::HamiltonianFlow, un, y, Δt)
 end
 
 function residual_jacobian!(j, m::DiscreteGradient, f::HamiltonianFlow, un, y, Δt)
-    ū  = (un .+ y) ./ 2
-    ḡ  = discrete_gradient(m, f, un, y)
+    ū = (un .+ y) ./ 2
+    ḡ = discrete_gradient(m, f, un, y)
     dḡ = discrete_gradient_jacobian(m, f, un, y)
     j .= -Δt .* poisson_matrix(f.bracket, ū) * dḡ
     add_bracket_term!(j, f.bracket, ū, (-Δt / 2) .* ḡ)
@@ -481,7 +482,9 @@ The direction ``c`` of the rank-one correction of the discrete gradient: ``\\Del
 for [`Gonzalez`](@ref), ``\\mathbb{M}\\Delta\\hat{u}`` for [`GonzalezMass`](@ref).
 """
 correction_direction(::Gonzalez, s::DiscreteSpace, Δ::AbstractVector) = Δ
-correction_direction(::GonzalezMass, s::DiscreteSpace, Δ::AbstractVector) = mass_matrix(s) * Δ
+function correction_direction(::GonzalezMass, s::DiscreteSpace, Δ::AbstractVector)
+    mass_matrix(s) * Δ
+end
 
 @doc raw"""
     discrete_gradient(method, flow, x, y)
@@ -493,10 +496,10 @@ correction to be formed — which is not a special case but the limit of the for
 correction being ``O(|\Delta\hat{u}|)``.
 """
 function discrete_gradient(m::DiscreteGradient, f::HamiltonianFlow, x, y)
-    Δ  = y .- x
-    ū  = (x .+ y) ./ 2
-    g  = gradient(f, ū)
-    c  = correction_direction(m, f.space, Δ)
+    Δ = y .- x
+    ū = (x .+ y) ./ 2
+    g = gradient(f, ū)
+    c = correction_direction(m, f.space, Δ)
     nn = dot(Δ, c)
     abs(nn) < eps(eltype(f))^2 && return g
     α = (hamiltonian(f, y) - hamiltonian(f, x) - dot(g, Δ)) / nn
@@ -525,19 +528,18 @@ with ``\partial c/\partial y`` the identity for [`Gonzalez`](@ref) and ``\mathbb
 [`GonzalezMass`](@ref).
 """
 function discrete_gradient_jacobian(m::DiscreteGradient, f::HamiltonianFlow, x, y)
-    Δ  = y .- x
-    ū  = (x .+ y) ./ 2
-    H  = hessian(f, ū)
-    g  = gradient(f, ū)
-    c  = correction_direction(m, f.space, Δ)
+    Δ = y .- x
+    ū = (x .+ y) ./ 2
+    H = hessian(f, ū)
+    g = gradient(f, ū)
+    c = correction_direction(m, f.space, Δ)
     dc = m isa Gonzalez ? I : mass_matrix(f.space)
     nn = dot(Δ, c)
     abs(nn) < eps(eltype(f))^2 && return H ./ 2
-    α  = (hamiltonian(f, y) - hamiltonian(f, x) - dot(g, Δ)) / nn
+    α = (hamiltonian(f, y) - hamiltonian(f, x) - dot(g, Δ)) / nn
     dα = (gradient(f, y) .- (H * Δ) ./ 2 .- g) ./ nn .- (2α / nn) .* c
     H ./ 2 + α * dc + c * dα'
 end
-
 
 ## Stepping
 
@@ -605,10 +607,10 @@ end
 
 converged(s, st) = SimpleSolvers.isconverged(SimpleSolvers.status(s, st))
 
-@noinline _warn_not_converged() = @warn(
-    "the nonlinear solver did not converge in this step, with or without a line " *
-    "search; the step size is probably too large for the stiffness of this " *
-    "discretisation", maxlog = 3)
+@noinline _warn_not_converged() = @warn("the nonlinear solver did not converge in this step, with or without a line " *
+                                        "search; the step size is probably too large for the stiffness of this " *
+                                        "discretisation",
+    maxlog = 3)
 
 """
     _step_mixed!(û, method, integ)
@@ -621,7 +623,7 @@ from whatever the previous step left behind.
 """
 function _step_mixed!(û, ::IntegratorMethod, integ::Integrator)
     un = integ.cache[1]
-    z  = integ.cache[2]
+    z = integ.cache[2]
     un .= û
     params = (un = un,)
 
@@ -655,11 +657,13 @@ function _solve_or_explain!(û, solver, state, params)
     return û
 end
 
-residual!(r, m::ProjectionMethod, f::HamiltonianFlow, un, y, Δt) =
+function residual!(r, m::ProjectionMethod, f::HamiltonianFlow, un, y, Δt)
     residual!(r, m.base, f, un, y, Δt)
+end
 
-residual_jacobian!(j, m::ProjectionMethod, f::HamiltonianFlow, un, y, Δt) =
+function residual_jacobian!(j, m::ProjectionMethod, f::HamiltonianFlow, un, y, Δt)
     residual_jacobian!(j, m.base, f, un, y, Δt)
+end
 
 function _step!(û, method::ProjectionMethod, integ::Integrator)
     s = integ.flow.space
@@ -704,9 +708,12 @@ end
 
 function _tangent_map(::RungeKutta4, integ::Integrator, û)
     f, Δt = integ.flow, integ.Δt
-    k1 = vectorfield(f, û);              J1 = jacobian(f, û)
-    k2 = vectorfield(f, û .+ (Δt/2).*k1); J2 = jacobian(f, û .+ (Δt/2) .* k1)
-    k3 = vectorfield(f, û .+ (Δt/2).*k2); J3 = jacobian(f, û .+ (Δt/2) .* k2)
+    k1 = vectorfield(f, û)
+    J1 = jacobian(f, û)
+    k2 = vectorfield(f, û .+ (Δt/2) .* k1)
+    J2 = jacobian(f, û .+ (Δt/2) .* k1)
+    k3 = vectorfield(f, û .+ (Δt/2) .* k2)
+    J3 = jacobian(f, û .+ (Δt/2) .* k2)
     J4 = jacobian(f, û .+ Δt .* k3)
     D1 = J1
     D2 = J2 * (I + (Δt/2) .* D1)
@@ -716,9 +723,9 @@ function _tangent_map(::RungeKutta4, integ::Integrator, û)
 end
 
 function _tangent_map(method::IntegratorMethod, integ::Integrator, û)
-    N  = length(û)
+    N = length(û)
     Δt = integ.Δt
-    y  = copy(û)
+    y = copy(û)
     integrate_step!(y, integ)
 
     # ∂r/∂y from the method's own Jacobian; ∂r/∂uⁿ by the same formulae with the roles of
@@ -756,24 +763,24 @@ end
 function residual_jacobian_initial(m::DiscreteGradient, f::HamiltonianFlow, un, y, Δt)
     # the discrete gradient is symmetric under x ↔ y up to the sign of Δ, so its derivative
     # in the first argument is obtained from the same expression with the roles exchanged
-    ū  = (un .+ y) ./ 2
-    ḡ  = discrete_gradient(m, f, un, y)
+    ū = (un .+ y) ./ 2
+    ḡ = discrete_gradient(m, f, un, y)
     dḡ = discrete_gradient_jacobian_initial(m, f, un, y)
-    J  = -Δt .* poisson_matrix(f.bracket, ū) * dḡ
+    J = -Δt .* poisson_matrix(f.bracket, ū) * dḡ
     add_bracket_term!(J, f.bracket, ū, (-Δt / 2) .* ḡ)
     J - I
 end
 
 function discrete_gradient_jacobian_initial(m::DiscreteGradient, f::HamiltonianFlow, x, y)
-    Δ  = y .- x
-    ū  = (x .+ y) ./ 2
-    H  = hessian(f, ū)
-    g  = gradient(f, ū)
-    c  = correction_direction(m, f.space, Δ)
+    Δ = y .- x
+    ū = (x .+ y) ./ 2
+    H = hessian(f, ū)
+    g = gradient(f, ū)
+    c = correction_direction(m, f.space, Δ)
     dc = m isa Gonzalez ? I : mass_matrix(f.space)
     nn = dot(Δ, c)
     abs(nn) < eps(eltype(f))^2 && return H ./ 2
-    α  = (hamiltonian(f, y) - hamiltonian(f, x) - dot(g, Δ)) / nn
+    α = (hamiltonian(f, y) - hamiltonian(f, x) - dot(g, Δ)) / nn
     dα = (-gradient(f, x) .- (H * Δ) ./ 2 .+ g) ./ nn .+ (2α / nn) .* c
     H ./ 2 - α * dc + c * dα'
 end
@@ -793,7 +800,7 @@ For the implicit midpoint rule on a constant bracket this is at round-off; for t
 vector field method it is around ``10^{-5}``, and for explicit Euler it is of order one.
 """
 function poisson_defect(integ::Integrator, û::AbstractVector)
-    P  = poisson_matrix(integ.flow.bracket, û)
+    P = poisson_matrix(integ.flow.bracket, û)
     DΦ = tangent_map(integ, û)
     maximum(abs, DΦ * P * DΦ' - P) / maximum(abs, P)
 end
@@ -808,8 +815,8 @@ Both fields here have essentially imaginary spectra, so the imaginary-axis limit
 relevant one. ``\rho`` grows like ``h^{-3}`` through the third derivative, which is why an
 explicit method needs so many more steps than an implicit one at the same resolution.
 """
-stability_limit(f::HamiltonianFlow, û::AbstractVector) =
-    2 * sqrt(2) / maximum(abs, eigvals(jacobian(f, û)))
+stability_limit(f::HamiltonianFlow, û::AbstractVector) = 2 * sqrt(2) /
+                                                         maximum(abs, eigvals(jacobian(f, û)))
 
 @doc raw"""
     project_invariants!(û, space, invariants, targets; maxiter = 20, tol = 1e-14)
@@ -827,7 +834,7 @@ Pass the mass among the invariants if it is to be kept: the correction direction
 Hamiltonians is not mass-neutral, and projecting onto them alone loses the Casimir.
 """
 function project_invariants!(û::AbstractVector, s::DiscreteSpace, invariants, targets;
-                             maxiter::Integer = 20, tol = 1e-14)
+        maxiter::Integer = 20, tol = 1e-14)
     k = length(invariants)
     G = hcat((gradient(I, s, û) for I in invariants)...)
     λ = zeros(eltype(û), k)

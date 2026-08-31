@@ -79,12 +79,13 @@ Derivatives are then exact to roundoff for any field band-limited strictly below
 three.
 """
 function spectral_grid(N::Int)
-    N >= 2 || throw(ArgumentError("a spectral grid needs at least two points, got N = $(N)"))
+    N >= 2 ||
+        throw(ArgumentError("a spectral grid needs at least two points, got N = $(N)"))
     h = 2π / N
     x = [(i - 1) * h for i in 1:N]
-    k = [p <= N ÷ 2 ? p : p - N for p in 0:N-1]
-    W = [cis(-p * x[i]) / N for p in 0:N-1, i in 1:N]
-    V = [cis(p * x[i]) for i in 1:N, p in 0:N-1]
+    k = [p <= N ÷ 2 ? p : p - N for p in 0:(N - 1)]
+    W = [cis(-p * x[i]) / N for p in 0:(N - 1), i in 1:N]
+    V = [cis(p * x[i]) for i in 1:N, p in 0:(N - 1)]
     D = real.(V * Diagonal(im .* k) * W)
     return TorusGrid(N, h, x, D, :spectral)
 end
@@ -122,6 +123,7 @@ function finite_difference_grid(N::Int)
     cols = Int[]
     vals = Float64[]
     for i in 1:N, k in 1:nc
+
         c = FD8_COEFFICIENTS[k] / h
         push!(rows, i, i)
         push!(cols, wrap(i + k), wrap(i - k))
@@ -180,5 +182,4 @@ conjugate, and it is the object every bracket in [`gardner_2bracket`](@ref) and 
 reduces to. It is antisymmetric pointwise, and by periodicity ``\int f[k, l]`` is fully
 cyclic in its three arguments.
 """
-canonical_bracket(g::TorusGrid, f, k) =
-    ∂x(g, f) .* ∂y(g, k) .- ∂y(g, f) .* ∂x(g, k)
+canonical_bracket(g::TorusGrid, f, k) = ∂x(g, f) .* ∂y(g, k) .- ∂y(g, f) .* ∂x(g, k)

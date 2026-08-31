@@ -25,7 +25,8 @@ using LinearAlgebra
 using Printf
 using Random
 
-include(joinpath(@__DIR__, "check.jl")); using .Checks: header, check, summary
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary
 
 const TOL = 1e-9
 
@@ -72,20 +73,23 @@ header("0. validation of the structure-constant routine")
 # against this family's six, and random ones fail. The Python prototype stated the broader
 # claim; it is an erratum, and the narrower reason is the true one. Use se(3).
 let Cso3 = Float64.(so3())
-    Cbad = copy(Cso3); Cbad[1, :, :] *= 1.5     # rescale one generator, keeping C^m antisym
+    Cbad = copy(Cso3)
+    Cbad[1, :, :] *= 1.5     # rescale one generator, keeping C^m antisym
     r = nrm(structure_constant_residual(Cbad; normalised = false))
-    check("so(3) is degenerate: it still passes after a generator is rescaled off " *
-          "the algebra, so it is NOT a usable positive control", r < TOL,
-          @sprintf("residual %.2e", r))
+    check(
+        "so(3) is degenerate: it still passes after a generator is rescaled off " *
+        "the algebra, so it is NOT a usable positive control",
+        r < TOL,
+        @sprintf("residual %.2e", r))
 end
 let r = nrm(structure_constant_residual(Float64.(se3()); normalised = false))
     check("se(3), 6-dimensional, is a Lie algebra: residual 0", r < TOL,
-          @sprintf("residual %.2e", r))
+        @sprintf("residual %.2e", r))
 end
 let r = nrm(structure_constant_residual(
-             Float64.(random_antisymmetric_c(MersenneTwister(5), 5)); normalised = false))
+        Float64.(random_antisymmetric_c(MersenneTwister(5), 5)); normalised = false))
     check("random antisymmetric structure constants in dim 5 are NOT: residual != 0",
-          r > 0.1, @sprintf("residual %.2f", r))
+        r > 0.1, @sprintf("residual %.2f", r))
 end
 
 const N = 24
@@ -95,26 +99,28 @@ header("1. the integration-by-parts family")
 let sc = max(maximum(abs, T1), maximum(abs, T3))
     e = maximum(abs, T1 .+ T2 .+ T3) / sc
     check("there is exactly one relation, T1 + T2 + T3 = 0", e < TOL,
-          @sprintf("rel. error %.2e", e))
+        @sprintf("rel. error %.2e", e))
     check("the transposition k <-> l exchanges T1 and T2",
-          maximum(abs, T1 .- permutedims(T2, (1, 3, 2))) / sc < TOL)
+        maximum(abs, T1 .- permutedims(T2, (1, 3, 2))) / sc < TOL)
     check("...and fixes T3", maximum(abs, T3 .- permutedims(T3, (1, 3, 2))) / sc < TOL)
 end
 
 header("2. antisymmetry and consistency leave a single member")
 for (al, be, want) in ((4, 2, true), (2, 1, true), (6, 3, true),
-                       (4, 1, false), (4, 3, false), (1, 2, false))
+    (4, 1, false), (4, 3, false), (1, 2, false))
     e = rel_antisym3(C_of(Minv, T1, T3, al, be))
     ok = e < TOL
     check("alpha=$al, beta=$be: antisymmetric = $ok (expected $want, i.e. alpha = 2 beta)",
-          ok == want, @sprintf("rel. error %.2e", e))
+        ok == want, @sprintf("rel. error %.2e", e))
 end
 
 # consistency: applying the assembled operator to the coefficients of a smooth w must
 # reproduce int phi_k ( 4 u w' + 2 u' w ).
 let X = quadrature_nodes(s), W = quadrature_weights(s), Φ0 = basis_values(s, 0)
-    uf(x) = sin(x); duf(x) = cos(x)
-    wf(x) = cos(2x) + 0.3; dwf(x) = -2 * sin(2x)
+    uf(x) = sin(x)
+    duf(x) = cos(x)
+    wf(x) = cos(2x) + 0.3
+    dwf(x) = -2 * sin(2x)
     ud = project(s, uf)
     wd = project(s, wf)
     exact = Φ0 * (W .* (4 .* uf.(X) .* dwf.(X) .+ 2 .* duf.(X) .* wf.(X)))
@@ -129,7 +135,7 @@ let X = quadrature_nodes(s), W = quadrature_weights(s), Φ0 = basis_values(s, 0)
         (best === nothing || err < best[2]) && (best = ((al, be), err))
     end
     check("only (alpha,beta) = (4,2) is consistent", best[1] == (4, 2),
-          @sprintf("best was (%d, %d) at %.2e", best[1][1], best[1][2], best[2]))
+        @sprintf("best was (%d, %d) at %.2e", best[1][1], best[1][2], best[2]))
 end
 
 header("3. the two obstructions, and their behaviour under refinement")
@@ -142,13 +148,13 @@ let b = kdv_bracket_2(s)
     A2 = zeros(size(C))
     for i in axes(C, 2), j in axes(C, 2), k in axes(C, 2)
         A2[i, j, k] = sum(dofs[n] * C[n, i, m] * C[m, j, k]
-                          for n in axes(C, 1), m in axes(C, 1))
+        for n in axes(C, 1), m in axes(C, 1))
     end
     J2 = A2 + permutedims(A2, (2, 3, 1)) + permutedims(A2, (3, 1, 2))
     Jd = jacobiator(Pm, C)
     e = maximum(abs, Jd - (J1 + J2)) / maximum(abs, Jd)
     check("the degree-1 + degree-2 split reproduces the full Jacobiator", e < 1e-10,
-          @sprintf("rel. error %.2e", e))
+        @sprintf("rel. error %.2e", e))
 end
 
 println("\n  normalised residuals (they do not decrease):")
@@ -158,13 +164,14 @@ let d2s = Float64[], d1s = Float64[]
         Cn = C_of(Mi, t1, t3, 4, 2)
         r2 = nrm(structure_constant_residual(Cn; normalised = false))
         r1 = nrm(jacobi_residual(Mi * k0 * Mi, Cn; normalised = false))
-        push!(d2s, r2); push!(d1s, r1)
+        push!(d2s, r2)
+        push!(d1s, r1)
         @printf("      N = %3d   Lie algebra %.4f   cocycle %.4f\n", n, r2, r1)
     end
     check("the Lie-algebra residual is of order one and flat under refinement",
-          minimum(d2s) > 0.4 && (maximum(d2s) - minimum(d2s)) < 0.01, sci(d2s))
+        minimum(d2s) > 0.4 && (maximum(d2s) - minimum(d2s)) < 0.01, sci(d2s))
     check("the cocycle residual is of order one and flat under refinement",
-          minimum(d1s) > 0.4 && (maximum(d1s) - minimum(d1s)) < 0.06, sci(d1s))
+        minimum(d1s) > 0.4 && (maximum(d1s) - minimum(d1s)) < 0.06, sci(d1s))
 end
 
 header("4. scanning the whole family never restores the Lie-algebra condition")
@@ -185,11 +192,11 @@ let ratios = range(-1.0, 1.5; length = 51)
     for t in (-0.5, 0.0, 0.5, 1.0, 1.5)
         i = argmin(abs.(ratios .- t))
         @printf("      beta/alpha = % .3f   residual %.4f%s\n", ratios[i], vals[i],
-                abs(ratios[i] - 0.5) < 1e-9 ? "   <- the notes' choice" : "")
+            abs(ratios[i] - 0.5) < 1e-9 ? "   <- the notes' choice" : "")
     end
     check("the residual never approaches zero anywhere in the family", minimum(vals) > 0.3,
-          @sprintf("minimum %.4f at beta/alpha = %.3f",
-                   minimum(vals), ratios[argmin(vals)]))
+        @sprintf("minimum %.4f at beta/alpha = %.3f",
+            minimum(vals), ratios[argmin(vals)]))
 end
 
 summary("verify_kdv_jacobi_family.jl")

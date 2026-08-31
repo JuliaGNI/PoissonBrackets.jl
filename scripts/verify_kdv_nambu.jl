@@ -29,13 +29,15 @@ using Printf
 using Random
 using SymPyPythonCall
 
-include(joinpath(@__DIR__, "check.jl"));    using .Checks: header, check, summary
-include(joinpath(@__DIR__, "kdvtools.jl")); using .KdVTools
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary
+include(joinpath(@__DIR__, "kdvtools.jl"));
+using .KdVTools
 
 const TOL = 1e-9
 # the six permutations of three slots, with their signs
-const SIG = ((1,2,3) => 1, (2,3,1) => 1, (3,1,2) => 1,
-             (3,2,1) => -1, (2,1,3) => -1, (1,3,2) => -1)
+const SIG = ((1, 2, 3) => 1, (2, 3, 1) => 1, (3, 1, 2) => 1,
+    (3, 2, 1) => -1, (2, 1, 3) => -1, (1, 3, 2) => -1)
 
 # --------------------------------------------------------------------------
 # spectral machinery: brackets as symbols tau(k,l,m) on the plane k+l+m = 0
@@ -55,6 +57,7 @@ function spectral(tau, A, B, C; u = nothing)
     s = 0.0im
     if u === nothing
         for (k, x) in A, (l, y) in B
+
             m = -(k + l)
             haskey(C, m) && (s += tau(k, l, m) * x * y * C[m])
         end
@@ -76,7 +79,7 @@ end
 
 "Fourier coefficients of a random real trigonometric polynomial."
 function rand_real(rng, K; zero = true)
-    d = zero ? Dict(0 => complex(randn(rng), 0.0)) : Dict{Int,ComplexF64}()
+    d = zero ? Dict(0 => complex(randn(rng), 0.0)) : Dict{Int, ComplexF64}()
     for k in 1:K
         c = complex(randn(rng), randn(rng))
         d[k], d[-k] = c, conj(c)
@@ -85,19 +88,22 @@ function rand_real(rng, K; zero = true)
 end
 
 function times(p, q)
-    r = Dict{Int,ComplexF64}()
+    r = Dict{Int, ComplexF64}()
     for (k, x) in p, (l, y) in q
+
         r[k + l] = get(r, k + l, 0.0im) + x * y
     end
     r
 end
 
 "int a f dx."
-pair(A, f) = 2π * sum(ComplexF64[A[k] * f[-k] for k in keys(A) if haskey(f, -k)]; init = 0.0im)
+function pair(A, f)
+    2π * sum(ComplexF64[A[k] * f[-k] for k in keys(A) if haskey(f, -k)]; init = 0.0im)
+end
 
 "Fourier coefficients of 6 u u_x - u_xxx = 3(u^2)_x - u_xxx."
 function kdv_rhs(u; nonlinear = true, dispersive = true)
-    f = Dict{Int,ComplexF64}()
+    f = Dict{Int, ComplexF64}()
     if nonlinear
         for (k, v) in times(u, u)
             f[k] = get(f, k, 0.0im) + 3im * k * v
@@ -114,7 +120,7 @@ end
 "Random totally anti-symmetric S[i,j,k]."
 function rand_antisym3(n, rng; integer = true)
     S = zeros(n, n, n)
-    for i in 1:n, j in (i+1):n, k in (j+1):n
+    for i in 1:n, j in (i + 1):n, k in (j + 1):n
         v = integer ? float(rand(rng, -4:4)) : randn(rng)
         idx = (i, j, k)
         for (p, sg) in SIG
@@ -133,12 +139,13 @@ header("1. equation (69) cannot hold: both gradients vanish at u = 0")
 flow = expand((S0 + eps * S1 + eps^2 * S2) * (3 * eps^2 * Qs - eps * Rs) * (eps * Ps))
 target_sym = 6 * eps^2 * Qs * Ps - eps * Rs               # schematic 6uu_x - u_xxx
 check("the bracket has no term of first order in u, for any regular S",
-      flow.coeff(eps, 1) == 0, "O(eps) coefficient = $(flow.coeff(eps, 1))")
+    flow.coeff(eps, 1) == 0, "O(eps) coefficient = $(flow.coeff(eps, 1))")
 check("the KdV right-hand side does: -u_xxx is linear",
-      expand(target_sym).coeff(eps, 1) != 0)
-check("so no S regular at u = 0 can satisfy (69); only a component of u-degree " *
-      "-1 could, which is singular at the trivial solution",
-      simplify(expand(flow - target_sym).coeff(eps, 1)) != 0)
+    expand(target_sym).coeff(eps, 1) != 0)
+check(
+    "so no S regular at u = 0 can satisfy (69); only a component of u-degree " *
+    "-1 could, which is singular at the trivial solution",
+    simplify(expand(flow - target_sym).coeff(eps, 1)) != 0)
 
 # the same statement on an exact finite-dimensional model, for a generic u-dependent totally
 # anti-symmetric S
@@ -153,8 +160,10 @@ let n = 5, rng = MersenneTwister(0)
     Sfull(i, j, k) = Sym(Int(Sc[i, j, k])) +
                      sum(eps * uu[m] * Int(Sl[m][i, j, k]) for m in 1:n)
     comp = expand(sum(Sfull(1, j, k) * g1[j] * g2[k] for j in 1:n, k in 1:n))
-    check("finite-dimensional model: a generic u-dependent anti-symmetric S gives a " *
-          "flow with no term linear in u either", expand(comp).coeff(eps, 1) == 0)
+    check(
+        "finite-dimensional model: a generic u-dependent anti-symmetric S gives a " *
+        "flow with no term linear in u either",
+        expand(comp).coeff(eps, 1) == 0)
 end
 
 header("1b. the Casimir and Galilean freedoms do not help (u-independent S)")
@@ -169,12 +178,14 @@ let
     num = -6 * im * ks - 6 * la * M(-ks)
     s_req = simplify(num / (V(ks, ls, ms) * (ls^2 - ms^2)))
     s_swap = s_req.subs(Dict(ks => ls, ls => ks); simultaneous = true)
-    check("the s the consistency conditions demand is not symmetric under k <-> l, " *
-          "so it is not of the form s(e2,e3) and no anti-symmetric tau exists",
-          simplify(s_req - s_swap) != 0)
-    check("and the degenerate branch lambda beta = alpha gives s = 0, which fails " *
-          "the degree-2 condition outright",
-          simplify(num.subs(al, la * be)) == 0 && simplify(-6 * im * ks) != 0)
+    check(
+        "the s the consistency conditions demand is not symmetric under k <-> l, " *
+        "so it is not of the form s(e2,e3) and no anti-symmetric tau exists",
+        simplify(s_req - s_swap) != 0)
+    check(
+        "and the degenerate branch lambda beta = alpha gives s = 0, which fails " *
+        "the degree-2 condition outright",
+        simplify(num.subs(al, la * be)) == 0 && simplify(-6 * im * ks) != 0)
 end
 
 # --------------------------------------------------------------------------
@@ -185,36 +196,47 @@ let
     DEG = 6
     mons = [(a, b, c) for a in 0:DEG for b in 0:DEG for c in 0:DEG if a + b + c ≤ DEG]
     cs = [Sym("c$(i-1)") for i in eachindex(mons)]
-    gen = sum(cs[i] * kk^mons[i][1] * ll^mons[i][2] * mm^mons[i][3] for i in eachindex(mons))
+    gen = sum(cs[i] * kk^mons[i][1] * ll^mons[i][2] * mm^mons[i][3]
+    for i in eachindex(mons))
     vars = (kk, ll, mm)
-    alt = expand(sum(sg * gen.subs(Dict(vars[1] => vars[p[1]], vars[2] => vars[p[2]],
-                                        vars[3] => vars[p[3]]); simultaneous = true)
-                     for (p, sg) in SIG) / 6)
+    alt = expand(sum(sg * gen.subs(
+                         Dict(vars[1] => vars[p[1]], vars[2] => vars[p[2]],
+                             vars[3] => vars[p[3]]);
+                         simultaneous = true)
+    for (p, sg) in SIG) / 6)
     red = expand(alt.subs(Dict(ll => -kk, mm => Sym(0)); simultaneous = true))
     quot, rem_ = sympy.div(sympy.Poly(red, kk), sympy.Poly(kk^3, kk))
-    check("every anti-symmetric polynomial symbol of degree <= $DEG reduces at " *
-          "(k,-k,0) to k^3 times a polynomial", simplify(rem_.as_expr()) == 0)
-    check("and that polynomial is even, so a local bracket gives d_x^3, d_x^5, ... " *
-          "in the Casimir slot and never d_x",
-          simplify(quot.as_expr() - quot.as_expr().subs(kk, -kk)) == 0)
-    check("the Vandermonde itself is anti-symmetric and cubic, so it exists -- the " *
-          "rank-one mode lattice does carry an alternating TRILINEAR form",
-          all(simplify(V(vars[p[1]], vars[p[2]], vars[p[3]]) - sg * V(kk, ll, mm)) == 0
-              for (p, sg) in SIG))
+    check(
+        "every anti-symmetric polynomial symbol of degree <= $DEG reduces at " *
+        "(k,-k,0) to k^3 times a polynomial",
+        simplify(rem_.as_expr()) == 0)
+    check(
+        "and that polynomial is even, so a local bracket gives d_x^3, d_x^5, ... " *
+        "in the Casimir slot and never d_x",
+        simplify(quot.as_expr() - quot.as_expr().subs(kk, -kk)) == 0)
+    check(
+        "the Vandermonde itself is anti-symmetric and cubic, so it exists -- the " *
+        "rank-one mode lattice does carry an alternating TRILINEAR form",
+        all(simplify(V(vars[p[1]], vars[p[2]], vars[p[3]]) - sg * V(kk, ll, mm)) == 0
+        for (p, sg) in SIG))
 end
 
 # --------------------------------------------------------------------------
 header("3. the third slot must be the Casimir C0 = int u dx")
 
-tau_smooth(a, b, c) = (a * a + b * b + c * c) == 0 ? 0.0im :
-                      -1im * V(a, b, c) / (a * a + b * b + c * c)
-tau_wedge(a, b, c) = (c == 0 ? 1im * b : 0.0im) + (a == 0 ? 1im * c : 0.0im) +
-                     (b == 0 ? 1im * a : 0.0im)
+function tau_smooth(a, b, c)
+    (a * a + b * b + c * c) == 0 ? 0.0im :
+    -1im * V(a, b, c) / (a * a + b * b + c * c)
+end
+function tau_wedge(a, b, c)
+    (c == 0 ? 1im * b : 0.0im) + (a == 0 ? 1im * c : 0.0im) +
+    (b == 0 ? 1im * a : 0.0im)
+end
 
 const rng3 = MersenneTwister(1)
 const uu3 = rand_real(rng3, 3)
 const one3 = Dict(0 => 1.0 + 0.0im)
-const dH1sp = let d = Dict{Int,ComplexF64}(q => 3v for (q, v) in times(uu3, uu3))
+const dH1sp = let d = Dict{Int, ComplexF64}(q => 3v for (q, v) in times(uu3, uu3))
     for (q, v) in uu3
         d[q] = get(d, q, 0.0im) + q * q * v                     # -u_xx  ->  +k^2 u_k
     end
@@ -223,28 +245,33 @@ end
 const target3 = kdv_rhs(uu3)
 
 for (name, tau) in (("smooth  tau = -i V / (k^2+l^2+m^2)", tau_smooth),
-                    ("wedge   P1 ^ dC0", tau_wedge))
+    ("wedge   P1 ^ dC0", tau_wedge))
     Tb(A, B, C) = spectral(tau, A, B, C)
     a, b, c = rand_real(rng3, 4), rand_real(rng3, 4), rand_real(rng3, 4)
     d = antisymmetry_defect(Tb, a, b, c)
     check("$name: totally anti-symmetric", d < 1e-10,
-          @sprintf("max defect over S3 = %.2e", d))
+        @sprintf("max defect over S3 = %.2e", d))
     a = rand_real(rng3, 6)
     err = abs(Tb(a, dH1sp, one3) - pair(a, target3))
     check("$name: {a,H1,C0} = int a (6uu_x - u_xxx)", err < 1e-9,
-          @sprintf("error %.2e against |rhs| = %.2f", err, abs(pair(a, target3))))
+        @sprintf("error %.2e against |rhs| = %.2f", err, abs(pair(a, target3))))
     bb = rand_real(rng3, 6)
     err = abs(Tb(a, bb, one3) - pair(a, Dict(q => 1im * q * v for (q, v) in bb)))
-    check("$name: its Casimir-slot operator is exactly d_x -- which the lemma " *
-          "of 2. forbids a local bracket", err < 1e-9, @sprintf("error %.2e", err))
+    check(
+        "$name: its Casimir-slot operator is exactly d_x -- which the lemma " *
+        "of 2. forbids a local bracket",
+        err < 1e-9,
+        @sprintf("error %.2e", err))
 end
 
 # both are the same member of the family tau = V s(e2,e3), pinned on e3 = 0
 let same = maximum(abs(tau_smooth(a, b, -a - b) - tau_wedge(a, b, -a - b))
-                   for a in -4:4, b in -4:4 if (b == 0 || a == 0 || a + b == 0))
-    check("the two agree on the slices e3 = 0, where the consistency condition pins " *
-          "s = i/(2 e2), and differ only where they are free", same < 1e-12,
-          @sprintf("max difference on e3 = 0 is %.2e", same))
+    for a in -4:4, b in -4:4 if (b == 0 || a == 0 || a + b == 0))
+    check(
+        "the two agree on the slices e3 = 0, where the consistency condition pins " *
+        "s = i/(2 e2), and differ only where they are free",
+        same < 1e-12,
+        @sprintf("max difference on e3 = 0 is %.2e", same))
 end
 
 # --------------------------------------------------------------------------
@@ -256,15 +283,15 @@ for uniform in (true, false)
     P1 = poisson_matrix(kdv_bracket_1(s), zeros(nbasis(s)))
     g = mass_grad(s)
     check("$tag: partition of unity, sum_i int phi_i = L", abs(sum(g) - L) < 1e-12,
-          @sprintf("defect %.2e", abs(sum(g) - L)))
+        @sprintf("defect %.2e", abs(sum(g) - L)))
     check("$tag: C0 is an EXACT Casimir of P1", maximum(abs, P1 * g) < 1e-12,
-          @sprintf("|P1 g| = %.2e", maximum(abs, P1 * g)))
+        @sprintf("|P1 g| = %.2e", maximum(abs, P1 * g)))
 
     nb = nbasis(s)
     S = [(P1[i, j] + P1[j, k] + P1[k, i]) / L for i in 1:nb, j in 1:nb, k in 1:nb]
     d = max(maximum(abs, S + permutedims(S, (2, 1, 3))),
-            maximum(abs, S + permutedims(S, (1, 3, 2))),
-            maximum(abs, S + permutedims(S, (3, 2, 1))))
+        maximum(abs, S + permutedims(S, (1, 3, 2))),
+        maximum(abs, S + permutedims(S, (3, 2, 1))))
     check("$tag: S is totally anti-symmetric", d < 1e-12, @sprintf("max defect %.2e", d))
     Sg = [sum(S[i, j, k] * g[k] for k in 1:nb) for i in 1:nb, j in 1:nb]
     e = maximum(abs, Sg - P1)
@@ -273,15 +300,17 @@ for uniform in (true, false)
     u_h = project(s, U0)
     d1, d2 = grad_H1(s, u_h), grad_H2(s, u_h)
     flow = [sum(S[i, j, k] * d1[j] * g[k] for j in 1:nb, k in 1:nb) for i in 1:nb]
-    check("$tag: the Nambu flow IS the P1 flow -- the construction repackages " *
-          "Section 4", maximum(abs, flow - P1 * d1) < 1e-12,
-          @sprintf("max difference %.2e", maximum(abs, flow - P1 * d1)))
+    check(
+        "$tag: the Nambu flow IS the P1 flow -- the construction repackages " *
+        "Section 4",
+        maximum(abs, flow - P1 * d1) < 1e-12,
+        @sprintf("max difference %.2e", maximum(abs, flow - P1 * d1)))
     check("$tag: H1 conserved exactly, by anti-symmetry", abs(dot(d1, flow)) < 1e-11,
-          @sprintf("dH1/dt = %.2e", abs(dot(d1, flow))))
+        @sprintf("dH1/dt = %.2e", abs(dot(d1, flow))))
     check("$tag: mass conserved exactly, by anti-symmetry", abs(dot(g, flow)) < 1e-11,
-          @sprintf("dC0/dt = %.2e", abs(dot(g, flow))))
+        @sprintf("dC0/dt = %.2e", abs(dot(g, flow))))
     @printf("      but H2 is NOT in a slot: dH2/dt = %.2e  (%s)\n", abs(dot(d2, flow)),
-            uniform ? "exact on a uniform mesh" : "the Section 4 gap survives")
+        uniform ? "exact on a uniform mesh" : "the Section 4 gap survives")
 end
 
 # --------------------------------------------------------------------------
@@ -292,38 +321,42 @@ let
     @syms kk ll mm
     W3 = Sym[1 1 1; im*kk im*ll im*mm; -kk^2 -ll^2 -mm^2]
     check("the Wronskian density det[[a,b,c],[a',b',c'],[a'',b'',c'']] has symbol -i V",
-          simplify(expand(det(W3) - (-im * V(kk, ll, mm)))) == 0)
+        simplify(expand(det(W3) - (-im * V(kk, ll, mm)))) == 0)
 end
 tau_wronski(a, b, c) = -0.5im * V(a, b, c)
 const asp = rand_real(rng3, 6)
 let err = abs(spectral(tau_wronski, asp, uu3, one3) -
               pair(asp, Dict(q => 1im * q^3 * v for (q, v) in uu3)))
     check("half the Wronskian gives T(a,u,1) = -int a u_xxx exactly, and it is local",
-          err < 1e-9, @sprintf("error %.2e", err))
+        err < 1e-9, @sprintf("error %.2e", err))
 end
 
 # 5b. no polynomial (local) u-linear part can supply 6 u u_x
 let
     @syms jj kk ll
     for DEG2 in (5, 7)
-        mons = [(x, y, z) for x in 0:DEG2 for y in 0:DEG2 for z in 0:DEG2
+        mons = [(x, y, z) for x in 0:DEG2 for y in 0:DEG2
+                for z in 0:DEG2
                 if x + y + z ≤ DEG2]
         co = [Sym("d$(i-1)") for i in eachindex(mons)]
         # P(j,k,l) = sigma(j; k, l, -(j+k+l)) as a general polynomial
-        Pg = sum(co[i] * jj^mons[i][1] * kk^mons[i][2] * ll^mons[i][3] for i in eachindex(mons))
+        Pg = sum(co[i] * jj^mons[i][1] * kk^mons[i][2] * ll^mons[i][3]
+        for i in eachindex(mons))
         eqs = Sym[]
         for expr in (Pg + Pg.subs(Dict(kk => ll, ll => kk); simultaneous = true),
-                     Pg + Pg.subs(Dict(ll => -(jj + kk + ll)); simultaneous = true),
-                     Pg.subs(Dict(ll => -(jj + kk)); simultaneous = true) +
-                     Pg.subs(Dict(jj => -(jj + kk), ll => jj); simultaneous = true) +
-                     6 * im * kk)
+            Pg + Pg.subs(Dict(ll => -(jj + kk + ll)); simultaneous = true),
+            Pg.subs(Dict(ll => -(jj + kk)); simultaneous = true) +
+            Pg.subs(Dict(jj => -(jj + kk), ll => jj); simultaneous = true) +
+            6 * im * kk)
             pol = sympy.Poly(expand(expr), jj, kk, ll)
             append!(eqs, collect(pol.coeffs()))
         end
         sol = solve(eqs, co; dict = true)
-        check("no polynomial symbol of degree <= $DEG2 is anti-symmetric AND consistent " *
-              "with 6 u u_x", isempty(sol),
-              "$(length(eqs)) equations, solutions: $(length(sol))")
+        check(
+            "no polynomial symbol of degree <= $DEG2 is anti-symmetric AND consistent " *
+            "with 6 u u_x",
+            isempty(sol),
+            "$(length(eqs)) equations, solutions: $(length(sol))")
     end
 end
 
@@ -336,22 +369,25 @@ function make_sigma(g0, gn)
     end
 end
 
-h2_bracket(g0, gn) = (A, B, C) -> spectral(tau_wronski, A, B, C) +
-                                  spectral(make_sigma(g0, gn), A, B, C; u = uu3)
+function h2_bracket(g0, gn)
+    (A, B, C) -> spectral(tau_wronski, A, B, C) +
+                 spectral(make_sigma(g0, gn), A, B, C; u = uu3)
+end
 
 let err = abs(h2_bracket(3im, 2im)(asp, uu3, one3) - pair(asp, target3))
     check("with g(0) = 3i and g(j) = 2i: {a,H2,C0} = int a (6uu_x - u_xxx)", err < 1e-9,
-          @sprintf("error %.2e against |rhs| = %.2f", err, abs(pair(asp, target3))))
+        @sprintf("error %.2e against |rhs| = %.2f", err, abs(pair(asp, target3))))
 end
-for (g0, gn, why) in ((2im, 2im, "no zero-mode anomaly"), (3im, 3im, "anomalous everywhere"))
+for (g0, gn, why) in ((2im, 2im, "no zero-mode anomaly"), (
+    3im, 3im, "anomalous everywhere"))
     e = abs(h2_bracket(g0, gn)(asp, uu3, one3) - pair(asp, target3))
     check("a uniform weight fails ($why), so the anomaly is not a convention", e > 1.0,
-          @sprintf("error %.2e", e))
+        @sprintf("error %.2e", e))
 end
 let Tb = h2_bracket(3im, 2im)
     d = antisymmetry_defect(Tb, rand_real(rng3, 4), rand_real(rng3, 4), rand_real(rng3, 4))
     check("the full u-dependent bracket is totally anti-symmetric", d < 1e-9,
-          @sprintf("max defect over S3 = %.2e", d))
+        @sprintf("max defect over S3 = %.2e", d))
 end
 println("      the anomaly is forced: at l = 0 the b- and c-slots coincide, so anti-symmetry")
 println("      kills that term and the mean of u must be carried by the weight instead")
@@ -378,11 +414,11 @@ function fi_residual(S, rng; trials = 4)
         gr = [F[i] * x + v[i] for i in 1:5]
         # gradient of the function {p,q,r}
         grad3(p, q, r) = [sum(S[a, b, c] * (F[p][a, d] * gr[q][b] * gr[r][c] +
-                                            gr[p][a] * F[q][b, d] * gr[r][c] +
-                                            gr[p][a] * gr[q][b] * F[r][c, d])
-                              for a in 1:n, b in 1:n, c in 1:n) for d in 1:n]
+                               gr[p][a] * F[q][b, d] * gr[r][c] +
+                               gr[p][a] * gr[q][b] * F[r][c, d])
+                          for a in 1:n, b in 1:n, c in 1:n) for d in 1:n]
         tri(x1, x2, x3) = sum(S[a, b, c] * x1[a] * x2[b] * x3[c]
-                              for a in 1:n, b in 1:n, c in 1:n)
+        for a in 1:n, b in 1:n, c in 1:n)
         f1, f2, g1, g2, g3 = 1, 2, 3, 4, 5
         lhs = tri(gr[f1], gr[f2], grad3(g1, g2, g3))
         rhs = tri(grad3(f1, f2, g1), gr[g2], gr[g3]) +
@@ -404,21 +440,22 @@ let rng = MersenneTwister(4)
     end
     r, sc = fi_residual(dec, rng)
     check("control: a decomposable e1 ^ e2 ^ e3 in dimension 5 satisfies the FI",
-          r / max(sc, 1.0) < 1e-9, @sprintf("normalised residual %.2e", r / max(sc, 1.0)))
+        r / max(sc, 1.0) < 1e-9, @sprintf("normalised residual %.2e", r / max(sc, 1.0)))
     check("control: its support has dimension 3", support_dim(dec) == 3)
 
     r4, s4 = fi_residual(rand_antisym3(4, rng; integer = false), rng)
-    check("TRAP: a RANDOM anti-symmetric 3-tensor in dimension 4 also satisfies the " *
-          "FI -- dim Lambda^3 R^4 = 4 and every 3-vector there is decomposable, so " *
-          "dimension <= 4 is useless as a test case",
-          r4 / max(s4, 1.0) < 1e-9, @sprintf("normalised residual %.2e", r4 / max(s4, 1.0)))
+    check(
+        "TRAP: a RANDOM anti-symmetric 3-tensor in dimension 4 also satisfies the " *
+        "FI -- dim Lambda^3 R^4 = 4 and every 3-vector there is decomposable, so " *
+        "dimension <= 4 is useless as a test case",
+        r4 / max(s4, 1.0) < 1e-9, @sprintf("normalised residual %.2e", r4 / max(s4, 1.0)))
 
     S5 = rand_antisym3(5, rng; integer = false)
     r5, s5 = fi_residual(S5, rng)
     check("negative control: a random anti-symmetric 3-tensor in dimension 5 does NOT",
-          r5 / max(s5, 1.0) > 1e-3, @sprintf("normalised residual %.2e", r5 / max(s5, 1.0)))
+        r5 / max(s5, 1.0) > 1e-3, @sprintf("normalised residual %.2e", r5 / max(s5, 1.0)))
     check("and its support is all of R^5, so it is not decomposable", support_dim(S5) == 5,
-          "support dimension $(support_dim(S5))")
+        "support dimension $(support_dim(S5))")
 
     s, _ = setup(8; p = 3)
     P1 = poisson_matrix(kdv_bracket_1(s), zeros(nbasis(s)))
@@ -426,15 +463,16 @@ let rng = MersenneTwister(4)
     Sw = [(P1[i, j] + P1[j, k] + P1[k, i]) / L for i in 1:nb, j in 1:nb, k in 1:nb]
     rw, sw = fi_residual(Sw ./ maximum(abs, Sw), rng)
     check("the discrete wedge tensor violates the FI, as it must",
-          rw / max(sw, 1e-30) > 1e-3, @sprintf("normalised residual %.2f", rw / max(sw, 1e-30)))
+        rw / max(sw, 1e-30) > 1e-3, @sprintf("normalised residual %.2f",
+            rw / max(sw, 1e-30)))
     for nn in (7, 8, 9, 12)
         sq, _ = setup(nn; p = 3)
         Pq1 = poisson_matrix(kdv_bracket_1(sq), zeros(nbasis(sq)))
         Sq = [(Pq1[i, j] + Pq1[j, k] + Pq1[k, i]) / L for i in 1:nn, j in 1:nn, k in 1:nn]
         rk, sd = rank(Pq1), support_dim(Sq; tol = 1e-8)
         check("N = $nn: the wedge tensor has support $sd, not 3", sd == nn - (nn + 1) % 2,
-              "rank P1 = $rk (N-2 for even N, the zero and Nyquist modes lying in its " *
-              "kernel; N-1 for odd N), support of S = $sd")
+            "rank P1 = $rk (N-2 for even N, the zero and Nyquist modes lying in its " *
+            "kernel; N-1 for odd N), support of S = $sd")
     end
 end
 println("      a Nambu-Poisson tensor of order >= 3 must be decomposable (Gautheron;")

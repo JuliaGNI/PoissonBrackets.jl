@@ -41,13 +41,15 @@ using SymPyPythonCall
 # GeometricBase) and SymPy (the symbolic one). Any script using both has to qualify it;
 # below it is always `sympy.integrate`.
 
-include(joinpath(@__DIR__, "check.jl")); using .Checks: header, check, summary
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary
 
 "Whether the Jacobi identity holds symbolically, and the first triple where it does not."
 function jacobi_holds(J, dJ, n)
     for i in 1:n, j in 1:n, k in 1:n
-        r = simplify(sum(dJ[l][i][j] * J[l][k] + dJ[l][j][k] * J[l][i] + dJ[l][k][i] * J[l][j]
-                         for l in 1:n))
+        r = simplify(sum(dJ[l][i][j] * J[l][k] + dJ[l][j][k] * J[l][i] +
+                         dJ[l][k][i] * J[l][j]
+        for l in 1:n))
         r == 0 || return false, (i - 1, j - 1, k - 1, r)
     end
     return true, nothing
@@ -68,10 +70,10 @@ check("ker K is non-trivial", size(ker, 2) ≥ 1, "dim ker K = $(size(ker, 2))")
 
 ETAS = [
     ("eta(u) = u log u        (Boltzmann entropy)", u -> u * log(u)),
-    ("eta(u) = u log u - u    (shifted entropy)",   u -> u * log(u) - u),
+    ("eta(u) = u log u - u    (shifted entropy)", u -> u * log(u) - u),
     ("eta(u) = 2 sqrt(u)      (Section 1 Casimir)", u -> 2 * sqrt(u)),
-    ("eta(u) = u^2            (quadratic)",         u -> u^2),
-    ("eta(u) = log u          (Lotka-Volterra)",    u -> log(u)),
+    ("eta(u) = u^2            (quadratic)", u -> u^2),
+    ("eta(u) = log u          (Lotka-Volterra)", u -> log(u))
 ]
 
 for (label, eta) in ETAS
@@ -98,7 +100,7 @@ println("   S        = ", simplify(S))
 flow = [simplify(sum(J_ent[i][j] * diff(S, z[j]) for j in 1:n)) for i in 1:n]
 check("the logarithmic entropy is an exact Casimir", all(==(0), flow))
 check("it is conserved for *every* Hamiltonian, not a chosen one", all(==(0), flow),
-      "J grad S = 0 identically, so dS/dt = 0 whatever H is")
+    "J grad S = 0 identically, so dS/dt = 0 whatever H is")
 
 header("3. Continuum counterpart: J_G = sqrt(G) d_x sqrt(G) = G d_x + 1/2 G' u_x")
 
@@ -115,7 +117,7 @@ check("the factorisation identity holds", simplify(lhs - rhs) == 0)
 # Casimir rule: J_G c'(u) = 0  ⟺  c' = 1/sqrt(G); substitute c'(u) = G(u)^(-1/2)
 subst = simplify(apply_sqrtG_dx_sqrtG(G(ux)^(-Sym(1) // 2)))
 check("c'(u) = G(u)^(-1/2) annihilates J_G, i.e. the continuum rule c' = 1/g",
-      simplify(subst) == 0, "J_G c' = $(simplify(subst))")
+    simplify(subst) == 0, "J_G c' = $(simplify(subst))")
 
 # and for G = 1/(log u + 1)^2 this gives c(u) = u log u.
 #
@@ -127,11 +129,11 @@ check("c'(u) = G(u)^(-1/2) annihilates J_G, i.e. the continuum rule c' = 1/g",
 U = symbols("U", positive = true)
 c_from_G = simplify(sympy.integrate(log(U) + 1, U))          # branch u > 1/e
 check("G = (log u + 1)^-2  =>  Casimir density = u log u  (on the branch u > 1/e)",
-      simplify(diff(c_from_G - U * log(U), U)) == 0,
-      "integral of 1/sqrt(G) = $c_from_G")
+    simplify(diff(c_from_G - U * log(U), U)) == 0,
+    "integral of 1/sqrt(G) = $c_from_G")
 check("1/sqrt(G) = |log u + 1| really does change branch at u = 1/e",
-      simplify(sqrt((log(U) + 1)^2) - abs(log(U) + 1)) == 0,
-      "so the entropy-adapted bracket lives on (0, 1/e) or (1/e, inf), not both")
+    simplify(sqrt((log(U) + 1)^2) - abs(log(U) + 1)) == 0,
+    "so the entropy-adapted bracket lives on (0, 1/e) or (1/e, inf), not both")
 
 header("4. The singularity at eta'(u) = 0 is intrinsic")
 
@@ -140,8 +142,8 @@ eta_shift = z[1] * log(z[1]) + A * z[1]                # any additive linear shi
 crit = solve(Eq(diff(eta_shift, z[1]), 0), z[1])
 println("   d/du [ u log u + A u ] = 0  at  u = [", join(string.(crit), ", "), "]")
 check("eta' vanishes somewhere in (0, inf) for every shift A",
-      length(crit) == 1 && simplify(crit[1] - exp(-1 - A)) == 0,
-      "so g = 1/eta' is singular there; no normalisation removes it")
+    length(crit) == 1 && simplify(crit[1] - exp(-1 - A)) == 0,
+    "so g = 1/eta' is singular there; no normalisation removes it")
 
 header("5. The alternative: every spectral function is a Casimir of a Lie-Poisson bracket")
 
@@ -162,7 +164,7 @@ for N in (4, 5)
         check("so($N): tr(W^$k) is a Casimir of J_ij = sum_m c_ij^m u_m", ok)
     end
     check("so($N): hence tr(eta(W)) is a Casimir for every spectral function eta", ok_all,
-          "tr(eta(W)) depends on W only through its spectrum, i.e. through the tr(W^k)")
+        "tr(eta(W)) depends on W only through its spectrum, i.e. through the tr(W^k)")
 end
 
 println()

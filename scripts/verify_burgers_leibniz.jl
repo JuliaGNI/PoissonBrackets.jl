@@ -30,7 +30,8 @@
 
 using SymPyPythonCall
 
-include(joinpath(@__DIR__, "check.jl")); using .Checks: header, check, summary
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary
 
 @syms x::positive y::positive ubar::positive
 @syms xv::real vv::real
@@ -49,31 +50,35 @@ d = simplify(lhs - rhs_paper)
 check("the expansion used in Appendix B does NOT hold", d != 0, "difference = $d")
 
 check("the correct identity is [f F, g G] = f g [F,G] + F G [f,g]",
-      simplify(lhs - (ff * gg * br1(F_, G_) + F_ * G_ * br1(ff, gg))) == 0)
+    simplify(lhs - (ff * gg * br1(F_, G_) + F_ * G_ * br1(ff, gg))) == 0)
 
 header("2. The identity that is actually needed, [h F, h G] = h^2 [F,G]")
 
 @syms h()
 hx = h(x)
 check("holds for the 1D transport bracket [F,G] = F G' - G F'",
-      simplify(br1(hx * F_, hx * G_) - hx^2 * br1(F_, G_)) == 0)
+    simplify(br1(hx * F_, hx * G_) - hx^2 * br1(F_, G_)) == 0)
 
 # vector fields in d = 2: [F,G]^i = F^j d_j G^i - G^j d_j F^i
 @syms F1() F2() G1() G2() hv()
 f1, f2, g1, g2, hh = F1(xv, y), F2(xv, y), G1(xv, y), G2(xv, y), hv(xv, y)
 
-br_vec(A, B) = (A[1] * diff(B[1], xv) + A[2] * diff(B[1], y) -
-                B[1] * diff(A[1], xv) - B[2] * diff(A[1], y),
-                A[1] * diff(B[2], xv) + A[2] * diff(B[2], y) -
-                B[1] * diff(A[2], xv) - B[2] * diff(A[2], y))
+function br_vec(A, B)
+    (
+        A[1] * diff(B[1], xv) + A[2] * diff(B[1], y) -
+        B[1] * diff(A[1], xv) - B[2] * diff(A[1], y),
+        A[1] * diff(B[2], xv) + A[2] * diff(B[2], y) -
+        B[1] * diff(A[2], xv) - B[2] * diff(A[2], y))
+end
 
 lhs_v = br_vec((hh * f1, hh * f2), (hh * g1, hh * g2))
 rhs_v = br_vec((f1, f2), (g1, g2))
 diff_v = [simplify(lhs_v[i] - hh^2 * rhs_v[i]) for i in 1:2]
 check("FAILS for vector fields in d = 2", any(!=(0), diff_v))
 # the discrepancy is exactly h (G^i F^j - F^i G^j) d_j h
-disc = simplify(diff_v[1] - hh * ((g1 * f1 - f1 * g1) * diff(hh, xv) +
-                                  (g1 * f2 - f1 * g2) * diff(hh, y)))
+disc = simplify(diff_v[1] -
+                hh * ((g1 * f1 - f1 * g1) * diff(hh, xv) +
+                 (g1 * f2 - f1 * g2) * diff(hh, y)))
 check("   and the discrepancy is h (G^i F^j - F^i G^j) d_j h", simplify(disc) == 0)
 
 # canonical / Vlasov bracket on (x, v)
@@ -85,7 +90,7 @@ br_can(a, b) = diff(a, xv) * diff(b, vv) - diff(a, vv) * diff(b, xv)
 d_can = simplify(br_can(hc * fc, hc * gc) - hc^2 * br_can(fc, gc))
 check("FAILS for the canonical (Vlasov) bracket", d_can != 0)
 check("   and the discrepancy is h (F [h,G] - G [h,F])",
-      simplify(d_can - hc * (fc * br_can(hc, gc) - gc * br_can(hc, fc))) == 0)
+    simplify(d_can - hc * (fc * br_can(hc, gc) - gc * br_can(hc, fc))) == 0)
 
 header("3. Phi / (Phi')^2 = const forces Phi(ubar) = (a ubar + b)^2")
 
@@ -93,7 +98,7 @@ header("3. Phi / (Phi')^2 = const forces Phi(ubar) = (a ubar + b)^2")
 sol = dsolve(Eq(Phi(ubar) / diff(Phi(ubar), ubar)^2, c), Phi(ubar))
 sols = sol isa AbstractVector ? sol : [sol]
 println("   general solution: [",
-        join([string(simplify(s.rhs())) for s in sols], ", "), "]")
+    join([string(simplify(s.rhs())) for s in sols], ", "), "]")
 # `==` on a Sym returns a Julia Bool; `Int` of one does not convert, so compare rather
 # than cast. Degree two, in ubar, is the whole claim.
 ok = any(sols) do s

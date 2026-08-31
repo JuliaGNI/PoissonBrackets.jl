@@ -25,8 +25,10 @@ using LinearAlgebra
 using Printf
 using Random
 
-include(joinpath(@__DIR__, "check.jl"));     using .Checks: header, check, summary, fmt
-include(joinpath(@__DIR__, "rationals.jl")); using .Rationals
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary, fmt
+include(joinpath(@__DIR__, "rationals.jl"));
+using .Rationals
 
 const Q = Rational{BigInt}
 
@@ -59,9 +61,9 @@ tf(x) = rpad(x ? "True" : "False", 5)
 header("1. Structural identities of the Dirac tensor")
 # --------------------------------------------------------------------------
 
-for (label, C0, keep, con, s) in
-        (("se(3), constraints {J1,P2}", se3(), [2, 3, 4, 6], [1, 5], 7),
-         ("random antisymmetric c, N=7", nothing, collect(1:5), [6, 7], 8))
+for (label, C0, keep, con, s) in ((
+    "se(3), constraints {J1,P2}", se3(), [2, 3, 4, 6], [1, 5], 7),
+    ("random antisymmetric c, N=7", nothing, collect(1:5), [6, 7], 8))
     C = C0 === nothing ? random_antisymmetric_c(MersenneTwister(s), 7) : C0
     N = size(C, 1)
     u = surface_point(N, keep, s)
@@ -69,27 +71,30 @@ for (label, C0, keep, con, s) in
     Jstar = dirac_tensor(J, con)
     R = dirac_R(J, con)
     check("$label: J* has vanishing V2 rows and columns",
-          all(iszero, Jstar[con, :]) && all(iszero, Jstar[:, con]))
+        all(iszero, Jstar[con, :]) && all(iszero, Jstar[:, con]))
     check("$label: J* is antisymmetric", Jstar == -transpose(Jstar))
     check("$label: R is idempotent, R^2 = R", R * R == R)
     check("$label: R is not an involution, R^2 != I", R * R != I)
     rR = exact_rank(R)
     check("$label: rank R = dim V1, so dim ker R = dim V2", rR == length(keep),
-          "rank R = $rR, dim V1 = $(length(keep))")
+        "rank R = $rR, dim V1 = $(length(keep))")
     check("$label: J* = R J R^T", R * J * transpose(R) == Jstar)
     check("$label: Jhat is the Schur complement J11 - J12 J22^-1 J21",
-          Jstar[keep, keep] == schur_complement(J, keep, con))
+        Jstar[keep, keep] == schur_complement(J, keep, con))
     # the constraints are Casimirs of the Dirac bracket: J* grad phi_a = 0
     check("$label: every constraint is a Casimir of the Dirac bracket, J* grad phi = 0",
-          all(iszero, Jstar[:, con]))
+        all(iszero, Jstar[:, con]))
 end
 
 # a Casimir of J restricts to a Casimir of J*
-let K = rnd_mat(MersenneTwister(9), 9, :antisymmetric), keep = collect(1:5), con = collect(6:9)
+let K = rnd_mat(MersenneTwister(9), 9, :antisymmetric), keep = collect(1:5),
+    con = collect(6:9)
+
     nvec = kernel(K)
     if size(nvec, 2) ≥ 1
         Jstar = dirac_tensor(K, con)              # constant bracket, gradient n0
-        check("a Casimir of J restricts to a Casimir of J*", all(iszero, Jstar * nvec[:, 1]))
+        check("a Casimir of J restricts to a Casimir of J*", all(iszero, Jstar *
+                                                                         nvec[:, 1]))
     end
 end
 
@@ -102,15 +107,16 @@ println("   with P = Pi_V1 R.  Verified exactly at random rational points.")
 println()
 
 for (label, kind, s) in (("se(3) (Poisson)", :se3, 11),
-                         ("random c, N=5 (not Poisson)", :random, 13),
-                         ("truncated Witt K=2 (not Poisson)", :witt, 17))
+    ("random c, N=5 (not Poisson)", :random, 13),
+    ("truncated Witt K=2 (not Poisson)", :witt, 17))
     local C, keep, con
     if kind === :se3
         C, keep, con = se3(), [2, 3, 4, 6], [1, 5]
     elseif kind === :random
         C, keep, con = random_antisymmetric_c(MersenneTwister(s), 5), [1, 2, 3], [4, 5]
     else
-        tr = witt_truncation(2); C, keep, con = tr.C, tr.keep, tr.con
+        tr = witt_truncation(2)
+        C, keep, con = tr.C, tr.keep, tr.con
     end
     N = size(C, 1)
     u = surface_point(N, keep, s)
@@ -125,7 +131,7 @@ for (label, kind, s) in (("se(3) (Poisson)", :se3, 11),
         check("se(3): [J,J] = 0 implies [Jhat,Jhat] = 0", iszero(big) && iszero(small))
     else
         check("$label: [J,J] != 0 and [Jhat,Jhat] != 0", !iszero(big) && !iszero(small),
-              "|[J,J]| = $(fmt(big)), |[Jhat,Jhat]| = $(fmt(small))")
+            "|[J,J]| = $(fmt(big)), |[Jhat,Jhat]| = $(fmt(small))")
     end
 end
 
@@ -136,9 +142,9 @@ let tr = witt_truncation(2)
     P = dirac_projector(lie_poisson_matrix(C, u), keep, con)
     rP = exact_rank(P)
     @printf("   the cancellation room: P is %d x %d, rank %d, dim ker P = %d = dim V2 = %d\n",
-            length(keep), size(C, 1), rP, size(C, 1) - rP, length(con))
+        length(keep), size(C, 1), rP, size(C, 1) - rP, length(con))
     check("dim ker P = dim V2, so the room is nonempty but of finite codimension",
-          size(C, 1) - rP == length(con))
+        size(C, 1) - rP == length(con))
 end
 
 # nested reduction buys nothing
@@ -150,11 +156,11 @@ let tr = witt_truncation(3)
     V3 = [i for (i, k) in enumerate(modes) if abs(k) > 4]
     u = surface_point(size(C, 1), V1, 23)
     J = lie_poisson_matrix(C, u)
-    one  = schur_complement(J, V1, vcat(V2, V3))
-    stp  = schur_complement(J, vcat(V1, V2), V3)
-    two  = schur_complement(stp, 1:length(V1), (length(V1)+1):(length(V1)+length(V2)))
+    one = schur_complement(J, V1, vcat(V2, V3))
+    stp = schur_complement(J, vcat(V1, V2), V3)
+    two = schur_complement(stp, 1:length(V1), (length(V1) + 1):(length(V1) + length(V2)))
     check("composition: reducing V1+V2+V3 -> V1+V2 -> V1 equals one reduction with V2+V3",
-          one == two, "so nested or iterated reduction is not a new construction")
+        one == two, "so nested or iterated reduction is not a new construction")
 end
 
 # --------------------------------------------------------------------------
@@ -166,19 +172,20 @@ println("   truncation closes; but then a,b in V2 gives deg(a+b) > max(deg a, de
 println("   so [V2,V2] never reaches V1 and C vanishes identically.")
 println()
 println("     lo    D    dim   closes   Lie algebra   V2 ideal   |C|   class")
-for (lo, D, p) in ((0, 4, 2), (0, 6, 3), (0, 8, 4), (-1, 4, 2), (-1, 6, 3), (-2, 2, 1), (-4, 4, 2))
+for (lo, D, p) in ((0, 4, 2), (0, 6, 3), (0, 8, 4), (-1, 4, 2), (-1, 6, 3), (-2, 2, 1), (
+    -4, 4, 2))
     gw = graded_witt(lo, D)
     C, degs = gw.C, gw.degs
     keep = lo ≥ 0 ? [i for (i, a) in enumerate(degs) if a ≤ p] :
-                    [i for (i, a) in enumerate(degs) if abs(a) ≤ p]
+           [i for (i, a) in enumerate(degs) if abs(a) ≤ p]
     con = [i for i in eachindex(degs) if i ∉ keep]
     u = surface_point(length(degs), keep, 29)
     Cm = lie_poisson_matrix(C, u)[con, con]
     z = isempty(Cm) || iszero(maximum(abs, Cm))
     @printf("     %3d  %3d   %3d     %s      %s       %s    %-3s   %s\n",
-            lo, D, length(degs), tf(closes_on(C, keep, con)),
-            tf(iszero(structure_constant_residual(C))), tf(is_ideal(C, con, keep)),
-            z ? "0" : "nz", z ? "FIRST" : "second")
+        lo, D, length(degs), tf(closes_on(C, keep, con)),
+        tf(iszero(structure_constant_residual(C))), tf(is_ideal(C, con, keep)),
+        z ? "0" : "nz", z ? "FIRST" : "second")
 end
 
 for (lo, D, p) in ((0, 4, 2), (0, 6, 3), (0, 8, 4))
@@ -189,14 +196,14 @@ for (lo, D, p) in ((0, 4, 2), (0, 6, 3), (0, 8, 4))
     u = surface_point(length(degs), keep, 31)
     J = lie_poisson_matrix(C, u)
     check("non-negative grading, p=$p: the truncation is a Lie algebra",
-          iszero(structure_constant_residual(C)))
+        iszero(structure_constant_residual(C)))
     check("non-negative grading, p=$p: V2 is an ideal, so Sigma is a Poisson submanifold",
-          is_ideal(C, con, keep))
+        is_ideal(C, con, keep))
     check("non-negative grading, p=$p: C vanishes, the constraints are first class",
-          all(iszero, J[con, con]))
+        all(iszero, J[con, con]))
     Jn, dJn = naive_restriction(C, keep, u)
     check("non-negative grading, p=$p: the PLAIN restriction is already Poisson",
-          iszero(raw(Jn, dJn)), "no Dirac reduction needed, and none is available")
+        iszero(raw(Jn, dJn)), "no Dirac reduction needed, and none is available")
 end
 
 for (lo, D, p) in ((-4, 4, 2), (-6, 6, 3))
@@ -207,9 +214,9 @@ for (lo, D, p) in ((-4, 4, 2), (-6, 6, 3))
     u = surface_point(length(degs), keep, 37)
     J = lie_poisson_matrix(C, u)
     check("two-sided grading, p=$p: the truncation is NOT a Lie algebra",
-          !iszero(structure_constant_residual(C)))
+        !iszero(structure_constant_residual(C)))
     check("two-sided grading, p=$p: but C is invertible, the constraints are second class",
-          exact_rank(J[con, con]) == length(con))
+        exact_rank(J[con, con]) == length(con))
 end
 
 # --------------------------------------------------------------------------
@@ -225,7 +232,7 @@ let tr = witt_truncation(2)
     for s in (41, 43, 47)
         u = surface_point(size(C, 1), keep, s)
         println("     Witt K=2, point $s: det C = ",
-                fmt(det(lie_poisson_matrix(C, u)[con, con])))
+            fmt(det(lie_poisson_matrix(C, u)[con, con])))
     end
 end
 # a genuine parity example: an odd fine block whose C is nonzero but singular
@@ -234,18 +241,18 @@ let r = assemble_dg_hierarchical(3, 3)
     Cf = lie_poisson_matrix(r.C, uf)[r.con, r.con]
     rk = exact_rank(Cf)
     check("an odd-dimensional fine block forces C to be singular even when C != 0",
-          isodd(length(r.con)) && !iszero(maximum(abs, Cf)) && rk < length(r.con),
-          "broken hierarchical P3, ne=3: dim V2 = $(length(r.con)), rank C = $rk")
+        isodd(length(r.con)) && !iszero(maximum(abs, Cf)) && rk < length(r.con),
+        "broken hierarchical P3, ne=3: dim V2 = $(length(r.con)), rank C = $rk")
     check("and the rank is even, as it must be for an antisymmetric matrix", iseven(rk),
-          "rank C = $rk")
+        "rank C = $rk")
 end
 # the poly truncation is singular for the stronger, grading reason
 let tr = poly_truncation(3)
     C, keep, con = tr.C, tr.keep, tr.con
     u = surface_point(size(C, 1), keep, 53)
     check("the global-polynomial fine block has C = 0 outright, not merely singular",
-          all(iszero, lie_poisson_matrix(C, u)[con, con]),
-          "there the grading, not the parity, is what kills C")
+        all(iszero, lie_poisson_matrix(C, u)[con, con]),
+        "there the grading, not the parity, is what kills C")
 end
 
 # --------------------------------------------------------------------------
@@ -273,20 +280,21 @@ for K in (1, 2, 3)
         rrs = @sprintf("%.4f", normalised(raw(Ĵ, dĴ), Ĵ))
     end
     @printf("        %d  %3d    %2d    %2d    %s     %d    %.4f     %s\n",
-            K, size(C, 1), length(keep), length(con), tf(closes_on(C, keep, con)), rC, rn, rrs)
+        K, size(C, 1), length(keep), length(con), tf(closes_on(C, keep, con)), rC, rn, rrs)
 end
 
 let tr = witt_truncation(1)
     C, keep, con = tr.C, tr.keep, tr.con
     u = surface_point(size(C, 1), keep, 62)
     Ĵ, dĴ = reduced_bracket(C, u, keep, con)
-    check("Witt K=1: the reduced Jacobiator vanishes -- DEGENERATE, do not use as evidence",
-          iszero(raw(Ĵ, dĴ)),
-          "dim V1 = 3, so Jhat has rank 2 and is decomposable; Jacobi reduces to " *
-          "Frobenius involutivity")
+    check(
+        "Witt K=1: the reduced Jacobiator vanishes -- DEGENERATE, do not use as evidence",
+        iszero(raw(Ĵ, dĴ)),
+        "dim V1 = 3, so Jhat has rank 2 and is decomposable; Jacobi reduces to " *
+        "Frobenius involutivity")
     check("Witt K=1: the anchor -- {L_-1,L_0,L_1} = sl(2) is already a subalgebra",
-          iszero(structure_constant_residual(restrict_c(C, keep))),
-          "so at K=1 the coarse block needs no V2 at all")
+        iszero(structure_constant_residual(restrict_c(C, keep))),
+        "so at K=1 the coarse block needs no V2 at all")
 end
 for K in (2, 3)
     tr = witt_truncation(K)
@@ -295,7 +303,7 @@ for K in (2, 3)
     Ĵ, dĴ = reduced_bracket(C, u, keep, con)
     r = raw(Ĵ, dĴ)
     check("Witt K=$K: the reduced Jacobiator does NOT vanish", !iszero(r),
-          @sprintf("normalised residual = %.4f", normalised(r, Ĵ)))
+        @sprintf("normalised residual = %.4f", normalised(r, Ĵ)))
 end
 
 println()
@@ -312,21 +320,21 @@ let tr = torus_truncation(1)
     Ĵ, dĴ = reduced_bracket(C, u, newkeep, sel)
     Jn, dJn = naive_restriction(C, keep, u)
     @printf("        K=1: N=%d, dim V1=%d, dim V2=%d, closes=%s\n",
-            size(C, 1), length(keep), length(con), closes_on(C, keep, con) ? "True" : "False")
+        size(C, 1), length(keep), length(con), closes_on(C, keep, con) ? "True" : "False")
     @printf("             rank C = %d/%d, corank %d: the\n",
-            exact_rank(Cm), length(con), size(kernel(Cm), 2))
+        exact_rank(Cm), length(con), size(kernel(Cm), 2))
     println("             constraints are MIXED, not purely second class")
     @printf("             maximal second-class subset: %d of %d, reduced space dim %d\n",
-            length(sel), length(con), length(newkeep))
+        length(sel), length(con), length(newkeep))
     @printf("             naive restriction  normalised residual = %.4f\n",
-            normalised(raw(Jn, dJn), Jn))
+        normalised(raw(Jn, dJn), Jn))
     @printf("             mixed-class Dirac  normalised residual = %.4f\n",
-            normalised(raw(Ĵ, dĴ), Ĵ))
+        normalised(raw(Ĵ, dĴ), Ĵ))
     check("torus K=1: [V1,V1] closes in V1+V2 exactly", closes_on(C, keep, con))
     check("torus K=1: C is rank deficient, so the constraints are not purely second class",
-          exact_rank(Cm) < length(con), "rank $(exact_rank(Cm)) of $(length(con))")
+        exact_rank(Cm) < length(con), "rank $(exact_rank(Cm)) of $(length(con))")
     check("torus K=1: reduction along a maximal second-class subset still fails Jacobi",
-          !iszero(raw(Ĵ, dĴ)))
+        !iszero(raw(Ĵ, dĴ)))
 end
 
 println()
@@ -344,10 +352,10 @@ for p in (2, 3, 4)
     r = raw(Jn, dJn)
     z = all(iszero, J[con, con])
     @printf("        %d  %3d    %2d    %2d    %s    %s     %-3s   %s\n",
-            p, size(C, 1), length(keep), length(con),
-            tf(iszero(structure_constant_residual(C))), tf(is_ideal(C, con, keep)),
-            z ? "0" : "nz",
-            iszero(r) ? "Poisson" : @sprintf("residual %.4f", normalised(r, Jn)))
+        p, size(C, 1), length(keep), length(con),
+        tf(iszero(structure_constant_residual(C))), tf(is_ideal(C, con, keep)),
+        z ? "0" : "nz",
+        iszero(r) ? "Poisson" : @sprintf("residual %.4f", normalised(r, Jn)))
 end
 for p in (3, 4)
     tr = poly_truncation(p)
@@ -355,10 +363,10 @@ for p in (3, 4)
     u = surface_point(size(C, 1), keep, 79)
     J = lie_poisson_matrix(C, u)
     check("global polynomials p=$p: C vanishes, the Dirac bracket is undefined",
-          all(iszero, J[con, con]))
+        all(iszero, J[con, con]))
     Jn, dJn = naive_restriction(C, keep, u)
     check("global polynomials p=$p: and the plain restriction is not Poisson either",
-          !iszero(raw(Jn, dJn)))
+        !iszero(raw(Jn, dJn)))
 end
 
 println()
@@ -374,15 +382,15 @@ for (p, ne) in ((2, 2), (2, 3), (3, 2))
     J = lie_poisson_matrix(C, u)
     check("P$p, ne=$ne: the broken hierarchical c is antisymmetric in i,j", is_antisymmetric_c(C))
     check("P$p, ne=$ne: the splitting is L2-orthogonal, so M is block diagonal",
-          all(iszero, M[keep, con]))
+        all(iszero, M[keep, con]))
     check("P$p, ne=$ne: [V1,V1] closes in V1+V2 exactly", closes_on(C, keep, con))
     check("P$p, ne=$ne: the big bracket is still not a Lie algebra",
-          !iszero(structure_constant_residual(C)))
+        !iszero(structure_constant_residual(C)))
     if exact_rank(J[con, con]) == length(con)
         Ĵ, dĴ = reduced_bracket(C, u, keep, con)
         rr = raw(Ĵ, dĴ)
         check("P$p, ne=$ne: the Dirac-reduced bracket is still not Poisson", !iszero(rr),
-              @sprintf("normalised residual = %.4f", normalised(rr, Ĵ)))
+            @sprintf("normalised residual = %.4f", normalised(rr, Ĵ)))
     end
 end
 
@@ -392,36 +400,37 @@ println("       flat in h: Dirac reduction lowers it by a constant factor but do
 println("       not send it to zero, exactly as (H) being a closed condition demands.")
 println()
 println("        p   ne    N   dim V1    naive      Dirac     ratio")
-let trends = Dict{Int,Vector{NTuple{5,Float64}}}()
+let trends = Dict{Int, Vector{NTuple{5, Float64}}}()
     for p in (2, 3)
-        rows = NTuple{5,Float64}[]
+        rows = NTuple{5, Float64}[]
         for ne in (2, 4, 6, 8)
             r = assemble_dg_hierarchical(p, ne)
             C = Float64.(r.C)                 # exact assembly, floating-point study
             keep, con = r.keep, r.con
             N = length(keep) + length(con)
             rng = MersenneTwister(100 + ne)
-            u = zeros(N); u[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep))
+            u = zeros(N)
+            u[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep))
             Ĵ, dĴ = reduced_bracket(C, u, keep, con)
             Jn, dJn = naive_restriction(C, keep, u)
             rn = raw(Jn, dJn) / maximum(abs, Jn)^2
             rr = raw(Ĵ, dĴ) / maximum(abs, Ĵ)^2
             push!(rows, (ne, N, length(keep), rn, rr))
             @printf("        P%d  %2d   %3d    %3d    %.6f   %.6f   %6.3f\n",
-                    p, ne, N, length(keep), rn, rr, rr / rn)
+                p, ne, N, length(keep), rn, rr, rr / rn)
         end
         trends[p] = rows
     end
     for p in (2, 3)
         rows = trends[p]
         check("P$p: the Dirac-reduced residual is nonzero at every resolution",
-              all(r -> r[5] > 1e-8, rows))
+            all(r -> r[5] > 1e-8, rows))
         check("P$p: and does not decrease under a fourfold refinement",
-              rows[end][5] > 0.1 * rows[1][5],
-              @sprintf("%.5f -> %.5f from ne=%d to ne=%d",
-                       rows[1][5], rows[end][5], Int(rows[1][1]), Int(rows[end][1])))
+            rows[end][5] > 0.1 * rows[1][5],
+            @sprintf("%.5f -> %.5f from ne=%d to ne=%d",
+                rows[1][5], rows[end][5], Int(rows[1][1]), Int(rows[end][1])))
         check("P$p: Dirac reduction does lower it by a constant factor",
-              rows[end][5] < rows[end][4])
+            rows[end][5] < rows[end][4])
     end
 end
 
@@ -434,9 +443,9 @@ let tr = witt_truncation(2)
     Ĵ = schur_complement(J, keep, con)
     d = maximum(abs, Ĵ - J11)
     check("the Dirac correction is O(1), not a small perturbation of the truncation",
-          d > maximum(abs, J11) / 10,
-          @sprintf("max|Jhat - J11| / max|J11| = %.3f, ", float(d / maximum(abs, J11))) *
-          "so consistency is perturbed at leading order too")
+        d > maximum(abs, J11) / 10,
+        @sprintf("max|Jhat - J11| / max|J11| = %.3f, ", float(d / maximum(abs, J11))) *
+        "so consistency is perturbed at leading order too")
 end
 
 # --------------------------------------------------------------------------
@@ -461,21 +470,22 @@ let rng = MersenneTwister(101)
         Ĵ = schur_complement(J, keep, con)
         nk = length(keep)
         pred = [g[keep[i]] * Ks[i, j] * g[keep[j]] for i in 1:nk, j in 1:nk]
-        dĴ = [dg[keep[i], l] * Ks[i, j] * g[keep[j]] + g[keep[i]] * Ks[i, j] * dg[keep[j], l]
+        dĴ = [dg[keep[i], l] * Ks[i, j] * g[keep[j]] +
+              g[keep[i]] * Ks[i, j] * dg[keep[j], l]
               for l in keep, i in 1:nk, j in 1:nk]
         check("N=$N, $nc constraints: Jhat = diag(g1) Schur(K) diag(g1)", Ĵ == pred)
         check("N=$N, $nc constraints: Schur(K) is constant and antisymmetric",
-              Ks == -transpose(Ks))
+            Ks == -transpose(Ks))
         kerKs = kernel(Ks)
         check("N=$N, $nc constraints: the reduced bracket satisfies Jacobi exactly",
-              iszero(raw(Ĵ, dĴ)),
-              "rank K = $(exact_rank(K)) -> rank Schur(K) = $(exact_rank(Ks)), " *
-              "$(size(kerKs, 2)) Casimir(s) from ker Schur(K)")
+            iszero(raw(Ĵ, dĴ)),
+            "rank K = $(exact_rank(K)) -> rank Schur(K) = $(exact_rank(Ks)), " *
+            "$(size(kerKs, 2)) Casimir(s) from ker Schur(K)")
         if size(kerKs, 2) ≥ 1
             nv = kerKs[:, 1]
             check("N=$N, $nc constraints: n in ker Schur(K) gives a Casimir of Jhat",
-                  all(iszero, [sum(Ĵ[i, j] * nv[j] / g[keep[j]] for j in 1:nk) for i in 1:nk]),
-                  "C_n = sum_i n_i eta_i(u_i) with eta' = 1/g, as in Proposition 2.5")
+                all(iszero, [sum(Ĵ[i, j] * nv[j] / g[keep[j]] for j in 1:nk) for i in 1:nk]),
+                "C_n = sum_i n_i eta_i(u_i) with eta' = 1/g, as in Proposition 2.5")
         end
     end
 end
@@ -494,28 +504,33 @@ let Nn = 5
     rep(a) = a > Nn ÷ 2 ? a - Nn : a
     sup(m) = max(abs(rep(m[1])), abs(rep(m[2])))
     keep = [pos[m] for m in modes if sup(m) ≤ 1]
-    con  = [pos[m] for m in modes if sup(m) > 1]
+    con = [pos[m] for m in modes if sup(m) > 1]
     rng = MersenneTwister(1)
-    u = zeros(d); u[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep))
+    u = zeros(d)
+    u[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep))
     Ĵ, dĴ = reduced_bracket(Cr, u, keep, con)
     w = raw(Ĵ, dĴ)
     sc = maximum(abs, Ĵ)^2
-    @printf("        su(%d): dim = %d, dim V1 = %d, dim V2 = %d\n", Nn, d, length(keep), length(con))
+    @printf("        su(%d): dim = %d, dim V1 = %d, dim V2 = %d\n", Nn, d, length(keep),
+        length(con))
     @printf("                 normalised reduced Jacobiator = %.3e\n", w / sc)
     @printf("                 rank Jhat = %d of %d\n", rank(Ĵ), length(keep))
     res, scale = structure_constant_residual(Cr; normalised = false)
     check("su($Nn): the parent bracket is a Lie algebra", res / scale < 1e-10)
-    check("su($Nn): the Dirac-reduced bracket satisfies Jacobi to round-off", w / sc < 1e-10,
-          @sprintf("normalised residual = %.2e", w / sc))
-    u2 = copy(u); u2[keep] .*= 2
+    check(
+        "su($Nn): the Dirac-reduced bracket satisfies Jacobi to round-off", w / sc < 1e-10,
+        @sprintf("normalised residual = %.2e", w / sc))
+    u2 = copy(u)
+    u2[keep] .*= 2
     Ĵ2, _ = reduced_bracket(Cr, u2, keep, con)
     check("su($Nn): Jhat is homogeneous of degree 1", isapprox(Ĵ2, 2 .* Ĵ; rtol = 1e-8))
-    u3 = zeros(d); u3[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep))
+    u3 = zeros(d)
+    u3[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep))
     Ĵ3, _ = reduced_bracket(Cr, u3, keep, con)
     Ĵs, _ = reduced_bracket(Cr, u .+ u3, keep, con)
     check("su($Nn): but Jhat is NOT linear in u, so it is not Lie-Poisson",
-          !isapprox(Ĵs, Ĵ .+ Ĵ3; rtol = 1e-8),
-          @sprintf("max|Jhat(u+u') - Jhat(u) - Jhat(u')| = %.3e", maximum(abs, Ĵs - Ĵ - Ĵ3)))
+        !isapprox(Ĵs, Ĵ .+ Ĵ3; rtol = 1e-8),
+        @sprintf("max|Jhat(u+u') - Jhat(u) - Jhat(u')| = %.3e", maximum(abs, Ĵs - Ĵ - Ĵ3)))
 end
 
 # --------------------------------------------------------------------------
@@ -560,8 +575,8 @@ function hierarchical_KD(p, ne)
     Ddg = zeros(Q, Ndg, Ndg)
     for e in 0:(ne - 1)
         o = e * nl
-        Mdg[(o+1):(o+nl), (o+1):(o+nl)] = Mloc
-        Ddg[(o+1):(o+nl), (o+1):(o+nl)] = Tloc[1, :, :]      # L_0 = 1
+        Mdg[(o + 1):(o + nl), (o + 1):(o + nl)] = Mloc
+        Ddg[(o + 1):(o + nl), (o + 1):(o + nl)] = Tloc[1, :, :]      # L_0 = 1
     end
     Q1 = coarse_in_dg(Q, p, ne)
     N1 = size(Q1, 1)
@@ -598,11 +613,12 @@ function run_dynamics(label, Kmat, Mmat, keep, con, u0, nsteps, h)
     f(u) = Jstar(u) * (Mmat * u)
     Ks = Kmat[keep, keep] - Kmat[keep, con] * (Kmat[con, con] \ Kmat[con, keep])
     check("$label: Schur(K) is a constant antisymmetric matrix",
-          maximum(abs, Ks + transpose(Ks)) < 1e-9 * maximum(abs, Ks))
+        maximum(abs, Ks + transpose(Ks)) < 1e-9 * maximum(abs, Ks))
     g0 = g(u0)
     check("$label: on the surface Jhat = diag(g1) Schur(K) diag(g1), as predicted",
-          maximum(abs, Jstar(u0)[keep, keep] - g0[keep] .* Ks .* transpose(g0[keep]))
-              < 1e-8 * maximum(abs, Ks))
+        maximum(abs, Jstar(u0)[keep, keep] - g0[keep] .* Ks .* transpose(g0[keep]))
+        <
+        1e-8 * maximum(abs, Ks))
 
     nv = nullspace(Ks)                                 # columns spanning ker Schur(K)
     nvecs = [nv[:, i] for i in axes(nv, 2)]
@@ -619,24 +635,31 @@ function run_dynamics(label, Kmat, Mmat, keep, con, u0, nsteps, h)
     end
     H1 = 0.5 * dot(u, Mmat * u)
     @printf("        %d steps of size %g, reduced dim %d, constraints %d, corank Schur(K) = %d\n",
-            nsteps, h, length(keep), length(con), length(nvecs))
+        nsteps, h, length(keep), length(con), length(nvecs))
     @printf("        max |u_constrained| over the run  = %.3e\n", fine_max)
     @printf("        relative energy drift             = %.3e\n", abs(H1 - H0) / abs(H0))
     for (k, n) in enumerate(nvecs)
         @printf("        relative Casimir drift, n_%d       = %.3e\n",
-                k - 1, abs(Cas(u, n) - C0[k]) / max(abs(C0[k]), 1e-30))
+            k - 1, abs(Cas(u, n) - C0[k]) / max(abs(C0[k]), 1e-30))
     end
     check("$label: the midpoint iteration converged at every step", converged)
-    check("$label: the constrained coefficients stay at zero to round-off, " *
-          "for any Hamiltonian", fine_max < 1e-12, @sprintf("max = %.2e", fine_max))
-    check("$label: energy is conserved, the midpoint rule preserving quadratic " *
-          "invariants", abs(H1 - H0) / abs(H0) < 1e-11,
-          @sprintf("drift = %.2e", abs(H1 - H0) / abs(H0)))
+    check(
+        "$label: the constrained coefficients stay at zero to round-off, " *
+        "for any Hamiltonian",
+        fine_max < 1e-12,
+        @sprintf("max = %.2e", fine_max))
+    check(
+        "$label: energy is conserved, the midpoint rule preserving quadratic " *
+        "invariants",
+        abs(H1 - H0) / abs(H0) < 1e-11,
+        @sprintf("drift = %.2e", abs(H1 - H0) / abs(H0)))
     for (k, n) in enumerate(nvecs)
         d = abs(Cas(u, n) - C0[k]) / max(abs(C0[k]), 1e-30)
-        check("$label: the reduced Casimir drifts only at O(h^2) in the u " *
-              "formulation, C_n being nonlinear there", d > 1e-12,
-              @sprintf("drift = %.2e; the flat formulation below removes it", d))
+        check(
+            "$label: the reduced Casimir drifts only at O(h^2) in the u " *
+            "formulation, C_n being nonlinear there",
+            d > 1e-12,
+            @sprintf("drift = %.2e; the flat formulation below removes it", d))
     end
 
     isempty(nvecs) && return 0
@@ -658,14 +681,17 @@ function run_dynamics(label, Kmat, Mmat, keep, con, u0, nsteps, h)
     dC = [abs(dot(n, ub) - dot(n, ub0)) / max(abs(dot(n, ub0)), 1e-30) for n in nvecs]
     println("        flat coordinates ubar = arcsinh(u): bracket is the constant Schur(K)")
     @printf("        relative energy drift             = %.3e\n",
-            abs(Hbar(ub) - Hbar(ub0)) / abs(Hbar(ub0)))
+        abs(Hbar(ub) - Hbar(ub0)) / abs(Hbar(ub0)))
     for (k, d) in enumerate(dC)
         @printf("        relative Casimir drift, n_%d       = %.3e\n", k - 1, d)
     end
     check("$label: the midpoint iteration converged in flat coordinates", conv2)
     for (k, d) in enumerate(dC)
-        check("$label: in flat coordinates C_n = sum_i n_i ubar_i is linear and " *
-              "conserved to round-off, n_$(k-1)", d < 1e-11, @sprintf("drift = %.2e", d))
+        check(
+            "$label: in flat coordinates C_n = sum_i n_i ubar_i is linear and " *
+            "conserved to round-off, n_$(k-1)",
+            d < 1e-11,
+            @sprintf("drift = %.2e", d))
     end
     return length(nvecs)
 end
@@ -675,17 +701,20 @@ let p_deg = 2, ne = 6
     N = length(keep0) + length(con0)
     check("D is antisymmetric", maximum(abs, D + transpose(D)) < 1e-9 * maximum(abs, D))
     check("K = M^-1 D M^-1 is antisymmetric",
-          maximum(abs, K0 + transpose(K0)) < 1e-9 * maximum(abs, K0))
+        maximum(abs, K0 + transpose(K0)) < 1e-9 * maximum(abs, K0))
     K22 = K0[con0, con0]
-    check("K22 for the hierarchical split has corank 2, so the fine block is not " *
-          "second class as it stands", length(con0) - rank(K22) == 2,
-          "dim V2 = $(length(con0)), rank K22 = $(rank(K22))")
+    check(
+        "K22 for the hierarchical split has corank 2, so the fine block is not " *
+        "second class as it stands",
+        length(con0) - rank(K22) == 2,
+        "dim V2 = $(length(con0)), rank K22 = $(rank(K22))")
 
     Kmat = K0 ./ maximum(abs, K0)
     con = maximal_second_class(Kmat, con0)
     keep = sort(collect(setdiff(1:N, con)))
     rng = MersenneTwister(7)
-    u0 = zeros(N); u0[keep] .= 0.4 .+ 1.2 .* rand(rng, length(keep))
+    u0 = zeros(N)
+    u0[keep] .= 0.4 .+ 1.2 .* rand(rng, length(keep))
     run_dynamics("hierarchical P2, ne=6", Kmat, M, keep, con, u0, 400, 1.0e-3)
 end
 
@@ -702,11 +731,12 @@ let Nr = 11, ncr = 4
     keepr, conr = collect(1:(Nr - ncr)), collect((Nr - ncr + 1):Nr)
     Mr = Matrix{Float64}(I, Nr, Nr)
     rng2 = MersenneTwister(11)
-    u0r = zeros(Nr); u0r[keepr] .= 0.4 .+ 1.2 .* rand(rng2, length(keepr))
+    u0r = zeros(Nr)
+    u0r[keepr] .= 0.4 .+ 1.2 .* rand(rng2, length(keepr))
     ncas = run_dynamics("random constant K, N=11, 4 constraints",
-                        Kr, Mr, keepr, conr, u0r, 400, 2.0e-3)
+        Kr, Mr, keepr, conr, u0r, 400, 2.0e-3)
     check("an odd-dimensional reduced space carries at least one Casimir", ncas ≥ 1,
-          "corank Schur(K) = $ncas, reduced dim = $(length(keepr))")
+        "corank Schur(K) = $ncas, reduced dim = $(length(keepr))")
 end
 
 summary("verify_dirac_reduction.jl")

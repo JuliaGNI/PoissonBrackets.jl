@@ -5,9 +5,9 @@ using SimpleSplines: UniformMesh, GradedMesh, RandomMesh
 using Test
 
 @testset "$(rpad("Discrete Bracket Tests",80))" begin
-
     @testset "$(rpad("constant bracket is antisymmetric and exactly Poisson",76))" begin
         for (nm, mk) in SPLINE_MESHES, N in (12, 16)
+
             s = SplineSpace(mk(N), 3)
             b = kdv_bracket_1(s)
             û = randn(N)
@@ -44,13 +44,14 @@ using Test
         end
         @test all(>(0.3), res)                  # order one, not small
         @test all(<(0.7), res)
-        @test abs(res[end] - res[end-1]) < 0.05 # and flat under refinement, not converging
+        @test abs(res[end] - res[end - 1]) < 0.05 # and flat under refinement, not converging
     end
 
     @testset "$(rpad("matrix-free apply agrees with the assembled matrix",76))" begin
         for N in (12, 16)
             s = SplineSpace(UniformMesh(N, 2π), 3)
-            û = randn(N); c = randn(N)
+            û = randn(N)
+            c = randn(N)
             for b in (kdv_bracket_1(s), kdv_bracket_2(s))
                 @test poisson_apply(b, û, c) ≈ poisson_matrix(b, û) * c
             end
@@ -73,11 +74,14 @@ using Test
     @testset "$(rpad("bracket_directional against a finite difference",76))" begin
         N = 12
         s = SplineSpace(UniformMesh(N, 2π), 3)
-        û = randn(N); v = randn(N); h = 1e-6
+        û = randn(N)
+        v = randn(N)
+        h = 1e-6
         for b in (kdv_bracket_1(s), kdv_bracket_2(s))
             D = PoissonBrackets.bracket_directional(b, û, v)
             for m in (1, 5, 11)
-                e = zeros(N); e[m] = h
+                e = zeros(N)
+                e[m] = h
                 fd = (poisson_apply(b, û .+ e, v) .- poisson_apply(b, û .- e, v)) ./ 2h
                 @test D[:, m] ≈ fd atol = 1e-6 * max(1, maximum(abs, fd))
             end
@@ -87,7 +91,8 @@ using Test
     @testset "$(rpad("gauged bracket is Poisson, and both hypotheses are sharp",76))" begin
         N = 7
         Random.seed!(11)
-        A = randn(N, N); K = (A - A') / 2
+        A = randn(N, N)
+        K = (A - A') / 2
         u = 1 .+ rand(N)
 
         # the theorem: K constant, g a function of the single variable u_i
@@ -107,7 +112,8 @@ using Test
         dJ = zeros(N, N, N)
         h = 1e-6
         for l in 1:N
-            e = zeros(N); e[l] = h
+            e = zeros(N)
+            e[l] = h
             dJ[l, :, :] = (Ku(u .+ e) .- Ku(u .- e)) ./ 2h
         end
         # (this is the same bracket, so it must still pass -- the sharpness test is below)
@@ -120,12 +126,13 @@ using Test
         J(v) = (D = Diagonal(sqrt.(shift(v))); D * K * D)
         dJn = zeros(N, N, N)
         for l in 1:N
-            e = zeros(N); e[l] = h
+            e = zeros(N)
+            e[l] = h
             dJn[l, :, :] = (J(u .+ e) .- J(u .- e)) ./ 2h
         end
         Jm = J(u)
         Aj = [sum(Jm[i, l] * dJn[l, j, k] for l in 1:N) for i in 1:N, j in 1:N, k in 1:N]
-        R = maximum(abs, [Aj[i,j,k] + Aj[j,k,i] + Aj[k,i,j]
+        R = maximum(abs, [Aj[i, j, k] + Aj[j, k, i] + Aj[k, i, j]
                           for i in 1:N, j in 1:N, k in 1:N])
         @test R / maximum(abs, Aj) > 1e-3      # a neighbour-dependent gauge is NOT Poisson
     end
@@ -134,11 +141,14 @@ using Test
         # so(3) is NOT a valid positive control: every three-dimensional antisymmetric
         # bracket satisfies Jacobi identically, so it passes even for a rescaled generator.
         so3 = zeros(3, 3, 3)
-        for (i, j, k) in ((1,2,3), (2,3,1), (3,1,2))
-            so3[k, i, j] = 1.0; so3[k, j, i] = -1.0
+        for (i, j, k) in ((1, 2, 3), (2, 3, 1), (3, 1, 2))
+            so3[k, i, j] = 1.0
+            so3[k, j, i] = -1.0
         end
         @test structure_constant_residual(so3) < 1e-12
-        bad = copy(so3); bad[3, 1, 2] *= 2.7; bad[3, 2, 1] *= 2.7
+        bad = copy(so3)
+        bad[3, 1, 2] *= 2.7
+        bad[3, 2, 1] *= 2.7
         @test structure_constant_residual(bad) < 1e-12    # still passes -- the trap
 
         # se(3): a genuine six-dimensional control
@@ -147,9 +157,9 @@ using Test
         for i in 1:3, j in 1:3, k in 1:3
             e = ε(i, j, k)
             iszero(e) && continue
-            se3[k, i, j]         += e     # [J_i, J_j] = ε J_k
-            se3[k+3, i, j+3]     += e     # [J_i, P_j] = ε P_k
-            se3[k+3, j+3, i]     -= e     # antisymmetry in the two lower indices
+            se3[k, i, j] += e     # [J_i, J_j] = ε J_k
+            se3[k + 3, i, j + 3] += e     # [J_i, P_j] = ε P_k
+            se3[k + 3, j + 3, i] -= e     # antisymmetry in the two lower indices
         end
         @test structure_constant_residual(se3) < 1e-12
 
@@ -157,8 +167,10 @@ using Test
         Random.seed!(5)
         N = 5
         c = zeros(N, N, N)
-        for m in 1:N, i in 1:N, j in i+1:N
-            v = randn(); c[m, i, j] = v; c[m, j, i] = -v
+        for m in 1:N, i in 1:N, j in (i + 1):N
+            v = randn()
+            c[m, i, j] = v
+            c[m, j, i] = -v
         end
         @test structure_constant_residual(c) > 1e-3
     end
@@ -178,7 +190,7 @@ using Test
             #
             # The comparison has to be made on the WEAK-FORM blocks K = M P M. The
             # sandwiched P is dense for both, since M⁻¹ is dense whatever sits between.
-            M  = mass_matrix(s)
+            M = mass_matrix(s)
             bg = kdv_bracket_2(s)
             Kg = M * poisson_matrix(bg, PoissonBrackets.miura_map(s, v̂)) * M
             Km = M * P * M
@@ -195,5 +207,4 @@ using Test
         @test_throws DimensionMismatch PoissonBrackets.AffineBracket(
             s, 2, randn(3, 3), zeros(12, 12))
     end
-
 end

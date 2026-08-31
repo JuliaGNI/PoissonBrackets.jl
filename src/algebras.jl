@@ -30,11 +30,12 @@ This bracket is Poisson exactly when the `C` are the structure constants of a Li
 which [`structure_constant_residual`](@ref) measures; the two are the same statement seen
 from either end.
 """
-function lie_poisson_matrix(C::AbstractArray{T,3}, z::AbstractVector{S}) where {T, S}
+function lie_poisson_matrix(C::AbstractArray{T, 3}, z::AbstractVector{S}) where {T, S}
     N = size(C, 2)
     R = promote_type(T, S)
     J = zeros(R, N, N)
     @inbounds for j in 1:N, i in 1:N
+
         s = zero(R)
         for m in eachindex(z)
             s += C[m, i, j] * z[m]
@@ -53,10 +54,10 @@ The derivative tensor `dJ[m,i,j]` ``= \\partial \\mathbb{J}_{ij} / \\partial z_m
 Provided under its own name so that a caller assembling a Jacobiator does not have to know
 that the two coincide.
 """
-lie_poisson_derivative(C::AbstractArray{T,3}) where {T} = C
+lie_poisson_derivative(C::AbstractArray{T, 3}) where {T} = C
 
 const _EPS3 = ((1, 2, 3, 1), (2, 3, 1, 1), (3, 1, 2, 1),
-               (3, 2, 1, -1), (2, 1, 3, -1), (1, 3, 2, -1))
+    (3, 2, 1, -1), (2, 1, 3, -1), (1, 3, 2, -1))
 
 @doc raw"""
     so3([T = Rational{BigInt}], n = 3)
@@ -103,9 +104,9 @@ Jacobi identity is a real constraint rather than an automatic consequence of ant
 function se3(::Type{T} = Rational{BigInt}) where {T}
     C = zeros(T, 6, 6, 6)
     for (i, j, k, v) in _EPS3
-        C[k,     i,     j]     += T(v)
-        C[3 + k, i,     3 + j] += T(v)
-        C[3 + k, 3 + j, i]     -= T(v)
+        C[k, i, j] += T(v)
+        C[3 + k, i, 3 + j] += T(v)
+        C[3 + k, 3 + j, i] -= T(v)
     end
     return C
 end
@@ -132,6 +133,7 @@ function so_n(::Type{T}, N::Int) where {T}
     d = length(basis)
     C = zeros(T, d, d, d)
     for j in 1:d, i in 1:d
+
         comm = basis[i] * basis[j] - basis[j] * basis[i]
         for m in 1:d
             C[m, i, j] = -tr(comm * basis[m]) // 2
@@ -163,7 +165,9 @@ function random_antisymmetric_c(rng::AbstractRNG, ::Type{T}, n::Int) where {T}
     return C
 end
 
-random_antisymmetric_c(rng::AbstractRNG, n::Int) = random_antisymmetric_c(rng, Rational{BigInt}, n)
+function random_antisymmetric_c(rng::AbstractRNG, n::Int)
+    random_antisymmetric_c(rng, Rational{BigInt}, n)
+end
 random_antisymmetric_c(n::Int) = random_antisymmetric_c(Random.default_rng(), n)
 
 @doc raw"""
@@ -196,7 +200,8 @@ finite `N`, which is what makes it the useful comparison for the finite element 
 that do not.
 """
 function sine_algebra(N::Int)
-    isodd(N) || throw(ArgumentError("sine_algebra needs N odd for ζ = exp(4πi/N) to be primitive, got N = $N"))
+    isodd(N) ||
+        throw(ArgumentError("sine_algebra needs N odd for ζ = exp(4πi/N) to be primitive, got N = $N"))
     ζ = cis(4π / N)
     g = Diagonal([ζ^a for a in 0:(N - 1)])
     h = zeros(ComplexF64, N, N)
@@ -212,6 +217,7 @@ function sine_algebra(N::Int)
     λ = im * N / (4π)                       # normalisation: coefficients → m × n
     C = zeros(ComplexF64, d, d, d)
     for m in modes, n in modes
+
         s = (mod(m[1] + n[1], N), mod(m[2] + n[2], N))
         s == (0, 0) && continue             # the commutator is central there
         comm = T[m] * T[n] - T[n] * T[m]
@@ -249,7 +255,7 @@ so the deviation is second order in ``1/N`` *at fixed mode*, which is why the co
 to be made on a window of low modes held fixed as `N` grows. Taken over all modes the sine
 saturates and nothing converges.
 """
-function sine_coefficient(N::Int, m::Tuple{Int,Int}, n::Tuple{Int,Int})
+function sine_coefficient(N::Int, m::Tuple{Int, Int}, n::Tuple{Int, Int})
     s = (mod(m[1] + n[1], N), mod(m[2] + n[2], N))
     s == (0, 0) && return s, 0.0
     cross = m[1] * n[2] - m[2] * n[1]
@@ -281,10 +287,11 @@ function witt_truncation(::Type{T}, K::Int; q::Int = 2, drop_zero::Bool = false)
     n = length(modes)
     C = zeros(T, n, n, n)
     for (a, k) in enumerate(modes), (b, l) in enumerate(modes)
+
         haskey(pos, k + l) && (C[pos[k + l], a, b] = T(l - k))
     end
     keep = [pos[k] for k in modes if abs(k) ≤ K]
-    con  = [pos[k] for k in modes if abs(k) > K]
+    con = [pos[k] for k in modes if abs(k) > K]
     return (; C, keep, con, labels = ["L($k)" for k in modes])
 end
 
@@ -317,6 +324,7 @@ function graded_witt(::Type{T}, lo::Int, D::Int) where {T}
     n = length(degs)
     C = zeros(T, n, n, n)
     for (i, a) in enumerate(degs), (j, b) in enumerate(degs)
+
         haskey(pos, a + b) && (C[pos[a + b], i, j] = T(b - a))
     end
     return (; C, degs)
@@ -345,10 +353,11 @@ function poly_truncation(::Type{T}, p::Int; q::Int = 2) where {T}
     n = length(degs)
     C = zeros(T, n, n, n)
     for (i, a) in enumerate(degs), (j, b) in enumerate(degs)
+
         haskey(pos, a + b) && (C[pos[a + b], i, j] = T(b - a))
     end
     keep = [pos[a] for a in degs if a + 1 ≤ p]
-    con  = [pos[a] for a in degs if a + 1 > p]
+    con = [pos[a] for a in degs if a + 1 > p]
     return (; C, keep, con, labels = ["x^$(a + 1)" for a in degs])
 end
 
@@ -377,12 +386,13 @@ function torus_truncation(::Type{T}, K::Int; q::Int = 2) where {T}
     n = length(modes)
     C = zeros(T, n, n, n)
     for (i, m) in enumerate(modes), (j, nn) in enumerate(modes)
+
         s = (m[1] + nn[1], m[2] + nn[2])
         haskey(pos, s) && (C[pos[s], i, j] = T(m[1] * nn[2] - m[2] * nn[1]))
     end
     sup(m) = max(abs(m[1]), abs(m[2]))
     keep = [pos[m] for m in modes if sup(m) ≤ K]
-    con  = [pos[m] for m in modes if sup(m) > K]
+    con = [pos[m] for m in modes if sup(m) > K]
     return (; C, keep, con, labels = ["e$(m)" for m in modes])
 end
 
@@ -397,7 +407,7 @@ retained and constrained generators together with nothing left over.
 This is the premise of the hierarchical-basis construction, and [`leak`](@ref) measures how
 badly it fails when it does.
 """
-function closes_on(C::AbstractArray{T,3}, keep, con) where {T}
+function closes_on(C::AbstractArray{T, 3}, keep, con) where {T}
     inside = Set{Int}(keep) ∪ Set{Int}(con)
     all(iszero(C[m, i, j]) for i in keep, j in keep for m in axes(C, 1) if m ∉ inside)
 end
@@ -408,7 +418,7 @@ end
 ``\\max |c_{ij}^m|`` over ``i, j \\in V_1`` and ``m`` outside ``V_1 + V_2`` — the closure
 defect of [`closes_on`](@ref). Zero exactly when that returns `true`.
 """
-function leak(C::AbstractArray{T,3}, keep, con) where {T}
+function leak(C::AbstractArray{T, 3}, keep, con) where {T}
     inside = Set{Int}(keep) ∪ Set{Int}(con)
     worst = zero(real(T))
     for i in keep, j in keep, m in axes(C, 1)
@@ -443,7 +453,7 @@ not block diagonal unless ``M`` is, which is why the orthogonal-basis realisatio
 faithful ones and the finite element realisation has to go through this formula in the
 primal coefficients.
 """
-function galerkin_c(Minv::AbstractMatrix{S}, T3::AbstractArray{R,3}) where {S, R}
+function galerkin_c(Minv::AbstractMatrix{S}, T3::AbstractArray{R, 3}) where {S, R}
     n = size(Minv, 1)
     U = promote_type(S, R)
     # Contract the two slots in turn. The direct double sum inside a triple loop is O(n^5),
@@ -451,6 +461,7 @@ function galerkin_c(Minv::AbstractMatrix{S}, T3::AbstractArray{R,3}) where {S, R
     # exact rational arithmetic rather than seconds.
     S1 = zeros(U, n, n, n)                      # S1[m,i,q] = Σ_p Minv[i,p] T3[m,p,q]
     @inbounds for q in 1:n, p in 1:n
+
         for i in 1:n
             iszero(Minv[i, p]) && continue
             f = Minv[i, p]
@@ -461,9 +472,11 @@ function galerkin_c(Minv::AbstractMatrix{S}, T3::AbstractArray{R,3}) where {S, R
     end
     C = zeros(U, n, n, n)                       # C[m,i,j] = Σ_q Minv[j,q] S1[m,i,q]
     @inbounds for q in 1:n, j in 1:n
+
         iszero(Minv[j, q]) && continue
         f = Minv[j, q]
         for i in 1:n, m in 1:n
+
             C[m, i, j] += f * S1[m, i, q]
         end
     end

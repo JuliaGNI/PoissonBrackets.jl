@@ -74,14 +74,14 @@ indefinite `σ` and negative values appear within a few hundred random draws. Th
 demonstrates that, so that the proposition is known not to be vacuous.
 """
 function metriplectic_bracket(σ::AbstractMatrix, μ::AbstractMatrix,
-                              α::AbstractVector, h::AbstractVector)
+        α::AbstractVector, h::AbstractVector)
     return dot(α, σ, α) * dot(h, μ, h) +
            dot(α, μ, α) * dot(h, σ, h) -
            2 * dot(α, σ, h) * dot(α, μ, h)
 end
 
-function metriplectic_bracket(R::AbstractArray{T,4}, α::AbstractVector,
-                              h::AbstractVector) where {T}
+function metriplectic_bracket(R::AbstractArray{T, 4}, α::AbstractVector,
+        h::AbstractVector) where {T}
     n = size(R, 1)
     length(α) == n && length(h) == n || throw(DimensionMismatch(
         "the tensor is $(size(R)) but the vectors have lengths $(length(α)) and $(length(h))"))

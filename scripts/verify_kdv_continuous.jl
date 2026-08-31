@@ -36,7 +36,8 @@
 
 using SymPyPythonCall
 
-include(joinpath(@__DIR__, "check.jl")); using .Checks: header, check, summary
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary
 
 const NJ = 8
 const Uj = [Sym("u$i") for i in 0:(NJ - 1)]
@@ -48,7 +49,7 @@ const FAMILIES = (Uj, Aj, Bj)
 function D(f, n = 1)
     for _ in 1:n
         f = expand(sum(fam[k + 2] * diff(f, fam[k + 1])
-                       for fam in FAMILIES for k in 0:(NJ - 2)))
+        for fam in FAMILIES for k in 0:(NJ - 2)))
     end
     f
 end
@@ -65,7 +66,7 @@ b(k) = Bj[k + 1]
 
 header("0. the Euler-operator machinery")
 check("D and E are consistent: E(D f) = 0 for a sample f",
-      is_total_derivative(D(u(0)^2 * u(1) + u(2)^3)))
+    is_total_derivative(D(u(0)^2 * u(1) + u(2)^3)))
 check("a non-total-derivative is detected: E(u^2) != 0", !is_total_derivative(u(0)^2))
 
 header("1. functional derivatives")
@@ -73,7 +74,7 @@ h1 = (u(1)^2 - 2 * u(0)^3) / 2
 h2 = u(0)^2 / 2
 dH1, dH2 = euler(h1, Uj), euler(h2, Uj)
 check("delta H1 / delta u = -3u^2 - u_xx", simplify(dH1 - (-3 * u(0)^2 - u(2))) == 0,
-      "got $dH1")
+    "got $dH1")
 check("delta H2 / delta u = u", simplify(dH2 - u(0)) == 0, "got $dH2")
 
 header("2. both structures generate the same KdV equation")
@@ -86,7 +87,7 @@ header("3. skew-adjointness of D2 = -4u d_x - 2u_x - d_x^3")
 D2b = expand(-4 * u(0) * D(b(0)) - 2 * u(1) * b(0) - D(b(0), 3))
 D2a = expand(-4 * u(0) * D(a(0)) - 2 * u(1) * a(0) - D(a(0), 3))
 check("int ( a D2 b + b D2 a ) dx = 0 for arbitrary a, b",
-      is_total_derivative(expand(a(0) * D2b + b(0) * D2a)))
+    is_total_derivative(expand(a(0) * D2b + b(0) * D2a)))
 
 header("4. conservation of the respective other Hamiltonian")
 I1 = expand(dH2 * D(dH1))
@@ -94,26 +95,30 @@ I2 = expand(dH1 * D2(dH2))
 check("{H2,H1}_1 = 0", is_total_derivative(I1))
 check("{H1,H2}_2 = 0", is_total_derivative(I2))
 check("the {H1,H2}_2 computation is exact pointwise, integrand = 1/2 d_x (3u^2 + u_xx)^2",
-      simplify(I2 - D((3 * u(0)^2 + u(2))^2) / 2) == 0)
+    simplify(I2 - D((3 * u(0)^2 + u(2))^2) / 2) == 0)
 
 header("5. the intermediate step of {H2,H1}_1")
-stale     = D(u(1)^2 + 2 * u(0)^3) / 2
+stale = D(u(1)^2 + 2 * u(0)^3) / 2
 corrected = D(u(1)^2 - 4 * u(0)^3) / 2
-exact     = D(u(1)^2 / 2 - u(0) * u(2) - 2 * u(0)^3)
-check("the integrand is exactly d_x ( u_x^2/2 - u u_xx - 2u^3 ), with no integration by parts",
-      simplify(I1 - exact) == 0)
-check("the displayed 1/2 d_x ( u_x^2 - 4u^3 ) is exactly one integration by parts away: " *
-      "the difference is -d_x ( u u_xx )",
-      simplify((I1 - corrected) + D(u(0) * u(2))) == 0)
-check("a form off by a spurious d_x ( 3u^3 ) would NOT be: this is the shape of the slip " *
-      "an early draft made, in the other sign convention",
-      simplify((corrected - stale) + D(3 * u(0)^3)) == 0)
+exact = D(u(1)^2 / 2 - u(0) * u(2) - 2 * u(0)^3)
+check(
+    "the integrand is exactly d_x ( u_x^2/2 - u u_xx - 2u^3 ), with no integration by parts",
+    simplify(I1 - exact) == 0)
+check(
+    "the displayed 1/2 d_x ( u_x^2 - 4u^3 ) is exactly one integration by parts away: " *
+    "the difference is -d_x ( u u_xx )",
+    simplify((I1 - corrected) + D(u(0) * u(2))) == 0)
+check(
+    "a form off by a spurious d_x ( 3u^3 ) would NOT be: this is the shape of the slip " *
+    "an early draft made, in the other sign convention",
+    simplify((corrected - stale) + D(3 * u(0)^3)) == 0)
 check("and it is not equal to the preceding line", simplify(I1 - stale) != 0,
-      "difference = $(simplify(I1 - stale))")
+    "difference = $(simplify(I1 - stale))")
 # the conclusion of the section survives the slip: every one of these expressions is a total
 # derivative, so all of them integrate to zero.
-check("both forms still integrate to zero, which is why the slip was invisible to the " *
-      "conclusion {H2,H1}_1 = 0",
-      is_total_derivative(stale) && is_total_derivative(corrected))
+check(
+    "both forms still integrate to zero, which is why the slip was invisible to the " *
+    "conclusion {H2,H1}_1 = 0",
+    is_total_derivative(stale) && is_total_derivative(corrected))
 
 summary("verify_kdv_continuous.jl")

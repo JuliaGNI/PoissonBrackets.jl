@@ -45,11 +45,11 @@ function hessian end
 In-place [`gradient`](@ref). The fallback allocates; the concrete Hamiltonians that are
 evaluated in a time loop override it.
 """
-gradient!(g::AbstractVector, H::DiscreteHamiltonian, s::DiscreteSpace, û::AbstractVector) =
+function gradient!(g::AbstractVector, H::DiscreteHamiltonian, s::DiscreteSpace, û::AbstractVector)
     (g .= gradient(H, s, û); g)
+end
 
 value(H::DiscreteHamiltonian, s::DiscreteSpace, û::AbstractVector) = hamiltonian(H, s, û)
-
 
 @doc raw"""
     QuadraticHamiltonian(A)
@@ -73,11 +73,11 @@ struct QuadraticHamiltonian{T, MT <: AbstractMatrix{T}} <: DiscreteHamiltonian{T
     end
 end
 
-hamiltonian(H::QuadraticHamiltonian, s::DiscreteSpace, û::AbstractVector) =
+function hamiltonian(H::QuadraticHamiltonian, s::DiscreteSpace, û::AbstractVector)
     dot(û, H.A, û) / 2
+end
 gradient(H::QuadraticHamiltonian, s::DiscreteSpace, û::AbstractVector) = H.A * û
 hessian(H::QuadraticHamiltonian, s::DiscreteSpace, û::AbstractVector) = H.A
-
 
 @doc raw"""
     MassCasimir(space)
@@ -108,9 +108,9 @@ MassCasimir(s::DiscreteSpace{T}) where {T} = MassCasimir{T}(basis_integrals(s))
 
 hamiltonian(H::MassCasimir, s::DiscreteSpace, û::AbstractVector) = dot(H.g, û)
 gradient(H::MassCasimir, s::DiscreteSpace, û::AbstractVector) = H.g
-hessian(H::MassCasimir{T}, s::DiscreteSpace, û::AbstractVector) where {T} =
+function hessian(H::MassCasimir{T}, s::DiscreteSpace, û::AbstractVector) where {T}
     zeros(T, length(û), length(û))
-
+end
 
 @doc raw"""
     GaugedCasimir(g, G)
@@ -129,8 +129,10 @@ struct GaugedCasimir{T, GT, DT} <: DiscreteHamiltonian{T}
     dG::DT
 end
 
-hamiltonian(H::GaugedCasimir, s::DiscreteSpace, û::AbstractVector) =
+function hamiltonian(H::GaugedCasimir, s::DiscreteSpace, û::AbstractVector)
     sum(H.n[i] * H.G(û[i]) for i in eachindex(û))
+end
 gradient(H::GaugedCasimir, s::DiscreteSpace, û::AbstractVector) = H.n .* H.dG.(û)
-hessian(H::GaugedCasimir, s::DiscreteSpace, û::AbstractVector) =
+function hessian(H::GaugedCasimir, s::DiscreteSpace, û::AbstractVector)
     throw(ArgumentError("the Hessian of a GaugedCasimir is not implemented"))
+end

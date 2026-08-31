@@ -13,7 +13,6 @@ function surface_point(rng, N, keep)
 end
 
 @testset "$(rpad("Dirac Reduction Tests",80))" begin
-
     @testset "$(rpad("the structural identities of the Dirac tensor hold EXACTLY",76))" begin
         rng = MersenneTwister(0xd15ac)
         for tr in (witt_truncation(1), witt_truncation(2))
@@ -24,7 +23,7 @@ end
 
             @test length(maximal_second_class(J, con)) == length(con)   # fully second class
 
-            R  = dirac_R(J, con)
+            R = dirac_R(J, con)
             Js = dirac_tensor(J, con)
             @test R * R == R                                    # idempotent
             @test all(iszero, R[con, :])                        # V₂ rows vanish identically
@@ -57,7 +56,7 @@ end
                 @test Ĵ == -transpose(Ĵ)
                 lhs = jacobiator(Ĵ, dĴ)
                 rhs = project_jacobiator(jacobiator(J, lie_poisson_derivative(C)),
-                                         dirac_projector(J, keep, con))
+                    dirac_projector(J, keep, con))
                 @test lhs == rhs                    # exactly, over ℚ
             end
         end
@@ -82,7 +81,8 @@ end
         for _ in 1:10
             n = 7
             A = zeros(Rational{BigInt}, n, n)
-            for i in 1:n, j in (i+1):n
+            for i in 1:n, j in (i + 1):n
+
                 v = rand(rng, -6:6) // rand(rng, 1:4)
                 A[i, j], A[j, i] = v, -v
             end
@@ -148,22 +148,22 @@ end
         u = upt(size(C, 1), keep)
         J, dJ = lie_poisson_matrix(C, u), lie_poisson_derivative(C)
         Ĵ, dĴ = reduced_bracket(C, u, keep, con)
-        @test det(J[con, con])       == 13225 // 9
-        @test raw(J, dJ)             == 54
-        @test raw(Ĵ, dĴ)             == 33145 // 1587
-        @test maximum(abs, Ĵ)        == 165 // 46
-        @test Ĵ[1, 2]                == 0
+        @test det(J[con, con]) == 13225 // 9
+        @test raw(J, dJ) == 54
+        @test raw(Ĵ, dĴ) == 33145 // 1587
+        @test maximum(abs, Ĵ) == 165 // 46
+        @test Ĵ[1, 2] == 0
 
         r = assemble_dg_hierarchical(2, 3)
         C3, keep3, con3, M3 = r.C, r.keep, r.con, r.M
         u3 = upt(size(C3, 1), keep3)
         J3 = lie_poisson_matrix(C3, u3)
         Ĵ3, dĴ3 = reduced_bracket(C3, u3, keep3, con3)
-        @test M3[1, 1]                                             == 4 // 15
+        @test M3[1, 1] == 4 // 15
         @test first(structure_constant_residual(C3; normalised = false)) == 10368 // 49
-        @test det(J3[con3, con3])                                  == 10490880625 // 50176
-        @test raw(Ĵ3, dĴ3)          == 16134943910670 // 117497863
-        @test maximum(abs, Ĵ3)      == 520412685 // 229432
+        @test det(J3[con3, con3]) == 10490880625 // 50176
+        @test raw(Ĵ3, dĴ3) == 16134943910670 // 117497863
+        @test maximum(abs, Ĵ3) == 520412685 // 229432
     end
 
     @testset "$(rpad("shifted Legendre is orthogonal and Lagrange is nodal, both exactly",76))" begin
@@ -176,8 +176,8 @@ end
         for p in (1, 2, 3)
             φ = lagrange_coefficients(p)
             ev(c, x) = sum(c[k] * x^(k - 1) for k in eachindex(c))
-            @test all(ev(φ[a], (b - 1) // p) == (a == b) for a in 1:(p+1), b in 1:(p+1))
-            @test all(sum(ev(φ[a], x) for a in 1:(p+1)) == 1 for x in (0//1, 1//3, 1//1))
+            @test all(ev(φ[a], (b - 1) // p) == (a == b) for a in 1:(p + 1), b in 1:(p + 1))
+            @test all(sum(ev(φ[a], x) for a in 1:(p + 1)) == 1 for x in (0//1, 1//3, 1//1))
         end
         @test_throws ArgumentError lagrange_coefficients(0)
     end

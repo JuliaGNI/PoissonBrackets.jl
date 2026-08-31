@@ -4,7 +4,6 @@ using Random
 using Test
 
 @testset "$(rpad("Lie Algebra Tests",80))" begin
-
     @testset "$(rpad("se(3) is the positive control and passes EXACTLY",76))" begin
         C = se3()
         @test is_antisymmetric_c(C)
@@ -27,17 +26,20 @@ using Test
 
         # Rescaling one m-slice, the perturbation verify_kdv_jacobi_family.py reaches for,
         # leaves it a Lie algebra. So does moving a single structure constant.
-        Cs = copy(C); Cs[1, :, :] *= 3 // 2
+        Cs = copy(C)
+        Cs[1, :, :] *= 3 // 2
         @test structure_constant_residual(Cs) == 0
-        Cb = copy(C); Cb[3, 1, 2] = 2; Cb[3, 2, 1] = -2
+        Cb = copy(C)
+        Cb[3, 1, 2] = 2
+        Cb[3, 2, 1] = -2
         @test structure_constant_residual(Cb) == 0
 
         # The reason is that all three sit in the six-parameter family c_ij^k = ε_ijl n^lk
         # with n SYMMETRIC, every member of which is a Lie algebra. It is NOT true that
         # antisymmetry alone forces Jacobi in three dimensions -- drop the symmetry of n, or
         # take a general antisymmetric c, and the residual is nonzero.
-        ε = Dict((1,2,3) => 1, (2,3,1) => 1, (3,1,2) => 1,
-                 (3,2,1) => -1, (2,1,3) => -1, (1,3,2) => -1)
+        ε = Dict((1, 2, 3) => 1, (2, 3, 1) => 1, (3, 1, 2) => 1,
+            (3, 2, 1) => -1, (2, 1, 3) => -1, (1, 3, 2) => -1)
         function bianchiA(n)
             D = zeros(Rational{BigInt}, 3, 3, 3)
             for i in 1:3, j in 1:3, k in 1:3, l in 1:3
@@ -51,7 +53,8 @@ using Test
             M = Rational{BigInt}[rand(rng, -6:6) // rand(rng, 1:4) for _ in 1:3, _ in 1:3]
             @test structure_constant_residual(bianchiA((M + transpose(M)) // 2)) == 0
         end
-        @test any(structure_constant_residual(random_antisymmetric_c(rng, 3)) != 0 for _ in 1:20)
+        @test any(structure_constant_residual(random_antisymmetric_c(rng, 3)) != 0
+        for _ in 1:20)
     end
 
     @testset "$(rpad("so(N) from the trace form is a Lie algebra for N = 3, 4, 5",76))" begin
@@ -61,14 +64,15 @@ using Test
             @test size(C, 1) == length(basis)
             @test structure_constant_residual(C) == 0
             # the basis is orthonormal for ⟨X,Y⟩ = -tr(XY)/2, which is how C was read off
-            @test all(-tr(basis[i] * basis[j]) // 2 == (i == j) for i in eachindex(basis),
-                      j in eachindex(basis))
+            @test all(-tr(basis[i] * basis[j]) // 2 == (i == j)
+            for i in eachindex(basis),
+            j in eachindex(basis))
         end
     end
 
     @testset "$(rpad("the Lie-Poisson tensor is antisymmetric and Poisson iff c is",76))" begin
-        z = Rational{BigInt}[1//2, -3//4, 5//6, 7//8, -1//3, 2//5]
-        J  = lie_poisson_matrix(se3(), z)
+        z = Rational{BigInt}[1 // 2, -3 // 4, 5 // 6, 7 // 8, -1 // 3, 2 // 5]
+        J = lie_poisson_matrix(se3(), z)
         dJ = lie_poisson_derivative(se3())
         @test J == -transpose(J)
         @test jacobi_residual(J, dJ) == 0                # exact, for the linear bracket
@@ -94,6 +98,7 @@ using Test
             pos = Dict(m => i for (i, m) in enumerate(modes))
             worst = 0.0
             for m in modes, n in modes
+
                 s, c = sine_coefficient(N, m, n)
                 s == (0, 0) && continue
                 worst = max(worst, abs(C[pos[s], pos[m], pos[n]] - c))
@@ -111,21 +116,23 @@ using Test
         window = [(m1, m2) for m1 in -2:2 for m2 in -2:2 if (m1, m2) != (0, 0)]
         deviation(N) = maximum(
             let (s, c) = sine_coefficient(N, (mod(m[1], N), mod(m[2], N)),
-                                             (mod(n[1], N), mod(n[2], N)))
+                    (mod(n[1], N), mod(n[2], N)))
                 s == (0, 0) ? 0.0 : abs(c - (m[1] * n[2] - m[2] * n[1]))
-            end for m in window, n in window)
+            end
+        for m in window, n in window)
 
         Ns = (41, 81, 161)
         errs = deviation.(Ns)
-        @test all(errs[i+1] < errs[i] for i in 1:length(errs)-1)
-        orders = [log(errs[i] / errs[i+1]) / log(Ns[i+1] / Ns[i]) for i in 1:length(Ns)-1]
+        @test all(errs[i + 1] < errs[i] for i in 1:(length(errs) - 1))
+        orders = [log(errs[i] / errs[i + 1]) / log(Ns[i + 1] / Ns[i])
+                  for i in 1:(length(Ns) - 1)]
         @test all(1.6 .< orders .< 2.2)
         @test 1.9 < last(orders) < 2.1      # and it is converging ON two, not past it
     end
 
     @testset "$(rpad("the mode truncations close on V1 but are NOT Lie algebras",76))" begin
         for tr in (witt_truncation(1), witt_truncation(2), poly_truncation(2),
-                   torus_truncation(1))
+            torus_truncation(1))
             C, keep, con = tr.C, tr.keep, tr.con
             @test is_antisymmetric_c(C)
             @test length(keep) + length(con) == size(C, 1) == length(tr.labels)
@@ -143,12 +150,13 @@ using Test
         tr = witt_truncation(1)                       # modes -2:2, so index i ↔ k = i-3
         C = tr.C
         for k in -2:2, l in -2:2
+
             abs(k + l) ≤ 2 || continue
             @test C[k + l + 3, k + 3, l + 3] == l - k
         end
         @test tr.labels == ["L(-2)", "L(-1)", "L(0)", "L(1)", "L(2)"]
         @test tr.keep == [2, 3, 4]                    # |k| ≤ 1
-        @test tr.con  == [1, 5]
+        @test tr.con == [1, 5]
         @test size(witt_truncation(1; drop_zero = true).C, 1) == 4
     end
 

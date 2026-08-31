@@ -51,8 +51,9 @@ function poisson_matrix end
 The product ``\\mathbb{P}(\\hat{u}) \\, c``, formed without assembling the matrix where the
 bracket admits it.
 """
-poisson_apply(b::DiscreteBracket, û::AbstractVector, c::AbstractVector) =
+function poisson_apply(b::DiscreteBracket, û::AbstractVector, c::AbstractVector)
     poisson_matrix(b, û) * c
+end
 
 @doc raw"""
     poisson_derivative(bracket, û)
@@ -97,8 +98,8 @@ actually formed is neither.
 
 Returns `(residual, scale)` when `normalised = false`, so that both can be inspected.
 """
-jacobi_residual(b::DiscreteBracket, û::AbstractVector; normalised::Bool = true) =
-    jacobi_residual(poisson_matrix(b, û), poisson_derivative(b, û); normalised)
+jacobi_residual(b::DiscreteBracket, û::AbstractVector; normalised::Bool = true) = jacobi_residual(
+    poisson_matrix(b, û), poisson_derivative(b, û); normalised)
 
 @doc raw"""
     jacobi_residual(P, dP; normalised = true)
@@ -112,7 +113,7 @@ tensor built from structure constants rather than from a discretisation. It is g
 the element type, so `Rational{BigInt}` gives an exactly zero residual where one is claimed
 rather than a small floating-point number that has to be argued about.
 """
-function jacobi_residual(P::AbstractMatrix, dP::AbstractArray{S,3}; normalised::Bool = true) where {S}
+function jacobi_residual(P::AbstractMatrix, dP::AbstractArray{S, 3}; normalised::Bool = true) where {S}
     N = size(P, 1)
     T = promote_type(eltype(P), S)
 
@@ -171,7 +172,7 @@ prototypes state the broader claim; it is an erratum, recorded in `docs/src/veri
 Use ``\mathfrak{se}(3)`` as the positive control, and a random antisymmetric `c` in
 dimension five as the negative one.
 """
-function structure_constant_residual(C::AbstractArray{T,3}; normalised::Bool = true) where {T}
+function structure_constant_residual(C::AbstractArray{T, 3}; normalised::Bool = true) where {T}
     N = size(C, 1)
     # A[n,i,j,k] = Σ_m C[m,i,j] C[n,m,k]
     A = zeros(T, N, N, N, N)
@@ -192,7 +193,6 @@ function structure_constant_residual(C::AbstractArray{T,3}; normalised::Bool = t
     normalised || return (res, scale)
     iszero(scale) ? zero(res) : res / scale
 end
-
 
 ## Constant bracket
 
@@ -251,14 +251,15 @@ poisson_matrix(b::ConstantBracket, û::AbstractVector) = b.P
 poisson_matrix(b::ConstantBracket) = b.P
 poisson_apply(b::ConstantBracket, û::AbstractVector, c::AbstractVector) = b.P * c
 
-poisson_derivative(b::ConstantBracket{T}, û::AbstractVector) where {T} =
+function poisson_derivative(b::ConstantBracket{T}, û::AbstractVector) where {T}
     zeros(T, size(b.P, 1), size(b.P)...)
+end
 
-jacobi_residual(b::ConstantBracket{T}, û::AbstractVector; normalised::Bool = true) where {T} =
+function jacobi_residual(b::ConstantBracket{T}, û::AbstractVector; normalised::Bool = true) where {T}
     normalised ? zero(T) : (zero(T), zero(T))
+end
 
 Base.size(b::ConstantBracket) = size(b.P)
-
 
 ## Affine bracket
 
@@ -305,7 +306,9 @@ practical content of the skew-symmetrisation, and it is not a cosmetic rearrange
 
 Neither of these brackets satisfies the Jacobi identity; see [`DiscreteBracket`](@ref).
 """
-struct AffineBracket{T, ST <: DiscreteSpace{T}, PT <: AbstractMatrix{T}, KT <: AbstractMatrix{T}} <: DiscreteBracket{T}
+struct AffineBracket{
+    T, ST <: DiscreteSpace{T}, PT <: AbstractMatrix{T}, KT <: AbstractMatrix{T}} <:
+       DiscreteBracket{T}
     space::ST
     scale::T
     Ψ::PT
@@ -331,13 +334,13 @@ struct AffineBracket{T, ST <: DiscreteSpace{T}, PT <: AbstractMatrix{T}, KT <: A
     # only by the analysis paths (`poisson_matrix`, `poisson_tensor`, `kernel_tensor`); the
     # dynamics can always solve with `M` instead. See `kernel_operator`.
     function AffineBracket(s::ST, scale::Real, Ψ::AbstractMatrix,
-                           K0::AbstractMatrix) where {T, ST <: DiscreteSpace{T}}
+            K0::AbstractMatrix) where {T, ST <: DiscreteSpace{T}}
         size(Ψ) == size(basis_values(s, 0)) || throw(DimensionMismatch(
             "the density table has size $(size(Ψ)) but the basis tabulation has " *
             "$(size(basis_values(s, 0)))"))
         K̄ = _skew(K0)
         new{T, ST, typeof(Ψ), typeof(K̄)}(s, convert(T, scale), Ψ, K̄,
-                                         inverse_mass_matrix(s))
+            inverse_mass_matrix(s))
     end
 end
 
@@ -369,11 +372,11 @@ With ``c_h`` the field of `c`, the contraction is
 times per step and the step counts reach the millions, and this is where that time goes.
 """
 function kernel_apply(b::AffineBracket, û::AbstractVector, c::AbstractVector)
-    s  = b.space
-    w  = quadrature_weights(s)
+    s = b.space
+    w = quadrature_weights(s)
     Φ0 = basis_values(s, 0)
     Φ1 = basis_values(s, 1)
-    ρ  = density(b, û)
+    ρ = density(b, û)
     ch = Φ0' * c
     cx = Φ1' * c
     b.scale * (Φ0 * (w .* ρ .* cx) - Φ1 * (w .* ρ .* ch))
@@ -388,8 +391,8 @@ The three-tensor `Ku[m,k,l]` of the `u`-linear block, so that the block at ``\ha
 ``O(N^3)`` in storage; only the Jacobiator needs it.
 """
 function kernel_tensor(b::AffineBracket{T}) where {T}
-    s  = b.space
-    w  = quadrature_weights(s)
+    s = b.space
+    w = quadrature_weights(s)
     # Densified deliberately, and only here. The tabulations are stored sparse because the
     # assemblies contract them, and that is the hot path; this routine instead RANDOM-ACCESSES
     # them N³ times, where every sparse read is a binary search down a column. It builds an
@@ -397,8 +400,8 @@ function kernel_tensor(b::AffineBracket{T}) where {T}
     # a Jacobian uses -- and dense reads are what the loop below actually wants.
     Φ0 = Matrix(basis_values(s, 0))
     Φ1 = Matrix(basis_values(s, 1))
-    Ψ  = Matrix(b.Ψ)
-    N  = nbasis(s)
+    Ψ = Matrix(b.Ψ)
+    N = nbasis(s)
 
     T1 = zeros(T, N, N, N)
     @inbounds for l in 1:N, kk in 1:N, m in 1:N
@@ -430,8 +433,8 @@ This is what makes the Jacobian of the flow analytic and ``O(N^2 Q)`` rather tha
 contraction of the ``O(N^3)`` tensor.
 """
 function kernel_directional(b::AffineBracket, v::AbstractVector)
-    s  = b.space
-    w  = quadrature_weights(s)
+    s = b.space
+    w = quadrature_weights(s)
     Φ0 = basis_values(s, 0)
     Φ1 = basis_values(s, 1)
     vh = Φ0' * v
@@ -470,15 +473,19 @@ Only [`AffineBracket`](@ref) — the KdV and Camassa-Holm second brackets — su
 formulation, and this method is what makes asking for it anywhere else an `ArgumentError`
 rather than a silently different method.
 """
-kernel_operator(b::DiscreteBracket, ::AbstractVector) = throw(ArgumentError(
-    "kernel_operator is only defined for an AffineBracket; $(nameof(typeof(b))) stores the " *
-    "sandwiched Minv*K*Minv rather than K, so the mixed formulation is not available for it"))
+function kernel_operator(b::DiscreteBracket, ::AbstractVector)
+    throw(ArgumentError(
+        "kernel_operator is only defined for an AffineBracket; $(nameof(typeof(b))) stores the " *
+        "sandwiched Minv*K*Minv rather than K, so the mixed formulation is not available for it"))
+end
 
-poisson_matrix(b::AffineBracket, û::AbstractVector) =
+function poisson_matrix(b::AffineBracket, û::AbstractVector)
     b.Minv * (b.K0 + kernel_matrix(b, û)) * b.Minv
+end
 
-poisson_apply(b::AffineBracket, û::AbstractVector, c::AbstractVector) =
+function poisson_apply(b::AffineBracket, û::AbstractVector, c::AbstractVector)
     (v = b.Minv * c; b.Minv * (b.K0 * v + kernel_apply(b, û, v)))
+end
 
 @doc raw"""
     poisson_tensor(b::AffineBracket)
@@ -489,8 +496,8 @@ The pair `(P0, C)` with ``\mathbb{P}(\hat{u}) = \mathbb{P}_0 + \sum_m \hat{u}_m 
 """
 function poisson_tensor(b::AffineBracket{T}) where {T}
     Ku = kernel_tensor(b)
-    N  = nbasis(b.space)
-    C  = zeros(T, N, N, N)
+    N = nbasis(b.space)
+    C = zeros(T, N, N, N)
     @inbounds for m in 1:N
         C[m, :, :] = b.Minv * Ku[m, :, :] * b.Minv
     end
@@ -500,7 +507,6 @@ end
 poisson_derivative(b::AffineBracket, û::AbstractVector) = poisson_tensor(b)[2]
 
 Base.size(b::AffineBracket) = (nbasis(b.space), nbasis(b.space))
-
 
 ## Gauged bracket
 
@@ -546,19 +552,22 @@ struct GaugedBracket{T, GT, DT} <: DiscreteBracket{T}
     end
 end
 
-poisson_matrix(b::GaugedBracket, û::AbstractVector) =
+function poisson_matrix(b::GaugedBracket, û::AbstractVector)
     (gv = b.g.(û); Diagonal(gv) * b.K * Diagonal(gv))
+end
 
-poisson_apply(b::GaugedBracket, û::AbstractVector, c::AbstractVector) =
+function poisson_apply(b::GaugedBracket, û::AbstractVector, c::AbstractVector)
     (gv = b.g.(û); gv .* (b.K * (gv .* c)))
+end
 
 function poisson_derivative(b::GaugedBracket{T}, û::AbstractVector) where {T}
-    N  = length(û)
+    N = length(û)
     gv = b.g.(û)
     dv = b.dg.(û)
     dP = zeros(T, N, N, N)
     # ∂J_ij/∂u_l = δ_il g'(u_i) K_ij g_j + δ_jl g_i K_ij g'(u_j)
     @inbounds for j in 1:N, i in 1:N
+
         dP[i, i, j] += dv[i] * b.K[i, j] * gv[j]
         dP[j, i, j] += gv[i] * b.K[i, j] * dv[j]
     end
@@ -566,7 +575,6 @@ function poisson_derivative(b::GaugedBracket{T}, û::AbstractVector) where {T}
 end
 
 Base.size(b::GaugedBracket) = size(b.K)
-
 
 ## Miura bracket
 
@@ -635,15 +643,14 @@ struct MiuraBracket{T, ST <: DiscreteSpace{T}} <: DiscreteBracket{T}
 
     function MiuraBracket(s::ST, v̂::AbstractVector, b1::ConstantBracket{T}) where
             {T, ST <: DiscreteSpace{T}}
-        L  = miura_derivative(s, v̂)
+        L = miura_derivative(s, v̂)
         P1 = Matrix(poisson_matrix(b1))
-        P  = L * P1 * L'
+        P = L * P1 * L'
         new{T, ST}(s, collect(T, v̂), L, P1, Matrix(_skew(P)))
     end
 end
 
-MiuraBracket(s::DiscreteSpace, v̂::AbstractVector) =
-    MiuraBracket(s, v̂, kdv_bracket_1(s))
+MiuraBracket(s::DiscreteSpace, v̂::AbstractVector) = MiuraBracket(s, v̂, kdv_bracket_1(s))
 
 poisson_matrix(b::MiuraBracket, û::AbstractVector) = b.P
 poisson_matrix(b::MiuraBracket) = b.P
@@ -676,9 +683,9 @@ Returning zero here — as a bracket that happened to be constant in ``\hat{u}``
 make [`jacobi_residual`](@ref) report success for a tautological reason. It is computed.
 """
 function poisson_derivative(b::MiuraBracket{T}, û::AbstractVector) where {T}
-    s  = b.space
-    N  = nbasis(s)
-    w  = quadrature_weights(s)
+    s = b.space
+    N = nbasis(s)
+    w = quadrature_weights(s)
     # dense for the same reason as in `kernel_tensor`: the triple-product tensor below reads
     # the tabulation N³ times at random rather than contracting it
     Φ0 = Matrix(basis_values(s, 0))
@@ -700,7 +707,7 @@ function poisson_derivative(b::MiuraBracket{T}, û::AbstractVector) where {T}
     @inbounds for l in 1:N
         # ∂L/∂v̂_l = -2 M⁻¹ Tˡ, the sign being that of `miura_derivative`
         dL = -2 .* (Minv * Tt[l, :, :])
-        A  = dL * b.P1 * b.L'
+        A = dL * b.P1 * b.L'
         # the second term is L P¹ dLᵀ = -(dL P¹ Lᵀ)ᵀ, because P¹ is antisymmetric, so the
         # two SUBTRACT; adding them would give a symmetric matrix and a Jacobiator of
         # order one for a bracket that is in fact Poisson
@@ -726,8 +733,9 @@ Base.size(b::MiuraBracket) = size(b.P)
 
 The symmetric matrix ``\\mathbb{B}_{kl} = \\int_\\Omega v_h \\phi_k \\phi_l \\, dx``.
 """
-miura_moment_matrix(s::DiscreteSpace, v̂::AbstractVector) =
+function miura_moment_matrix(s::DiscreteSpace, v̂::AbstractVector)
     weighted_matrix(s, field(s, v̂), 0, 0)
+end
 
 @doc raw"""
     miura_derivative(space, v̂)
@@ -829,8 +837,8 @@ moves that half-space up by ``-\lambda L`` and is what lets any mass be reached.
     chart covers exactly the fields whose Hill operator has none. What lifts the restriction
     is ``\lambda``, because it moves the spectral threshold rather than relabelling it.
 """
-miura_map(s::DiscreteSpace, v̂::AbstractVector, λ::Real = 0) =
-    project(s, .-(field(s, v̂) .^ 2 .+ field(s, v̂, 1))) .- λ
+miura_map(s::DiscreteSpace, v̂::AbstractVector, λ::Real = 0) = project(
+    s, .-(field(s, v̂) .^ 2 .+ field(s, v̂, 1))) .- λ
 
 @doc raw"""
     hill_lambda0(space, û)
@@ -859,7 +867,7 @@ function hill_lambda0(s::DiscreteSpace, û::AbstractVector)
     K1 = stiffness_matrix(s)
     # the Riccati substitution turns u = -(v² + v_x) into ψ_xx = -u ψ, so the Hill potential
     # is MINUS the KdV field in this convention
-    U  = .-weighted_matrix(s, field(s, û), 0, 0)
+    U = .-weighted_matrix(s, field(s, û), 0, 0)
     # densified on the way in: the assemblies are sparse, and a sparse Cholesky cannot
     # solve against a sparse right-hand side. The eigenvalue problem is dense in any case.
     minimum(real.(eigvals(mass_factorization(s) \ Matrix(K1 .+ U))))
@@ -884,8 +892,8 @@ deliberate: at ``\lambda = 0`` there is genuinely no preimage for most `û`, and
 answer about the geometry of the map, not an error.
 """
 function miura_invert(s::DiscreteSpace{T}, û::AbstractVector;
-                      λ::Real = 0, seed = one(T), tol = 1e-13,
-                      maxiter::Integer = 200) where {T}
+        λ::Real = 0, seed = one(T), tol = 1e-13,
+        maxiter::Integer = 200) where {T}
     v = fill(convert(T, seed), nbasis(s))
     for _ in 1:maxiter
         r = miura_map(s, v, λ) .- û
@@ -902,7 +910,6 @@ function miura_invert(s::DiscreteSpace{T}, û::AbstractVector;
     end
     return nothing
 end
-
 
 @doc raw"""
     miura_lambda(space, û; margin = 1//10)
@@ -932,9 +939,8 @@ julia> v̂ = miura_invert(s, û; λ = λ); miura_map(s, v̂, λ) ≈ û
 true
 ```
 """
-miura_lambda(s::DiscreteSpace, û::AbstractVector; margin = 1//10) =
-    (λ₀ = hill_lambda0(s, û); λ₀ - margin * max(one(λ₀), abs(λ₀)))
-
+miura_lambda(s::DiscreteSpace, û::AbstractVector; margin = 1//10) = (
+    λ₀ = hill_lambda0(s, û); λ₀ - margin * max(one(λ₀), abs(λ₀)))
 
 @doc raw"""
     bracket_directional(bracket, û, v)
@@ -951,11 +957,12 @@ It vanishes for a constant bracket, and is available in closed form for the othe
 Jacobiator and never in a time loop.
 """
 function bracket_directional(b::DiscreteBracket{T}, û::AbstractVector,
-                             v::AbstractVector) where {T}
+        v::AbstractVector) where {T}
     dP = poisson_derivative(b, û)
-    N  = length(û)
-    D  = zeros(T, N, N)
+    N = length(û)
+    D = zeros(T, N, N)
     @inbounds for m in 1:N, i in 1:N
+
         s = zero(T)
         for j in 1:N
             s += dP[m, i, j] * v[j]
@@ -965,17 +972,20 @@ function bracket_directional(b::DiscreteBracket{T}, û::AbstractVector,
     return D
 end
 
-bracket_directional(b::ConstantBracket{T}, û::AbstractVector, v::AbstractVector) where {T} =
+function bracket_directional(b::ConstantBracket{T}, û::AbstractVector, v::AbstractVector) where {T}
     zeros(T, length(û), length(û))
+end
 
-bracket_directional(b::MiuraBracket{T}, û::AbstractVector, v::AbstractVector) where {T} =
+function bracket_directional(b::MiuraBracket{T}, û::AbstractVector, v::AbstractVector) where {T}
     zeros(T, length(û), length(û))
+end
 
-bracket_directional(b::AffineBracket, û::AbstractVector, v::AbstractVector) =
+function bracket_directional(b::AffineBracket, û::AbstractVector, v::AbstractVector)
     b.Minv * kernel_directional(b, b.Minv * v)
+end
 
 function bracket_directional(b::GaugedBracket{T}, û::AbstractVector,
-                             v::AbstractVector) where {T}
+        v::AbstractVector) where {T}
     gv = b.g.(û)
     dv = b.dg.(û)
     # (J v)_i = g_i Σ_j K_ij g_j v_j, so the derivative has a diagonal part from g_i and a

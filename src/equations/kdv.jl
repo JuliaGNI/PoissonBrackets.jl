@@ -60,8 +60,7 @@ quadratic condition on the basis, not something a choice of quadrature or a regr
 the integrand can deliver. See [`kdv_miura_bracket`](@ref) for the construction that does
 give an exactly Poisson second bracket, and what it costs.
 """
-kdv_bracket_2(s::DiscreteSpace) =
-    AffineBracket(s, -2, basis_values(s, 0), mixed_matrix(s, 1, 2))
+kdv_bracket_2(s::DiscreteSpace) = AffineBracket(s, -2, basis_values(s, 0), mixed_matrix(s, 1, 2))
 
 @doc raw"""
     kdv_miura_bracket(space, v̂)
@@ -72,9 +71,7 @@ The second KdV bracket obtained by pushing the first forward along the Miura map
 Antisymmetric *and* Poisson to round-off at every `N`, at the cost of being dense. It is a
 bracket on ``v``-space; to run it, use [`MiuraSystem`](@ref) rather than forming this matrix.
 """
-kdv_miura_bracket(s::DiscreteSpace, v̂::AbstractVector) =
-    MiuraBracket(s, v̂, kdv_bracket_1(s))
-
+kdv_miura_bracket(s::DiscreteSpace, v̂::AbstractVector) = MiuraBracket(s, v̂, kdv_bracket_1(s))
 
 @doc raw"""
     KdVHamiltonian1()
@@ -104,14 +101,14 @@ struct KdVHamiltonian1{T} <: DiscreteHamiltonian{T} end
 KdVHamiltonian1() = KdVHamiltonian1{Float64}()
 
 function hamiltonian(::KdVHamiltonian1, s::DiscreteSpace, û::AbstractVector)
-    w  = quadrature_weights(s)
+    w = quadrature_weights(s)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     (dot(w, ux .^ 2) - 2 * dot(w, uh .^ 3)) / 2
 end
 
 function gradient(::KdVHamiltonian1, s::DiscreteSpace, û::AbstractVector)
-    w  = quadrature_weights(s)
+    w = quadrature_weights(s)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     basis_values(s, 1) * (w .* ux) .- 3 .* (basis_values(s, 0) * (w .* uh .^ 2))
@@ -119,10 +116,9 @@ end
 
 function hessian(::KdVHamiltonian1, s::DiscreteSpace, û::AbstractVector)
     uh = field(s, û, 0)
-    H  = stiffness_matrix(s) .- 6 .* weighted_matrix(s, uh, 0, 0)
+    H = stiffness_matrix(s) .- 6 .* weighted_matrix(s, uh, 0, 0)
     (H + H') / 2
 end
-
 
 @doc raw"""
     KdVHamiltonian2(space)
@@ -144,7 +140,6 @@ two-field method with two.
 """
 KdVHamiltonian2(s::DiscreteSpace) = QuadraticHamiltonian(mass_matrix(s))
 
-
 @doc raw"""
     KdVHamiltonian3()
 
@@ -165,24 +160,23 @@ struct KdVHamiltonian3{T} <: DiscreteHamiltonian{T} end
 KdVHamiltonian3() = KdVHamiltonian3{Float64}()
 
 function hamiltonian(::KdVHamiltonian3, s::DiscreteSpace, û::AbstractVector)
-    w   = quadrature_weights(s)
-    uh  = field(s, û, 0)
-    ux  = field(s, û, 1)
+    w = quadrature_weights(s)
+    uh = field(s, û, 0)
+    ux = field(s, û, 1)
     uxx = field(s, û, 2)
     dot(w, (5 // 2) .* uh .^ 4 .- 5 .* uh .* ux .^ 2 .+ uxx .^ 2 ./ 2)
 end
 
 function gradient(::KdVHamiltonian3, s::DiscreteSpace, û::AbstractVector)
-    w   = quadrature_weights(s)
-    uh  = field(s, û, 0)
-    ux  = field(s, û, 1)
+    w = quadrature_weights(s)
+    uh = field(s, û, 0)
+    ux = field(s, û, 1)
     uxx = field(s, û, 2)
     10 .* (basis_values(s, 0) * (w .* uh .^ 3)) .-
-     5 .* (basis_values(s, 0) * (w .* ux .^ 2)) .-
+    5 .* (basis_values(s, 0) * (w .* ux .^ 2)) .-
     10 .* (basis_values(s, 1) * (w .* uh .* ux)) .+
-          (basis_values(s, 2) * (w .* uxx))
+    (basis_values(s, 2) * (w .* uxx))
 end
-
 
 ## Initial data
 #
@@ -268,9 +262,9 @@ function two_soliton(k₁::Real, k₂::Real, x₁::Real, x₂::Real, L::Real; t:
             # exponentials in range without changing the ratios f'/f and f''/f
             ps = (0.0, e₁, e₂, e₁ + e₂ + logA)
             ds = (0.0, 2k₁, 2k₂, 2 * (k₁ + k₂))
-            m  = maximum(ps)
+            m = maximum(ps)
             ws = ntuple(a -> exp(clamp(ps[a] - m, -700.0, 700.0)), 4)
-            f  = sum(ws)
+            f = sum(ws)
             f1 = sum(ds[a] * ws[a] for a in 1:4)
             f2 = sum(ds[a]^2 * ws[a] for a in 1:4)
             v += 2 * (f2 / f - (f1 / f)^2)
@@ -334,12 +328,13 @@ momentum and energy are then ``36 H_{2,d}`` and ``36 H_{1,d}``, and their mass i
 
 In both, the tallest wave overtakes all the others over the course of the run.
 """
-three_solitons(; L = 200.0, xleft = -100.0) =
-    solitons((0.3, 0.25, 0.2), (-60.0, -44.0, -26.0) .- xleft, L)
+three_solitons(; L = 200.0, xleft = -100.0) = solitons(
+    (0.3, 0.25, 0.2), (
+        -60.0, -44.0, -26.0) .- xleft, L)
 
 @doc (@doc three_solitons)
-five_solitons(; L = 300.0, xleft = -150.0) =
-    solitons((0.3, 0.25, 0.2, 0.15, 0.1), (-120.0, -90.0, -60.0, -30.0, 0.0) .- xleft, L)
+five_solitons(; L = 300.0, xleft = -150.0) = solitons(
+    (0.3, 0.25, 0.2, 0.15, 0.1), (-120.0, -90.0, -60.0, -30.0, 0.0) .- xleft, L)
 
 @doc raw"""
     miura_initial_v(L = 2π)
@@ -365,7 +360,6 @@ The one initial condition here whose mass is exactly zero, which is why the mass
 reported in absolute rather than relative terms.
 """
 cosine(L::Real) = x -> cos(2π * x / L)
-
 
 @doc raw"""
     KdVSystem(space; kwargs...)
@@ -414,15 +408,15 @@ function KdVSystem(s::DiscreteSpace{T}) where {T}
     f1 = HamiltonianFlow(s, b1, h1)
     f2 = HamiltonianFlow(s, b2, h2)
     KdVSystem{T, typeof(s), typeof(b1), typeof(b2), typeof(h1), typeof(h2),
-              typeof(f1), typeof(f2)}(s, b1, b2, h1, h2, MassCasimir(s), f1, f2)
+        typeof(f1), typeof(f2)}(s, b1, b2, h1, h2, MassCasimir(s), f1, f2)
 end
 
-KdVSystem(n::Integer, p::Integer; L = 2π, kwargs...) =
+function KdVSystem(n::Integer, p::Integer; L = 2π, kwargs...)
     KdVSystem(SplineSpace(n, p; L = L, kwargs...))
+end
 
 Base.eltype(::KdVSystem{T}) where {T} = T
 nbasis(sys::KdVSystem) = nbasis(sys.space)
-
 
 ## The Miura chart
 
@@ -470,27 +464,29 @@ end
 
 MiuraHamiltonian() = MiuraHamiltonian{Float64}(0.0)
 MiuraHamiltonian(λ::Real) = MiuraHamiltonian{typeof(float(λ))}(float(λ))
-MiuraHamiltonian(::DiscreteSpace{T}; λ::Real = 0) where {T} =
+function MiuraHamiltonian(::DiscreteSpace{T}; λ::Real = 0) where {T}
     MiuraHamiltonian{T}(convert(T, λ))
+end
 
-hamiltonian(H::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector) =
+function hamiltonian(H::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector)
     (û = miura_map(s, v̂, H.λ); dot(û, mass_matrix(s), û) / 2)
+end
 
 # ∂H̃/∂v̂ = Lᵀ M û, and BOTH L and û changed sign with the convention, so the product is
 # numerically what it always was -- but it has to be written with the minus, because
 # `miura_map` and `miura_derivative` now carry theirs.
-gradient(H::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector) =
+function gradient(H::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector)
     .-(2 .* miura_moment_matrix(s, v̂) .- derivative_matrix(s)) * miura_map(s, v̂, H.λ)
-
-function hessian(H::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector)
-    L  = miura_derivative(s, v̂)
-    û  = miura_map(s, v̂, H.λ)
-    # LᵀML is even in L, so it is unchanged; the second term carries the sign of
-    # ∂²û/∂v̂∂v̂, which is -2 M⁻¹T for û = -(v² + v_x)
-    H  = L' * mass_matrix(s) * L .- 2 .* weighted_matrix(s, field(s, û), 0, 0)
-    (H + H') / 2
 end
 
+function hessian(H::MiuraHamiltonian, s::DiscreteSpace, v̂::AbstractVector)
+    L = miura_derivative(s, v̂)
+    û = miura_map(s, v̂, H.λ)
+    # LᵀML is even in L, so it is unchanged; the second term carries the sign of
+    # ∂²û/∂v̂∂v̂, which is -2 M⁻¹T for û = -(v² + v_x)
+    H = L' * mass_matrix(s) * L .- 2 .* weighted_matrix(s, field(s, û), 0, 0)
+    (H + H') / 2
+end
 
 @doc raw"""
     MiuraSystem(space; v̂ = nothing)
@@ -565,8 +561,9 @@ The spectral parameter the system was built with.
 """
 miura_lambda(sys::MiuraSystem) = sys.H.λ
 
-MiuraSystem(n::Integer, p::Integer; L = 2π, kwargs...) =
+function MiuraSystem(n::Integer, p::Integer; L = 2π, kwargs...)
     MiuraSystem(SplineSpace(n, p; L = L, kwargs...))
+end
 
 Base.eltype(::MiuraSystem{T}) where {T} = T
 nbasis(sys::MiuraSystem) = nbasis(sys.space)
@@ -583,8 +580,7 @@ miura_map(sys::MiuraSystem, v̂::AbstractVector) = miura_map(sys.space, v̂, sys
 
 The pushforward bracket ``\\mathbb{P}^2_{\\mathrm{M}}(\\hat{v})`` at the current state.
 """
-miura_bracket(sys::MiuraSystem, v̂::AbstractVector) =
-    MiuraBracket(sys.space, v̂, sys.bracket)
+miura_bracket(sys::MiuraSystem, v̂::AbstractVector) = MiuraBracket(sys.space, v̂, sys.bracket)
 
 @doc raw"""
     miura_casimir(sys::MiuraSystem, v̂)

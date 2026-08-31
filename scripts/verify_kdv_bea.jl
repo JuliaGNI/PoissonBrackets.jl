@@ -32,8 +32,10 @@ using LinearAlgebra
 using Printf
 using Random
 
-include(joinpath(@__DIR__, "check.jl"));    using .Checks: header, check, summary
-include(joinpath(@__DIR__, "kdvtools.jl")); using .KdVTools
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary
+include(joinpath(@__DIR__, "kdvtools.jl"));
+using .KdVTools
 
 U0b(x) = sin(x)
 RESOLVED(x) = 0.1 * sin(x)
@@ -46,7 +48,7 @@ function T3(s::KdVSys)
     Φ0, W = basis_values(s.s, 0), s.W
     nb = s.n
     -6.0 .* [sum(Φ0[i, q] * Φ0[j, q] * Φ0[k, q] * W[q] for q in eachindex(W))
-             for i in 1:nb, j in 1:nb, k in 1:nb]
+     for i in 1:nb, j in 1:nb, k in 1:nb]
 end
 
 "The leading modified Hamiltonian of the implicit midpoint rule, H^[2] = -1/24 <H1'' f1, f1>."
@@ -79,7 +81,7 @@ function modes(s::KdVSys, kmax; seed = 0)
     a = randn(rng, kmax) .+ 1.0
     b = randn(rng, kmax)
     project(s.s, x -> sum(a[j] * sin(2π * j * x / s.Lx) + b[j] * cos(2π * j * x / s.Lx)
-                          for j in 1:kmax) / kmax)
+    for j in 1:kmax) / kmax)
 end
 
 "Least-squares slope of log y against log x."
@@ -96,29 +98,29 @@ println("  A u is the Hamiltonian vector field of H2 under the FIRST bracket,")
 println("  P^1 dH2/du = Minv S Minv M u = Minv S u = A u,  and it is linear.")
 
 for (lab, kw) in (("uniform     ", (;)), ("non-uniform ", (; uniform = false)),
-                  ("graded      ", (; uniform = false, graded = true)))
+    ("graded      ", (; uniform = false, graded = true)))
     s = KdVSys(20; p = 3, u0 = U0b, kw...)
     A = sym_A(s)
     e1 = maximum(abs, transpose(A) * s.M + s.M * A) / maximum(abs, s.M)
     e2 = maximum(abs, A * s.P1 + s.P1 * transpose(A)) / maximum(abs, s.P1)
     check("$(lab)mesh: A^T M + M A = 0, so exp(sA) preserves H2 exactly", e1 < 1e-12,
-          @sprintf("%.2e", e1))
+        @sprintf("%.2e", e1))
     check("$(lab)mesh: A P^1 + P^1 A^T = 0, so exp(sA) preserves P^1 exactly", e2 < 1e-12,
-          @sprintf("%.2e", e2))
+        @sprintf("%.2e", e2))
 end
 
 const s1 = KdVSys(20; p = 3, u0 = U0b)
 let A = sym_A(s1), Abad = s1.Minv * (s1.S + 0.1 .* s1.K1)
     e1 = maximum(abs, transpose(Abad) * s1.M + s1.M * Abad) / maximum(abs, s1.M)
     check("negative control: a non-skew S breaks the first identity outright", e1 > 1e-2,
-          @sprintf("%.2e", e1))
+        @sprintf("%.2e", e1))
     d = s1.d0
     for sv in (1.0, 0.3, 0.1)
         E = exp(sv .* A)
         eH2 = abs(sysH2(s1, E * d) - sysH2(s1, d)) / abs(sysH2(s1, d))
         eP1 = maximum(abs, E * s1.P1 * transpose(E) - s1.P1) / maximum(abs, s1.P1)
         check("s = $sv: exp(sA) is an H2-isometry and a P^1-Poisson map",
-              eH2 < 1e-12 && eP1 < 1e-11, @sprintf("dH2 %.1e, dP^1 %.1e", eH2, eP1))
+            eH2 < 1e-12 && eP1 < 1e-11, @sprintf("dH2 %.1e, dP^1 %.1e", eH2, eP1))
     end
 end
 
@@ -138,7 +140,7 @@ let rng = MersenneTwister(11)
             worst = max(worst, abs(lhs - rhs) / max(abs(lhs), 1e-30))
         end
         check("$lab mesh: {H2,H1}_1 + L_A H1 = 0 for random uhat", worst < 1e-10,
-              @sprintf("%.2e", worst))
+            @sprintf("%.2e", worst))
     end
 end
 
@@ -156,12 +158,13 @@ let d = s3.d0
     gF = zeros(s3.n)
     for j in 1:s3.n
         dp, dm = copy(d), copy(d)
-        dp[j] += 1e-4; dm[j] -= 1e-4
+        dp[j] += 1e-4
+        dm[j] -= 1e-4
         gF[j] = (Hmod(s3, dp) - Hmod(s3, dm)) / 2e-4
     end
     e = maximum(abs, gA - gF) / maximum(abs, gA)
     check("grad H^[2] assembled analytically matches the central difference", e < 1e-5,
-          @sprintf("%.2e", e))
+        @sprintf("%.2e", e))
 
     # f1 is quadratic in uhat, so its second derivative is exact in three evaluations
     f = f1(s3, d)
@@ -188,8 +191,10 @@ function flow(d, dt, field; nsub = 128)
     h = dt / nsub
     y = copy(d)
     for _ in 1:nsub
-        a1 = field(y); a2 = field(y + 0.5h .* a1)
-        a3 = field(y + 0.5h .* a2); a4 = field(y + h .* a3)
+        a1 = field(y)
+        a2 = field(y + 0.5h .* a1)
+        a3 = field(y + 0.5h .* a2)
+        a4 = field(y + h .* a3)
         y = y + (h / 6) .* (a1 + 2a2 + 2a3 + a4)
     end
     y
@@ -199,23 +204,28 @@ println()
 println("  local error of one midpoint step against the flow of f1 and against the")
 println("  flow of the modified field f1 + dt^2 P^1 grad H^[2].  N = 12, p = 3, so")
 @printf("  rho = %.0f and every dt below is well inside dt rho < 1.\n",
-        maximum(abs, eigvals(Df1(s3, s3.d0))))
-@printf("     %9s  %11s  %10s  %12s  %10s\n", "dt", "vs f1", "/dt^3", "vs modified", "/dt^5")
-let rows = NTuple{3,Float64}[], d = s3.d0
+    maximum(abs, eigvals(Df1(s3, s3.d0))))
+@printf("     %9s  %11s  %10s  %12s  %10s\n", "dt", "vs f1", "/dt^3", "vs modified",
+    "/dt^5")
+let rows = NTuple{3, Float64}[], d = s3.d0
     for dt in (8e-3, 4e-3, 2e-3, 1e-3, 5e-4)
         y = midpoint_tight(s3, d, dt)
         e0 = norm(y - flow(d, dt, z -> f1(s3, z)))
         e2 = norm(y - flow(d, dt, z -> f1(s3, z) + dt^2 .* (s3.P1 * gHmod(s3, z, T3s))))
         push!(rows, (dt, e0, e2))
-        @printf("     %9.2e  %11.3e  %10.3e  %12.3e  %10.3e\n", dt, e0, e0 / dt^3, e2, e2 / dt^5)
+        @printf("     %9.2e  %11.3e  %10.3e  %12.3e  %10.3e\n", dt, e0, e0 / dt^3, e2,
+            e2 / dt^5)
     end
-    last3 = rows[end-2:end]
+    last3 = rows[(end - 2):end]
     r0 = slope([r[1] for r in last3], [r[2] for r in last3])
     r2 = slope([r[1] for r in last3], [r[3] for r in last3])
     check("the midpoint step is O(dt^3) away from the flow of f1", 2.9 < r0 < 3.1,
-          @sprintf("rate %.2f", r0))
-    check("and O(dt^5) away from the flow of the modified field, which is what " *
-          "identifies H^[2]", 4.85 < r2 < 5.15, @sprintf("rate %.2f", r2))
+        @sprintf("rate %.2f", r0))
+    check(
+        "and O(dt^5) away from the flow of the modified field, which is what " *
+        "identifies H^[2]",
+        4.85 < r2 < 5.15,
+        @sprintf("rate %.2f", r2))
 end
 
 # --------------------------------------------------------------------------
@@ -237,9 +247,12 @@ let s = KdVSys(24; p = 3, u0 = U0b), A = sym_A(s), d = s.d0
         worst_hm = max(worst_hm, abs(lin_Hm(E * d) - lin_Hm(d)) / abs(lin_Hm(d)))
     end
     check("linear KdV, uniform mesh: exp(sA) leaves the quadratic H1 invariant",
-          worst_h1 < 1e-12, @sprintf("%.2e", worst_h1))
-    check("...and therefore leaves H^[2] invariant, to round-off, so H2 is an exact " *
-          "invariant of the modified flow there", worst_hm < 1e-11, @sprintf("%.2e", worst_hm))
+        worst_h1 < 1e-12, @sprintf("%.2e", worst_h1))
+    check(
+        "...and therefore leaves H^[2] invariant, to round-off, so H2 is an exact " *
+        "invariant of the modified flow there",
+        worst_hm < 1e-11,
+        @sprintf("%.2e", worst_hm))
 end
 
 println()
@@ -266,7 +279,7 @@ let s = KdVSys(24; p = 3, u0 = U0b), T = T3(KdVSys(24; p = 3, u0 = U0b))
         worst = max(worst, abs(lhs - rhs) / max(abs(lhs), 1e-30))
     end
     check("the identity holds for random uhat, well away from any resolved field",
-          worst < 1e-9, @sprintf("%.2e", worst))
+        worst < 1e-9, @sprintf("%.2e", worst))
 end
 
 println()
@@ -274,7 +287,7 @@ println("  Numerically, then: the bracket and the residual go to round-off toget
 println("  as the mode content is lowered.  N = 32, p = 3, uniform; both normalised")
 println("  by their own scale, as the Jacobi residuals of Section 5 are.")
 @printf("     %6s  %11s  %14s\n", "modes", "eps_h", "{H2,H^[2]}_1")
-let s = KdVSys(32; p = 3, u0 = U0b), tab = NTuple{3,Float64}[]
+let s = KdVSys(32; p = 3, u0 = U0b), tab = NTuple{3, Float64}[]
     T = T3(s)
     for kmax in (1, 2, 4, 8, 12, 16)
         d = modes(s, kmax)
@@ -285,13 +298,14 @@ let s = KdVSys(32; p = 3, u0 = U0b), tab = NTuple{3,Float64}[]
         @printf("     %6d  %11.2e  %14.2e\n", kmax, e, b)
     end
     check("at a resolved field both sit at round-off together",
-          abs(tab[1][2]) < 1e-14 && abs(tab[1][3]) < 1e-14,
-          @sprintf("eps_h %.1e, bracket %.1e", tab[1][2], tab[1][3]))
-    check("and both rise monotonically with the mode content, by ten orders of " *
-          "magnitude over the same range",
-          abs(tab[end][2]) > 1e5 * abs(tab[2][2]) && abs(tab[end][3]) > 1e5 * abs(tab[2][3]),
-          @sprintf("eps_h %.0e -> %.0e, bracket %.0e -> %.0e",
-                   abs(tab[2][2]), abs(tab[end][2]), abs(tab[2][3]), abs(tab[end][3])))
+        abs(tab[1][2]) < 1e-14 && abs(tab[1][3]) < 1e-14,
+        @sprintf("eps_h %.1e, bracket %.1e", tab[1][2], tab[1][3]))
+    check(
+        "and both rise monotonically with the mode content, by ten orders of " *
+        "magnitude over the same range",
+        abs(tab[end][2]) > 1e5 * abs(tab[2][2]) && abs(tab[end][3]) > 1e5 * abs(tab[2][3]),
+        @sprintf("eps_h %.0e -> %.0e, bracket %.0e -> %.0e",
+            abs(tab[2][2]), abs(tab[end][2]), abs(tab[2][3]), abs(tab[end][3])))
 end
 
 # --------------------------------------------------------------------------
@@ -314,11 +328,11 @@ const DT5 = 5e-3
 
 const METHODS = (
     ("midpoint", (s, d, dt) -> midpoint(s, d, dt, 1)[1],
-     (x, y) -> gH1(s5, 0.5 .* (x + y))),
+        (x, y) -> gH1(s5, 0.5 .* (x + y))),
     ("AVF     ", (s, d, dt) -> avf(s, d, dt, 1)[1],
-     (x, y) -> sum(gH1(s5, x + t .* (y - x)) for t in SG) / 2),
+        (x, y) -> sum(gH1(s5, x + t .* (y - x)) for t in SG) / 2),
     ("dgrad   ", (s, d, dt) -> dgrad(s, d, dt), (x, y) -> dgrad_H1(s5, x, y)),
-    ("dgrad-M ", (s, d, dt) -> dgrad_mass(s, d, dt), (x, y) -> dgrad_H1_mass(s5, x, y)),
+    ("dgrad-M ", (s, d, dt) -> dgrad_mass(s, d, dt), (x, y) -> dgrad_H1_mass(s5, x, y))
 )
 
 println()
@@ -338,9 +352,11 @@ println("  and the three gradients differ from grad H1(ubar) by exactly:")
 let y = avf(s5, s5.d0, DT5, 1)[1]
     m, du = 0.5 .* (s5.d0 + y), y - s5.d0
     g = sum(gH1(s5, s5.d0 + t .* (y - s5.d0)) for t in SG) / 2
-    corr = [sum(T5[i, j, k] * du[j] * du[k] for j in 1:s5.n, k in 1:s5.n) for i in 1:s5.n] ./ 24
+    corr = [sum(T5[i, j, k] * du[j] * du[k] for j in 1:s5.n, k in 1:s5.n) for i in 1:s5.n] ./
+           24
     e = maximum(abs, g - gH1(s5, m) - corr) / maximum(abs, g)
-    check("AVF:      gbar = grad H1(ubar) + 1/24 D3H1(du,du)", e < 1e-13, @sprintf("%.2e", e))
+    check("AVF:      gbar = grad H1(ubar) + 1/24 D3H1(du,du)", e < 1e-13, @sprintf("%.2e",
+        e))
 end
 let y = dgrad(s5, s5.d0, DT5)
     m, du = 0.5 .* (s5.d0 + y), y - s5.d0
@@ -349,7 +365,7 @@ let y = dgrad(s5, s5.d0, DT5)
         dot(du, du)
     e = maximum(abs, g - gH1(s5, m) - (c / 24) .* du) / maximum(abs, g)
     check("Gonzalez: gbar = grad H1(ubar) + 1/24 D3H1(du,du,du)/(du,du) du", e < 1e-13,
-          @sprintf("%.2e", e))
+        @sprintf("%.2e", e))
 end
 let y = dgrad_mass(s5, s5.d0, DT5)
     m, du = 0.5 .* (s5.d0 + y), y - s5.d0
@@ -376,10 +392,10 @@ for dt in (5e-3, 1e-3)
     lhs = sysH1(s5, y) - sysH1(s5, s5.d0)
     r1 = dt * dot(gH1(s5, m), f2(s5, m))
     r2 = sum(T5[i, j, k] * du[i] * du[j] * du[k]
-             for i in 1:s5.n, j in 1:s5.n, k in 1:s5.n) / 24
+    for i in 1:s5.n, j in 1:s5.n, k in 1:s5.n) / 24
     e = abs(lhs - r1 - r2) / abs(lhs)
     check(@sprintf("dt = %.0e: the identity holds", dt), e < 1e-6,
-          @sprintf("dt*eps2 %.2e, cubic %.2e, residual %.1e", r1, r2, e))
+        @sprintf("dt*eps2 %.2e, cubic %.2e, residual %.1e", r1, r2, e))
 end
 println("  This is the elementary reason for the asymmetry between the two flows:")
 println("  the protected invariant has to be quadratic, and only H2 is.")
@@ -391,7 +407,8 @@ const T_SWEEP = 10.0
 
 function sweep(sy::KdVSys, step, dt; T = T_SWEEP, q = 2)
     NT = round(Int, T / dt)
-    _, ref, dev = integrate_windowed(sy, d -> step(sy, d, dt), NT; stride = max(1, NT ÷ 200))
+    _, ref, dev = integrate_windowed(sy, d -> step(sy, d, dt), NT; stride = max(1, NT ÷
+                                                                                   200))
     env_drift(dev[q], ref[q]), env_growth(dev[q])
 end
 
@@ -401,9 +418,10 @@ println("  round-off and any dt dependence is the integrator's own.  Reported is
 const s6 = KdVSys(16; p = 3, u0 = RESOLVED)
 @printf("  eps_h at the initial field: %.2e\n", eps_h(s6, s6.d0))
 println()
-@printf("     %9s  %s\n", "dt", join([@sprintf("%11s", strip(nm)) for (nm, _, _) in METHODS], "  "))
+@printf("     %9s  %s\n", "dt",
+    join([@sprintf("%11s", strip(nm)) for (nm, _, _) in METHODS], "  "))
 const DTS = (3.2e-3, 1.6e-3, 8e-4, 4e-4, 2e-4)
-const tab6 = Dict{Float64,Vector{Float64}}()
+const tab6 = Dict{Float64, Vector{Float64}}()
 for dt in DTS
     row = [sweep(s6, step, dt)[1] for (_, step, _) in METHODS]
     tab6[dt] = row
@@ -411,23 +429,25 @@ for dt in DTS
 end
 let mid = [tab6[dt][1] for dt in DTS]
     e = (maximum(mid) - minimum(mid)) / maximum(mid)
-    check("the midpoint plateau does not move with dt at all -- five step sizes " *
-          "spanning a factor of sixteen give the same number to four digits", e < 1e-3,
-          @sprintf("spread %.1e about %.4e", e, mid[1]))
+    check(
+        "the midpoint plateau does not move with dt at all -- five step sizes " *
+        "spanning a factor of sixteen give the same number to four digits",
+        e < 1e-3,
+        @sprintf("spread %.1e about %.4e", e, mid[1]))
 end
 
 println()
 println("  the excess of the energy-preserving methods over that plateau:")
 @printf("     %9s  %s\n", "dt",
-        join([@sprintf("%11s", strip(nm)) for (nm, _, _) in METHODS[2:end]], "  "))
+    join([@sprintf("%11s", strip(nm)) for (nm, _, _) in METHODS[2:end]], "  "))
 for dt in DTS
     @printf("     %9.1e  %s\n", dt,
-            join([@sprintf("%11.3e", tab6[dt][j] - tab6[dt][1]) for j in 2:4], "  "))
+        join([@sprintf("%11.3e", tab6[dt][j] - tab6[dt][1]) for j in 2:4], "  "))
 end
 for (j, nm) in zip(2:4, ("AVF", "Gonzalez", "Gonzalez, mass metric"))
     r = slope(collect(DTS), [tab6[dt][j] - tab6[dt][1] for dt in DTS])
     check("$nm: the excess is O(dt^2), as the increment lemma predicts", 1.9 < r < 2.1,
-          @sprintf("rate %.2f", r))
+        @sprintf("rate %.2f", r))
 end
 println("  The mass metric makes no difference worth having: the correction it")
 println("  alters is O(dt^2) either way, and the two agree to a few per cent.")
@@ -435,9 +455,9 @@ println("  alters is O(dt^2) either way, and the two agree to a few per cent.")
 println()
 println("  An under-resolved field, u0 = cos x on the same mesh, where eps_h")
 println("  dominates instead:")
-let su = KdVSys(16; p = 3, u0 = cosine(2π)), uv = Dict{Float64,Vector{Float64}}()
+let su = KdVSys(16; p = 3, u0 = cosine(2π)), uv = Dict{Float64, Vector{Float64}}()
     @printf("     %9s  %s\n", "dt",
-            join([@sprintf("%11s", strip(nm)) for (nm, _, _) in METHODS], "  "))
+        join([@sprintf("%11s", strip(nm)) for (nm, _, _) in METHODS], "  "))
     for dt in (3.2e-3, 8e-4, 2e-4)
         row = [sweep(su, step, dt)[1] for (_, step, _) in METHODS]
         uv[dt] = row
@@ -445,7 +465,7 @@ let su = KdVSys(16; p = 3, u0 = cosine(2π)), uv = Dict{Float64,Vector{Float64}}
     end
     spread = maximum(abs(v - uv[2e-4][1]) for v in uv[2e-4]) / uv[2e-4][1]
     check("there all four methods agree, the error being purely spatial", spread < 5e-3,
-          @sprintf("spread %.1e about %.3e", spread, uv[2e-4][1]))
+        @sprintf("spread %.1e about %.3e", spread, uv[2e-4][1]))
 end
 
 println()
@@ -454,28 +474,34 @@ println("  the midpoint rule, by the cubic term of the identity above.")
 @printf("     %9s  %12s  %11s\n", "dt", "|dH1|", "|dH2|")
 mid2(ss, dd, h) = midpoint(ss, dd, h, 2)[1]
 const DTS2 = (3.2e-3, 1.6e-3, 8e-4, 4e-4, 2e-4)
-let s2 = Dict{Float64,Float64}(), blast = 0.0
+let s2 = Dict{Float64, Float64}(), blast = 0.0
     for dt in DTS2
         a, _ = sweep(s6, mid2, dt; q = 1)
         b, _ = sweep(s6, mid2, dt; q = 2)
-        s2[dt] = a; blast = b
+        s2[dt] = a
+        blast = b
         @printf("     %9.1e  %12.5e  %11.2e\n", dt, a, b)
     end
-    check("H2 is conserved to round-off along the second flow, being quadratic and " *
-          "an exact invariant there", blast < 1e-12, @sprintf("%.1e", blast))
+    check(
+        "H2 is conserved to round-off along the second flow, being quadratic and " *
+        "an exact invariant there",
+        blast < 1e-12,
+        @sprintf("%.1e", blast))
     # a + b dt^2 through all five, the plateau a being the spatial part
-    X = [dt^2 for dt in DTS2]; Y = [s2[dt] for dt in DTS2]
+    X = [dt^2 for dt in DTS2]
+    Y = [s2[dt] for dt in DTS2]
     x̄, ȳ = sum(X) / 5, sum(Y) / 5
     b1 = sum((X .- x̄) .* (Y .- ȳ)) / sum((X .- x̄) .^ 2)
     b0 = ȳ - b1 * x̄
     @printf("     fit  |dH1| = %.5e + %.3e dt^2 ;  the plateau is the\n", b0, b1)
     println("     spatial residual and the dt^2 term is the cubic Taylor remainder")
     resid = maximum(abs(s2[dt] - b0 - b1 * dt^2) for dt in DTS2) / b0
-    check("the H1 error along the second flow is a spatial plateau plus a genuine " *
-          "O(dt^2) part -- not the pure plateau of the first flow",
-          resid < 1e-3 && b1 * DTS2[1]^2 > 0.02 * b0,
-          @sprintf("fit residual %.1e, dt^2 part %.1f%% of the plateau at dt = %.1e",
-                   resid, 100 * b1 * DTS2[1]^2 / b0, DTS2[1]))
+    check(
+        "the H1 error along the second flow is a spatial plateau plus a genuine " *
+        "O(dt^2) part -- not the pure plateau of the first flow",
+        resid < 1e-3 && b1 * DTS2[1]^2 > 0.02 * b0,
+        @sprintf("fit residual %.1e, dt^2 part %.1f%% of the plateau at dt = %.1e",
+            resid, 100 * b1 * DTS2[1]^2 / b0, DTS2[1]))
 end
 
 # --------------------------------------------------------------------------
@@ -487,15 +513,18 @@ println("  oscillation, large for a drift.")
 @printf("     %22s  %12s  %7s\n", "run", "|d other H|", "growth")
 let worst = 0.0
     for (nm, step, q) in (("midpoint, flow 1", (ss, dd, h) -> midpoint(ss, dd, h, 1)[1], 2),
-                          ("AVF, flow 1", (ss, dd, h) -> avf(ss, dd, h, 1)[1], 2),
-                          ("Gonzalez, flow 1", (ss, dd, h) -> dgrad(ss, dd, h), 2),
-                          ("midpoint, flow 2", mid2, 1))
+        ("AVF, flow 1", (ss, dd, h) -> avf(ss, dd, h, 1)[1], 2),
+        ("Gonzalez, flow 1", (ss, dd, h) -> dgrad(ss, dd, h), 2),
+        ("midpoint, flow 2", mid2, 1))
         v, g = sweep(s6, step, 1e-3; T = 100.0, q)
         worst = max(worst, g)
         @printf("     %22s  %12.4e  %7.2f\n", nm, v, g)
     end
-    check("no run drifts: the envelope of the other Hamiltonian is flat over a " *
-          "hundred time units", worst < 1.1, @sprintf("largest growth %.2f", worst))
+    check(
+        "no run drifts: the envelope of the other Hamiltonian is flat over a " *
+        "hundred time units",
+        worst < 1.1,
+        @sprintf("largest growth %.2f", worst))
 end
 
 # --------------------------------------------------------------------------
@@ -515,9 +544,11 @@ let prev = nothing, rs = Float64[]
         @printf("     %4d  %8.4f  %11.3e  %s\n", n, 2π / n, v, r)
         prev = (n, v)
     end
-    check("the plateau converges under refinement, at better than the sixth order " *
-          "of the cross-conservation residual of Section 5", minimum(rs) > 6.0,
-          "rates " * join([@sprintf("%.1f", r) for r in rs], ", "))
+    check(
+        "the plateau converges under refinement, at better than the sixth order " *
+        "of the cross-conservation residual of Section 5",
+        minimum(rs) > 6.0,
+        "rates " * join([@sprintf("%.1f", r) for r in rs], ", "))
 end
 
 println()
@@ -533,9 +564,11 @@ let vals = Float64[]
         @printf("     %9.1e  %7.2f  %11.2e  %11.4e\n", dt, dt * ρ6, a, b)
     end
     e = (maximum(vals) - minimum(vals)) / maximum(vals)
-    check("H2 is untouched even at dt rho = 9, where the bound on H1 has degraded " *
-          "by three orders -- the increment lemma is not asymptotic", e < 1e-3,
-          @sprintf("spread %.1e", e))
+    check(
+        "H2 is untouched even at dt rho = 9, where the bound on H1 has degraded " *
+        "by three orders -- the increment lemma is not asymptotic",
+        e < 1e-3,
+        @sprintf("spread %.1e", e))
 end
 
 # --------------------------------------------------------------------------
@@ -543,9 +576,11 @@ header("9. only the midpoint rule on the first flow is a Poisson map")
 
 println("  the residual of eq. (poisson-map), swept in dt, N = 16:")
 const Id6 = Matrix{Float64}(I, s6.n, s6.n)
-jac_midpoint(dt) = (y = midpoint(s6, s6.d0, dt, 1)[1];
-                    D = Df1(s6, 0.5 .* (s6.d0 + y));
-                    (Id6 - 0.5dt .* D) \ (Id6 + 0.5dt .* D))
+function jac_midpoint(dt)
+    (y = midpoint(s6, s6.d0, dt, 1)[1];
+        D = Df1(s6, 0.5 .* (s6.d0 + y));
+        (Id6 - 0.5dt .* D) \ (Id6 + 0.5dt .* D))
+end
 function jac_avf(dt)
     y = avf(s6, s6.d0, dt, 1)[1]
     dy = sum(t .* Df1(s6, s6.d0 + t .* (y - s6.d0)) for t in SG) / 2
@@ -556,32 +591,34 @@ function jac_fd(step, dt; eps = 1e-6)
     D = zeros(s6.n, s6.n)
     for j in 1:s6.n
         dp, dm = copy(s6.d0), copy(s6.d0)
-        dp[j] += eps; dm[j] -= eps
+        dp[j] += eps
+        dm[j] -= eps
         D[:, j] = (step(s6, dp, dt) - step(s6, dm, dt)) ./ (2eps)
     end
     D
 end
 let ja = jac_avf(1e-2)
-    e = maximum(abs, ja - jac_fd((ss, dd, h) -> avf(ss, dd, h, 1)[1], 1e-2)) / maximum(abs, ja)
+    e = maximum(abs, ja - jac_fd((ss, dd, h) -> avf(ss, dd, h, 1)[1], 1e-2)) /
+        maximum(abs, ja)
     check("the implicit AVF Jacobian agrees with a central difference", e < 1e-8,
-          @sprintf("%.1e", e))
+        @sprintf("%.1e", e))
 end
 res9(D) = maximum(abs, D * s6.P1 * transpose(D) - s6.P1) / maximum(abs, s6.P1)
 @printf("     %9s  %11s  %11s  %11s\n", "dt", "midpoint", "AVF", "Gonzalez")
-let rows = NTuple{4,Float64}[]
+let rows = NTuple{4, Float64}[]
     for dt in (8e-3, 4e-3, 2e-3, 1e-3)
         a, b, c = res9(jac_midpoint(dt)), res9(jac_avf(dt)),
-                  res9(jac_fd((ss, dd, h) -> dgrad(ss, dd, h), dt))
+        res9(jac_fd((ss, dd, h) -> dgrad(ss, dd, h), dt))
         push!(rows, (dt, a, b, c))
         @printf("     %9.1e  %11.2e  %11.2e  %11.2e\n", dt, a, b, c)
     end
     check("the midpoint rule is a Poisson map at every step size, to round-off",
-          maximum(r[2] for r in rows) < 1e-12,
-          @sprintf("worst %.1e", maximum(r[2] for r in rows)))
-    l3 = rows[end-2:end]
+        maximum(r[2] for r in rows) < 1e-12,
+        @sprintf("worst %.1e", maximum(r[2] for r in rows)))
+    l3 = rows[(end - 2):end]
     r = slope([x[1] for x in l3], [x[3] for x in l3])
     check("the AVF method is not, its residual falling only as O(dt^3)", 2.6 < r < 3.4,
-          @sprintf("rate %.2f", r))
+        @sprintf("rate %.2f", r))
 end
 println("  Being a Poisson map is exactly the difference: it is what makes")
 println("  gbar = grad H1(ubar), and so removes the O(dt^2) term from the increment.")
@@ -614,21 +651,21 @@ function forms10(s::KdVSys, d)
     qh, qx = fieldat(s.s, q, 0), fieldat(s.s, q, 1)
     puxh = fieldat(s.s, s.Minv * (Φ0 * (W .* ux)), 0)
     (-3.0 * dot(d, s.S * (s.Minv * n)),
-     -3.0 * dot(W, uh .* qx),
-     -3.0 * dot(W, ux .* (uh .^ 2 - qh)),
-     -3.0 * dot(W, (ux - puxh) .* (uh .^ 2 - qh)),
-     -3.0 * dot(W, uh .* 2.0 .* uh .* ux))
+        -3.0 * dot(W, uh .* qx),
+        -3.0 * dot(W, ux .* (uh .^ 2 - qh)),
+        -3.0 * dot(W, (ux - puxh) .* (uh .^ 2 - qh)),
+        -3.0 * dot(W, uh .* 2.0 .* uh .* ux))
 end
 
 const rng10 = MersenneTwister(7)
 let s = KdVSys(32; p = 3, u0 = U0b), d = randn(rng10, 32) .* 0.3
     e, quad, cub = split10(s, d)
     check("uniform mesh: the quadratic part vanishes for a broadband random uhat",
-          abs(quad) / abs(e) < 1e-10, @sprintf("%.2e against eps_h %.3e", quad, e))
+        abs(quad) / abs(e) < 1e-10, @sprintf("%.2e against eps_h %.3e", quad, e))
     sn = KdVSys(32; p = 3, u0 = U0b, uniform = false)
     _, quadn, _ = split10(sn, d)
     check("negative control: on a non-uniform mesh it does not", abs(quadn) > 1e-6,
-          @sprintf("%.2e", quadn))
+        @sprintf("%.2e", quadn))
 
     a, b, c, dd, zero = forms10(s, d)
     println()
@@ -637,11 +674,17 @@ let s = KdVSys(32; p = 3, u0 = U0b), d = randn(rng10, 32) .* 0.3
     @printf("     3 int d_x u_h (id-Pi)(u_h^2)             % .8e\n", c)
     @printf("     3 <(id-Pi) d_x u_h , (id-Pi)(u_h^2)>     % .8e\n", dd)
     @printf("     3 int u_h d_x (u_h^2)   [a total derivative, so zero]   % .2e\n", zero)
-    check("3 int u_h d_x (u_h^2) = 2 int d_x(u_h^3) = 0, which is what the " *
-          "degree-3p-1 quadrature is for", abs(zero) / abs(a) < 1e-12, @sprintf("%.2e", zero))
+    check(
+        "3 int u_h d_x (u_h^2) = 2 int d_x(u_h^3) = 0, which is what the " *
+        "degree-3p-1 quadrature is for",
+        abs(zero) / abs(a) < 1e-12,
+        @sprintf("%.2e", zero))
     worst = maximum(abs(x - a) for x in (b, c, dd)) / abs(a)
-    check("so eps_h = 3 <(id-Pi) d_x u_h , (id-Pi)(u_h^2)> -- a pairing of two " *
-          "projection errors, and nothing else", worst < 1e-6, @sprintf("%.2e", worst))
+    check(
+        "so eps_h = 3 <(id-Pi) d_x u_h , (id-Pi)(u_h^2)> -- a pairing of two " *
+        "projection errors, and nothing else",
+        worst < 1e-6,
+        @sprintf("%.2e", worst))
 end
 
 println()
@@ -659,11 +702,11 @@ let sm = KdVSys(16; p = 3, u0 = x -> 0.1 * sin(x) + 0.03 * cos(2x))
     e1 = sqrt(dot(W, (ux - puxh) .^ 2))
     e2 = sqrt(dot(W, (uh .^ 2 - qh) .^ 2))
     @printf("     N = 16, p = 3, smooth field:  ||(id-Pi) d_x u_h|| = %.2e,  ||(id-Pi)(u_h^2)|| = %.2e\n",
-            e1, e2)
+        e1, e2)
     @printf("     product %.2e,  actual eps_h %.2e\n", 3e1 * e2, abs(eps_h(sm, dm)))
     check("the pairing is many orders below the product of the norms",
-          abs(eps_h(sm, dm)) < 1e-6 * 3 * e1 * e2,
-          @sprintf("ratio %.1e", abs(eps_h(sm, dm)) / (3 * e1 * e2)))
+        abs(eps_h(sm, dm)) < 1e-6 * 3 * e1 * e2,
+        @sprintf("ratio %.1e", abs(eps_h(sm, dm)) / (3 * e1 * e2)))
 end
 
 println()
@@ -675,13 +718,13 @@ let s = KdVSys(24; p = 3, u0 = U0b), ones_ = ones(24), worst = 0.0
         d = randn(rng10, s.n) .* 0.4
         b0 = eps_h(s, d)
         worst = max(worst, maximum(abs(eps_h(s, d + c .* ones_) - b0) / abs(b0)
-                                   for c in (0.3, 1.0, -2.5, 7.0)))
+        for c in (0.3, 1.0, -2.5, 7.0)))
     end
     check("eps_h(uhat + c e) = eps_h(uhat) for every constant c", worst < 1e-8,
-          @sprintf("%.2e", worst))
+        @sprintf("%.2e", worst))
     d = randn(rng10, s.n) .* 0.4
     @printf("     by contrast H1: %.4e -> %.4e,   H2: %.4e -> %.4e\n",
-            sysH1(s, d), sysH1(s, d + ones_), sysH2(s, d), sysH2(s, d + ones_))
+        sysH1(s, d), sysH1(s, d + ones_), sysH2(s, d), sysH2(s, d + ones_))
 end
 
 # --------------------------------------------------------------------------
@@ -694,12 +737,13 @@ println("  isogeometric rate.  exp(sA) is translation only on the resolved modes
 println()
 println("  (a) dispersion error of A = Minv S, N = 64:")
 @printf("     %3s  %s  %9s  %5s\n", "p",
-        join([@sprintf("%10s", "m=" * string(m)) for m in (1, 2, 4, 8)], "  "), "exponent", "2p+2")
+    join([@sprintf("%10s", "m=" * string(m)) for m in (1, 2, 4, 8)], "  "), "exponent",
+    "2p+2")
 for p in (2, 3, 4)
     sp = KdVSys(64; p, u0 = U0b)
     A = sym_A(sp)
     h = sp.Lx / 64
-    row = NTuple{2,Float64}[]
+    row = NTuple{2, Float64}[]
     for m in (1, 2, 4, 8)
         v = [cis(2π * m * j / 64) for j in 0:63]
         # `dot(x, A, y)` is x'Ay without materialising A*y; and `dot` conjugates its
@@ -710,17 +754,18 @@ for p in (2, 3, 4)
     fit = [r for r in row if r[2] > 1e-14]      # the low modes are at round-off for p = 4
     ex = slope([r[1] for r in fit], [r[2] for r in fit])
     @printf("     %3d  %s  %9.2f  %5d\n", p,
-            join([@sprintf("%10.2e", r[2]) for r in row], "  "), ex, 2p + 2)
-    check("p = $p: the dispersion error of A is O((mh)^$(2p + 2))", abs(ex - (2p + 2)) < 1.0,
-          @sprintf("exponent %.2f", ex))
+        join([@sprintf("%10.2e", r[2]) for r in row], "  "), ex, 2p + 2)
+    check(
+        "p = $p: the dispersion error of A is O((mh)^$(2p + 2))", abs(ex - (2p + 2)) < 1.0,
+        @sprintf("exponent %.2f", ex))
 end
 
 println()
 println("  (b) and the H2 plateau converges at the same exponent.  Midpoint on the")
 println("  first flow, dt = 2e-4 fixed, u0 = 0.1 sin x, T = 3:")
 @printf("     %3s  %s  %22s  %5s\n", "p",
-        join([@sprintf("%11s", "N=" * string(N)) for N in (12, 16, 20, 24)], "  "),
-        "rates", "2p+2")
+    join([@sprintf("%11s", "N=" * string(N)) for N in (12, 16, 20, 24)], "  "),
+    "rates", "2p+2")
 for p in (2, 3, 4)
     vals, rs, prev = Float64[], Float64[], nothing
     for N in (12, 16, 20, 24)
@@ -731,10 +776,11 @@ for p in (2, 3, 4)
         prev = (N, v)
     end
     @printf("     %3d  %s  %s  %5d\n", p,
-            join([@sprintf("%11.3e", v) for v in vals], "  "),
-            join([@sprintf("%.1f", r) for r in rs], ", "), 2p + 2)
-    check("p = $p: the plateau converges at about $(2p + 2)", abs(rs[end] - (2p + 2)) < 1.0,
-          @sprintf("finest rate %.2f", rs[end]))
+        join([@sprintf("%11.3e", v) for v in vals], "  "),
+        join([@sprintf("%.1f", r) for r in rs], ", "), 2p + 2)
+    check(
+        "p = $p: the plateau converges at about $(2p + 2)", abs(rs[end] - (2p + 2)) < 1.0,
+        @sprintf("finest rate %.2f", rs[end]))
 end
 
 # --------------------------------------------------------------------------
@@ -757,14 +803,15 @@ function resonances(N, p)
     sp = KdVSys(N; p, u0 = U0b)
     Lm = sp.Minv * sp.S * sp.Minv * sp.K1
     om = zeros(N)
-    for m in 0:(N-1)
-        v = [cis(2π * m * j / N) for j in 0:(N-1)]
-        om[m+1] = imag(dot(v, Lm, v) / dot(v, v))
+    for m in 0:(N - 1)
+        v = [cis(2π * m * j / N) for j in 0:(N - 1)]
+        om[m + 1] = imag(dot(v, Lm, v) / dot(v, v))
     end
     sig(m) = m ≤ N ÷ 2 ? m : m - N
     mn = Dict("exact" => Inf, "aliased" => Inf)
     ntriv = 0
-    for j in 0:(N-1), kk in 0:(N-1)
+    for j in 0:(N - 1), kk in 0:(N - 1)
+
         l = mod(-j - kk, N)
         a, b, c = sig(j), sig(kk), sig(l)
         if 0 in (a, b, c) || a + b == 0 || b + c == 0 || a + c == 0
@@ -772,20 +819,20 @@ function resonances(N, p)
             continue
         end
         cls = a + b + c == 0 ? "exact" : "aliased"
-        mn[cls] = min(mn[cls], abs(om[j+1] + om[kk+1] + om[l+1]))
+        mn[cls] = min(mn[cls], abs(om[j + 1] + om[kk + 1] + om[l + 1]))
     end
     ntriv, mn
 end
 
 println()
 @printf("     %4s %3s  %18s  %24s  %13s\n", "N", "p", "zero-mode triples",
-        "min |detuning|, j+k+l=0", "min, aliased")
+    "min |detuning|, j+k+l=0", "min, aliased")
 for (N, p) in ((16, 3), (32, 2), (32, 3), (32, 4), (48, 3))
     nt, mn = resonances(N, p)
     @printf("     %4d %3d  %18d  %24.4f  %13.1f\n", N, p, nt, mn["exact"], mn["aliased"])
     check("N = $N, p = $p: no resonance among the triples eps_h actually has",
-          mn["exact"] > 5.0 && mn["aliased"] > 100.0,
-          @sprintf("detunings %.3f and %.0f", mn["exact"], mn["aliased"]))
+        mn["exact"] > 5.0 && mn["aliased"] > 100.0,
+        @sprintf("detunings %.3f and %.0f", mn["exact"], mn["aliased"]))
 end
 println("  The exact-triple minimum is the continuum value 3|jkl|, smallest at")
 println("  (1,1,-2): 3 x 1 x 1 x 2 = 6, KdV having no non-trivial three-wave")
@@ -797,15 +844,15 @@ println()
 println("  First-order averaging then bounds the sum by 2 sup|eps_h| / detuning.")
 println("  Measured against it, and against the length of the run:")
 @printf("     %12s  %5s  %12s  %11s  %12s  %11s\n",
-        "mesh", "T", "max|dH2|", "sup|eps_h|", "|mean eps_h|", "2 sup / 6")
+    "mesh", "T", "max|dH2|", "sup|eps_h|", "|mean eps_h|", "2 sup / 6")
 const DELTA_MIN = 6.0
 for (lab, kw) in (("uniform", (;)), ("graded", (; uniform = false, graded = true)),
-                  ("non-uniform", (; uniform = false)))
+    ("non-uniform", (; uniform = false)))
     sp = KdVSys(16; p = 3, u0 = RESOLVED, kw...)
     d = copy(sp.d0)
     ref = sysH2(sp, d)
     sup = worst = 0.0
-    marks = Dict{Int,NTuple{2,Float64}}()
+    marks = Dict{Int, NTuple{2, Float64}}()
     dt = 1e-3
     for nstep in 1:round(Int, 40.0 / dt)
         y = midpoint(sp, d, dt, 1)[1]
@@ -821,17 +868,21 @@ for (lab, kw) in (("uniform", (;)), ("graded", (; uniform = false, graded = true
     for T in (5, 10, 20, 40)
         w, sp_ = marks[T]
         @printf("     %12s  %5d  %12.4e  %11.3e  %12.3e  %11.3e\n",
-                lab, T, w, sp_, w / T, 2sp_ / DELTA_MIN)
+            lab, T, w, sp_, w / T, 2sp_ / DELTA_MIN)
     end
     w5, w40 = marks[5][1], marks[40][1]
-    check("$lab mesh: max|dH2| is the same at T = 5 and T = 40, so the sum is " *
-          "bounded and the mean of eps_h is zero", abs(w40 / w5 - 1.0) < 0.05,
-          @sprintf("%.4e -> %.4e", w5, w40))
+    check(
+        "$lab mesh: max|dH2| is the same at T = 5 and T = 40, so the sum is " *
+        "bounded and the mean of eps_h is zero",
+        abs(w40 / w5 - 1.0) < 0.05,
+        @sprintf("%.4e -> %.4e", w5, w40))
     if lab == "uniform"
         pred = 2 * marks[40][2] / DELTA_MIN
-        check("and on a uniform mesh the averaging estimate 2 sup|eps_h| / 6 " *
-              "predicts the amplitude", abs(w40 / pred - 1.0) < 0.25,
-              @sprintf("observed %.3e against predicted %.3e", w40, pred))
+        check(
+            "and on a uniform mesh the averaging estimate 2 sup|eps_h| / 6 " *
+            "predicts the amplitude",
+            abs(w40 / pred - 1.0) < 0.25,
+            @sprintf("observed %.3e against predicted %.3e", w40, pred))
     end
 end
 println("  |mean eps_h| falls exactly as 1/T, which is the statement that the mean")

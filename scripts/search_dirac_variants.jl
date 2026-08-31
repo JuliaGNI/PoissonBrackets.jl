@@ -40,8 +40,10 @@ using Printf
 using Random
 using SymPyPythonCall
 
-include(joinpath(@__DIR__, "check.jl"));     using .Checks: header, check, summary
-include(joinpath(@__DIR__, "rationals.jl")); using .Rationals
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary
+include(joinpath(@__DIR__, "rationals.jl"));
+using .Rationals
 
 const Q = Rational{BigInt}
 
@@ -78,10 +80,10 @@ println()
 
 function graded_system(K)
     M = 2K
-    modes = collect(-M:M)
+    modes = collect((-M):M)
     inr(a) = abs(a) ≤ M
     pinned(k, l) = abs(k) ≤ K && abs(l) ≤ K
-    sym = Dict{Tuple{Int,Int},Sym}()
+    sym = Dict{Tuple{Int, Int}, Sym}()
     unk = Sym[]
 
     function g(k, l)
@@ -114,9 +116,9 @@ for K in (1, 2, 3)
     modes, sym, unk, eqs = graded_system(K)
     lin = isempty(unk) ? Sym[] :
           [e for e in eqs if sympy.Poly(e, unk...).total_degree() <= 1]
-    sols = isempty(unk) ? [Dict{Sym,Sym}()] : solve(eqs, unk; dict = true)
+    sols = isempty(unk) ? [Dict{Sym, Sym}()] : solve(eqs, unk; dict = true)
     @printf("   K=%d: modes %d..%d, %d unknowns, %d equations (%d of them linear)\n",
-            K, modes[1], modes[end], length(unk), length(eqs), length(lin))
+        K, modes[1], modes[end], length(unk), length(eqs), length(lin))
     if !isempty(lin)
         inv_sym = Dict(v => kl for (kl, v) in sym)          # symbol -> (k,l)
         forced = solve(lin, unk; dict = true)
@@ -126,28 +128,32 @@ for K in (1, 2, 3)
             fixed = Dict(v => val for (v, val) in forced[1] if isempty(free_symbols(val)))
             witt = [v for (v, val) in fixed if val == Sym(inv_sym[v][2] - inv_sym[v][1])]
             @printf("        the linear subsystem determines %d unknown(s), %d of them at exactly the Witt value l-k\n",
-                    length(fixed), length(witt))
+                length(fixed), length(witt))
             if !isempty(witt)
                 println("        e.g. " *
-                        join(["$v = $(fixed[v])" for v in sort(witt; by = string)[1:min(4, end)]], ", "))
+                        join(
+                    ["$v = $(fixed[v])"
+                     for v in sort(witt; by = string)[1:min(4, end)]], ", "))
             end
         end
     end
     @printf("        -> %d solution branch(es)\n", length(sols))
     for s0 in sols
         allzero = all(v == 0 for v in values(s0))
-        println("           ", allzero ? "all mixed brackets vanish" :
-                join(["$k => $v" for (k, v) in s0], ", "))
+        println("           ",
+            allzero ? "all mixed brackets vanish" :
+            join(["$k => $v" for (k, v) in s0], ", "))
     end
     if K == 1
         check("K=1: the graded problem has solutions", length(sols) ≥ 1)
-        check("K=1: but every graded solution has [V2,V2] = 0, hence C = 0 and no " *
-              "Dirac bracket",
-              all(get(s0, sym[(-2, 2)], Sym(0)) == 0 for s0 in sols),
-              "the only graded extension is sl(2) + abelian")
+        check(
+            "K=1: but every graded solution has [V2,V2] = 0, hence C = 0 and no " *
+            "Dirac bracket",
+            all(get(s0, sym[(-2, 2)], Sym(0)) == 0 for s0 in sols),
+            "the only graded extension is sl(2) + abelian")
     else
         check("K=$K: the graded problem has NO solution at all", isempty(sols),
-              "closure cannot be restored by any graded choice of the fine block")
+            "closure cannot be restored by any graded choice of the fine block")
     end
 end
 
@@ -166,19 +172,19 @@ function stage1(C, keep, con)
     N = size(C, 1)
     # Column order is written out rather than taken from `Iterators.product`, which varies
     # the first index fastest where itertools varies the last.
-    cols = Dict{Tuple{Int,Int,Int},Int}()
+    cols = Dict{Tuple{Int, Int, Int}, Int}()
     i = 0
     for a in con, b in keep, m in 1:N
         cols[(a, b, m)] = (i += 1)
     end
     ncol = i
 
-    rows = Dict{Int,Q}[]
+    rows = Dict{Int, Q}[]
     rhs = Q[]
     for t in combos(keep, 3)
         ii, jj, kk = t
         for m in 1:N
-            row = Dict{Int,Q}()
+            row = Dict{Int, Q}()
             const_ = zero(Q)
             function acc!(x, y, m, coef)
                 iszero(coef) && return zero(Q)
@@ -206,6 +212,7 @@ function stage1(C, keep, con)
     end
     A = zeros(Q, length(rows), ncol)
     for (r, row) in enumerate(rows), (q, v) in row
+
         A[r, q] = v
     end
     Ab = hcat(A, rhs)
@@ -217,9 +224,9 @@ for K in (1, 2, 3)
     tr = witt_truncation(K)
     ne, nc, rA, rAb = stage1(tr.C, tr.keep, tr.con)
     @printf("        %d   %7d   %7d   %5d   %7d    %s\n", K, ne, nc, rA, rAb,
-            rA == rAb ? "consistent, sol. space dim $(nc - rA)" : "INCONSISTENT")
+        rA == rAb ? "consistent, sol. space dim $(nc - rA)" : "INCONSISTENT")
     check("K=$K: the V1^3 subsystem is consistent, so the obstruction is not there",
-          rA == rAb)
+        rA == rAb)
 end
 
 # --------------------------------------------------------------------------
@@ -259,7 +266,8 @@ function ungraded_search(K, ntrial; rseed = 0, itmax = 120)
               E[r, i, j] = 1.0
               E[r, j, i] = -1.0
               E
-          end for (i, j) in pairs for r in 1:N]
+          end
+          for (i, j) in pairs for r in 1:N]
     nx = length(Es)
     pack(x) = c0 + sum(x[t] .* Es[t] for t in 1:nx)
 
@@ -267,7 +275,7 @@ function ungraded_search(K, ntrial; rseed = 0, itmax = 120)
     jacmat(cc) = reduce(hcat, [vec(Bform(Es[t], cc) + Bform(cc, Es[t])) for t in 1:nx])
 
     rng = MersenneTwister(rseed)
-    hits = Tuple{Float64,Float64}[]
+    hits = Tuple{Float64, Float64}[]
     for _ in 1:ntrial
         x = 1.5 .* randn(rng, nx)
         for _ in 1:itmax
@@ -289,7 +297,8 @@ function ungraded_search(K, ntrial; rseed = 0, itmax = 120)
         cc = pack(x)
         rn = resnorm(cc)
         if rn < 1e-8
-            u = zeros(N); u[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep))
+            u = zeros(N)
+            u[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep))
             J = lie_poisson_matrix(cc, u)
             push!(hits, (rn, abs(det(J[con, con]))))
         end
@@ -301,17 +310,17 @@ for (K, nt) in ((1, 25), (2, 25))
     nx, hits = ungraded_search(K, nt)
     best = isempty(hits) ? 0.0 : maximum(h[2] for h in hits)
     @printf("   K=%d: %d free coefficients, %d/%d starts reached the Lie-algebra variety\n",
-            K, nx, length(hits), nt)
+        K, nx, length(hits), nt)
     flush(stdout)
     isempty(hits) || @printf("        best |det C| among them: %.4e\n", best)
     if K == 1
         check("K=1: ungraded Lie algebra extensions with C invertible DO exist",
-              !isempty(hits) && best > 1e-6,
-              "but V1 = sl(2) is already a subalgebra at K=1, so nothing is gained; " *
-              "and the coarse block is 3-dimensional, hence degenerate")
+            !isempty(hits) && best > 1e-6,
+            "but V1 = sl(2) is already a subalgebra at K=1, so nothing is gained; " *
+            "and the coarse block is 3-dimensional, hence degenerate")
     else
         check("K=$K: no ungraded Lie algebra extension found in $nt starts", isempty(hits),
-              "consistent with B1a, which rules out the graded ones exactly")
+            "consistent with B1a, which rules out the graded ones exactly")
     end
 end
 
@@ -348,7 +357,7 @@ function reduced_diag(C, keep, con, u, tri)
     (isfinite(scale) && scale > 1e-300) || throw(SingularException(1))
     nk = length(keep)
     jac = [sum(dJh[l][i, j] * Jh[l, k] + dJh[l][j, k] * Jh[l, i] + dJh[l][k, i] * Jh[l, j]
-               for l in 1:nk) for (i, j, k) in tri]
+           for l in 1:nk) for (i, j, k) in tri]
     return jac ./ scale, maximum(abs, Jh), cond(J[con, con])
 end
 
@@ -365,7 +374,7 @@ happens here. A genuine solution would show the residual bottoming out at machin
 some finite cap and staying there.
 """
 function shear_search(K; npts = 6, ntrial = 40, rseed = 0,
-                      caps = (1.0, 3.0, 10.0, 1e2, 1e3, Inf))
+        caps = (1.0, 3.0, 10.0, 1e2, 1e3, Inf))
     tr = witt_truncation(K)
     keep, con = tr.keep, tr.con
     N = size(tr.C, 1)
@@ -373,8 +382,11 @@ function shear_search(K; npts = 6, ntrial = 40, rseed = 0,
     tri = [(t[1], t[2], t[3]) for t in combos(collect(1:length(keep)), 3)]
     rng = MersenneTwister(rseed)
     pts = [begin
-               u = zeros(N); u[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep)); u
-           end for _ in 1:npts]
+               u = zeros(N)
+               u[keep] .= 1.0 .+ 3.0 .* rand(rng, length(keep))
+               u
+           end
+           for _ in 1:npts]
     idxs = [(a, i) for a in con for i in keep]
     nb = length(idxs)
 
@@ -387,18 +399,21 @@ function shear_search(K; npts = 6, ntrial = 40, rseed = 0,
         # Cv[n,i,j] = Σ_{a,b,m} S[i,a] S[j,b] C[m,a,b] Sinv[m,n], contracted a slot at a time
         T1 = zeros(N, N, N)                     # T1[n,a,b] = Σ_m Sinv[m,n] c0[m,a,b]
         @inbounds for n in 1:N, m in 1:N
+
             f = Sinv[m, n]
             iszero(f) && continue
             @views T1[n, :, :] .+= f .* c0[m, :, :]
         end
         T2 = zeros(N, N, N)                     # T2[n,i,b] = Σ_a S[i,a] T1[n,a,b]
         @inbounds for a in 1:N, i in 1:N
+
             f = S[i, a]
             iszero(f) && continue
             @views T2[:, i, :] .+= f .* T1[:, a, :]
         end
         Cv = zeros(N, N, N)                     # Cv[n,i,j] = Σ_b S[j,b] T2[n,i,b]
         @inbounds for b in 1:N, j in 1:N
+
             f = S[j, b]
             iszero(f) && continue
             @views Cv[:, :, j] .+= f .* T2[:, :, b]
@@ -408,10 +423,14 @@ function shear_search(K; npts = 6, ntrial = 40, rseed = 0,
 
     function probe(b)
         cv = transform(b)
-        rs = Float64[]; mj = 0.0; cn = 0.0
+        rs = Float64[]
+        mj = 0.0
+        cn = 0.0
         for u in pts
             j, m, k = reduced_diag(cv, keep, con, u, tri)
-            append!(rs, j); mj = max(mj, m); cn = max(cn, k)
+            append!(rs, j)
+            mj = max(mj, m)
+            cn = max(cn, k)
         end
         rs, mj, cn
     end
@@ -419,7 +438,7 @@ function shear_search(K; npts = 6, ntrial = 40, rseed = 0,
     base = norm(resid(zeros(nb)))
 
     # collect every iterate visited, then read off the best under each cap
-    visited = NTuple{4,Float64}[]
+    visited = NTuple{4, Float64}[]
     for _ in 1:ntrial
         b = 0.7 .* randn(rng, nb)
         for _ in 1:60
@@ -433,13 +452,15 @@ function shear_search(K; npts = 6, ntrial = 40, rseed = 0,
             push!(visited, (nr, norm(b), cn, mj))
             nr < 1e-13 && break
             Jm = Matrix{Float64}(undef, length(r), nb)
-            e = zeros(nb); ok = true
+            e = zeros(nb)
+            ok = true
             for t in 1:nb
                 e[t] = 1e-7
                 try
                     Jm[:, t] = (resid(b .+ e) .- resid(b .- e)) ./ 2e-7
                 catch
-                    ok = false; break
+                    ok = false
+                    break
                 end
                 e[t] = 0.0
             end
@@ -449,7 +470,8 @@ function shear_search(K; npts = 6, ntrial = 40, rseed = 0,
             for _ in 1:30
                 try
                     if norm(resid(b .+ s_ .* db)) < nr
-                        moved = true; break
+                        moved = true
+                        break
                     end
                 catch
                 end
@@ -460,11 +482,12 @@ function shear_search(K; npts = 6, ntrial = 40, rseed = 0,
         end
     end
 
-    rows = NTuple{5,Float64}[]
+    rows = NTuple{5, Float64}[]
     for cap in caps
         adm = [v for v in visited if v[2] ≤ cap]
         if isempty(adm)
-            push!(rows, (cap, base, 0.0, 1.0, 0.0)); continue
+            push!(rows, (cap, base, 0.0, 1.0, 0.0))
+            continue
         end
         v = argmin(first, adm)
         push!(rows, (cap, min(v[1], base), v[2], v[3], v[4]))
@@ -474,7 +497,8 @@ end
 
 for (K, nt) in ((1, 15), (2, 40))
     nb, base, rows = shear_search(K; ntrial = nt)
-    @printf("   K=%d: %d shear unknowns, normalised |residual| at B=0 is %.4e\n", K, nb, base)
+    @printf("   K=%d: %d shear unknowns, normalised |residual| at B=0 is %.4e\n", K, nb,
+        base)
     println()
     println("        cap on |B|   best residual   |B| attained   cond(J22)   max|Jhat|")
     for (cap, r, bn, cn, mj) in rows
@@ -484,22 +508,24 @@ for (K, nt) in ((1, 15), (2, 40))
     println()
     if K == 1
         check("K=1: already zero without any shear -- the 3-dimensional degeneracy",
-              base < 1e-9)
+            base < 1e-9)
         continue
     end
     finite = [r for r in rows if isfinite(r[1])]
     check("K=$K: no shear at bounded |B| makes the reduced bracket Poisson",
-          all(r -> r[2] > 1e-12, rows), "the residual never reaches machine zero at any cap")
-    check("K=$K: the residual keeps falling as the cap is raised, so the infimum " *
-          "is on the boundary and there is no interior solution",
-          finite[end][2] < 0.5 * finite[1][2] && rows[end][2] < finite[1][2],
-          @sprintf("%.2e at |B|<=%.0f  ->  %.2e with no cap",
-                   finite[1][2], finite[1][1], rows[end][2]))
-    check("K=$K: and |B| and cond(J22) rise to meet each cap, i.e. the minimiser " *
-          "is destroying second-classness rather than restoring Jacobi",
-          rows[end][3] > 1e2 && rows[end][4] > 1e10,
-          @sprintf("uncapped: |B| = %.2e, cond(J22) = %.2e, max|Jhat| = %.2e",
-                   rows[end][3], rows[end][4], rows[end][5]))
+        all(r -> r[2] > 1e-12, rows), "the residual never reaches machine zero at any cap")
+    check(
+        "K=$K: the residual keeps falling as the cap is raised, so the infimum " *
+        "is on the boundary and there is no interior solution",
+        finite[end][2] < 0.5 * finite[1][2] && rows[end][2] < finite[1][2],
+        @sprintf("%.2e at |B|<=%.0f  ->  %.2e with no cap",
+            finite[1][2], finite[1][1], rows[end][2]))
+    check(
+        "K=$K: and |B| and cond(J22) rise to meet each cap, i.e. the minimiser " *
+        "is destroying second-classness rather than restoring Jacobi",
+        rows[end][3] > 1e2 && rows[end][4] > 1e10,
+        @sprintf("uncapped: |B| = %.2e, cond(J22) = %.2e, max|Jhat| = %.2e",
+            rows[end][3], rows[end][4], rows[end][5]))
 end
 
 # --------------------------------------------------------------------------
@@ -514,11 +540,12 @@ println()
 
 "The truncated Witt algebra on |k| <= M, padded with `pad` abelian directions."
 function witt_padded(K, M, pad)
-    modes = collect(-M:M)
+    modes = collect((-M):M)
     pos = Dict(k => i for (i, k) in enumerate(modes))
     n = length(modes) + pad
     C = zeros(Q, n, n, n)
     for (a, k) in enumerate(modes), (b, l) in enumerate(modes)
+
         haskey(pos, k + l) && (C[pos[k + l], a, b] = Q(l - k))
     end
     keep = [pos[k] for k in modes if abs(k) ≤ K]
@@ -528,10 +555,12 @@ end
 
 for K in (1, 2)
     total = 0
-    hits = Tuple{Int,Int,Int,Vector{String}}[]
+    hits = Tuple{Int, Int, Int, Vector{String}}[]
     for M in (2K):(3K), pad in (0, 2)
+
         C, keep, rest, modes = witt_padded(K, M, pad)
         for size_ in 2:2:length(rest), con in combos(rest, size_)
+
             total += 1
             zero_ = true
             for sv in (101, 202, 303)
@@ -543,10 +572,12 @@ for K in (1, 2)
                 try
                     Ĵ, dĴ = reduced_bracket(C, u, keep, con)
                     if !iszero(first(jacobi_residual(Ĵ, dĴ; normalised = false)))
-                        zero_ = false; break
+                        zero_ = false
+                        break
                     end
                 catch
-                    zero_ = false; break
+                    zero_ = false
+                    break
                 end
             end
             zero_ && push!(hits, (M, pad, size_,
@@ -554,19 +585,21 @@ for K in (1, 2)
         end
     end
     @printf("   K=%d: %d candidate splittings tested, %d with a vanishing reduced Jacobiator\n",
-            K, total, length(hits))
+        K, total, length(hits))
     for h in hits[1:min(5, end)]
         println("        M=$(h[1]) pad=$(h[2]) dim V2=$(h[3])  V2=[$(join(h[4], ", "))]")
     end
     length(hits) > 5 && println("        ... and $(length(hits) - 5) more")
     if K == 1
-        check("K=1: many splittings 'work', all of them with a 3-dimensional coarse " *
-              "block", !isempty(hits),
-              "every 3x3 antisymmetric bivector is decomposable, so Jacobi reduces " *
-              "to Frobenius involutivity; this is not evidence")
+        check(
+            "K=1: many splittings 'work', all of them with a 3-dimensional coarse " *
+            "block",
+            !isempty(hits),
+            "every 3x3 antisymmetric bivector is decomposable, so Jacobi reduces " *
+            "to Frobenius involutivity; this is not evidence")
     else
         check("K=$K: NO choice of V2 gives a Poisson reduced bracket", isempty(hits),
-              "exhaustive over $total splittings")
+            "exhaustive over $total splittings")
     end
 end
 

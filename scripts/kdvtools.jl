@@ -52,8 +52,10 @@ end
 fieldat(s, û, d) = transpose(basis_values(s, d)) * û
 
 "The weighted outer product ∫ φ^(da)_k φ^(db)_l."
-gram(s, da, db) = basis_values(s, da) *
-                  transpose(basis_values(s, db) .* transpose(quadrature_weights(s)))
+function gram(s, da, db)
+    basis_values(s, da) *
+    transpose(basis_values(s, db) .* transpose(quadrature_weights(s)))
+end
 
 "The skew part of S = ∫ φ_k φ_l', which is what the first bracket is built from."
 skew_S(s) = (S = gram(s, 0, 1); (S - transpose(S)) / 2)
@@ -122,7 +124,9 @@ function K2apply(s, û, c)
 end
 
 "Observed convergence orders from a sequence of errors at resolutions `ns`."
-rates(errs, ns) = [log(errs[i-1] / errs[i]) / log(ns[i] / ns[i-1]) for i in 2:length(errs)]
+function rates(errs, ns)
+    [log(errs[i - 1] / errs[i]) / log(ns[i] / ns[i - 1]) for i in 2:length(errs)]
+end
 
 "Format a vector of orders like the Python's list-of-strings repr, for diffing."
 o2(v) = "[" * join(["'" * (@sprintf("%.2f", x)) * "'" for x in v], ", ") * "]"
@@ -147,7 +151,8 @@ function fd_newton(res, x0, n; tol = 1e-13, itmax = 60, eps = 1e-7)
         maximum(abs, r) < tol && break
         J = zeros(n, n)
         for j in 1:n
-            yp = copy(y); yp[j] += eps
+            yp = copy(y)
+            yp[j] += eps
             J[:, j] = (res(yp) - r) ./ eps
         end
         y = y - J \ r
@@ -172,12 +177,26 @@ Named `KdVSys` and not `Sys`: `Base.Sys` is the system-information module, so a 
 exported from here is ambiguous at every call site that also does `using Base`.
 """
 struct KdVSys
-    s; X; W; M; Minv; d0; S; K1; P1; Ku; K0; g; n; Lx
+    s::Any
+    X::Any
+    W::Any
+    M::Any
+    Minv::Any
+    d0::Any
+    S::Any
+    K1::Any
+    P1::Any
+    Ku::Any
+    K0::Any
+    g::Any
+    n::Any
+    Lx::Any
 end
 
 function KdVSys(n; p = 3, uniform = true, graded = false, nq = nothing, u0 = U0)
     s, d0 = setup(n; p, uniform, graded, nq, f = u0)
-    M = Matrix(mass_matrix(s)); Minv = inv(M)
+    M = Matrix(mass_matrix(s))
+    Minv = inv(M)
     S = skew_S(s)
     Ku, K0 = K2_blocks(s)
     KdVSys(s, quadrature_nodes(s), quadrature_weights(s), M, Minv, d0, S, gram(s, 1, 1),
@@ -195,8 +214,10 @@ f1(y::KdVSys, d) = y.P1 * gH1(y, d)
 Df1(y::KdVSys, d) = y.P1 * hessH1(y, d)
 K2(y::KdVSys, d) = y.K0 + sum(d[m] .* y.Ku[m, :, :] for m in axes(y.Ku, 1))
 f2(y::KdVSys, d) = y.Minv * (K2(y, d) * d)
-Df2(y::KdVSys, d) = y.Minv * (K2(y, d) + [sum(y.Ku[j, i, l] * d[l] for l in eachindex(d))
-                                       for i in eachindex(d), j in eachindex(d)])
+function Df2(y::KdVSys, d)
+    y.Minv * (K2(y, d) + [sum(y.Ku[j, i, l] * d[l] for l in eachindex(d))
+      for i in eachindex(d), j in eachindex(d)])
+end
 
 "The two-point Gauss nodes of the average-vector-field method."
 const SG = (0.5 - sqrt(3.0) / 6.0, 0.5 + sqrt(3.0) / 6.0)
@@ -206,7 +227,7 @@ function midpoint(y::KdVSys, d, dt, which = 1)
     f, Df = which == 1 ? (f1, Df1) : (f2, Df2)
     Id = Matrix{Float64}(I, y.n, y.n)
     z = newton(w -> w - d - dt .* f(y, 0.5 .* (d + w)),
-               w -> Id - 0.5dt .* Df(y, 0.5 .* (d + w)), d)
+        w -> Id - 0.5dt .* Df(y, 0.5 .* (d + w)), d)
     A = Df(y, 0.5 .* (d + z))
     return z, (Id - 0.5dt .* A) \ (Id + 0.5dt .* A)
 end
@@ -242,8 +263,9 @@ end
 dgrad_H1_mass(y::KdVSys, x, z) = dgrad_H1(y, x, z; metric = :mass)
 
 "Discrete-gradient method on flow 1; Jacobian numerical."
-dgrad(y::KdVSys, d, dt; metric = :euclidean) =
+function dgrad(y::KdVSys, d, dt; metric = :euclidean)
     fd_newton(w -> w - d - dt .* (y.P1 * dgrad_H1(y, d, w; metric)), d, y.n)
+end
 
 dgrad_mass(y::KdVSys, d, dt) = dgrad(y, d, dt; metric = :mass)
 

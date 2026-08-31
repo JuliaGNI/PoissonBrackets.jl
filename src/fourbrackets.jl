@@ -89,12 +89,14 @@ value. See [`weighted_4bracket`](@ref) for the weighted version.
     is why the manuscript carries two families rather than one — measure it with
     [`antisymmetry_residuals`](@ref).
 """
-gardner_4bracket_density(g::TorusGrid, a, b, c, d) =
-    gardner_x(g, a, b) .* gardner_y(g, c, d) .- gardner_x(g, c, b) .* gardner_y(g, a, d)
+gardner_4bracket_density(g::TorusGrid, a, b, c, d) = gardner_x(g, a, b) .*
+                                                     gardner_y(g, c, d) .-
+                                                     gardner_x(g, c, b) .*
+                                                     gardner_y(g, a, d)
 
 @doc (@doc gardner_4bracket_density)
-gardner_4bracket(g::TorusGrid, a, b, c, d) =
-    integrate(g, gardner_4bracket_density(g, a, b, c, d))
+gardner_4bracket(g::TorusGrid, a, b, c, d) = integrate(g, gardner_4bracket_density(
+    g, a, b, c, d))
 
 @doc raw"""
     symmetric_4bracket_density(g, a, b, c, d)
@@ -112,12 +114,13 @@ as its pointwise integrand and as the integral.
     The mirror image of [`gardner_4bracket`](@ref): antisymmetric under exchanging the pairs
     `(1,2)` with `(3,4)`, and not under exchanging the first and third slots. Lemma 3.1 again.
 """
-symmetric_4bracket_density(g::TorusGrid, a, b, c, d) =
-    a .* b .* canonical_bracket(g, c, d) .- c .* d .* canonical_bracket(g, a, b)
+symmetric_4bracket_density(g::TorusGrid, a, b, c, d) = a .* b .*
+                                                       canonical_bracket(g, c, d) .-
+                                                       c .* d .* canonical_bracket(g, a, b)
 
 @doc (@doc symmetric_4bracket_density)
-symmetric_4bracket(g::TorusGrid, a, b, c, d) =
-    integrate(g, symmetric_4bracket_density(g, a, b, c, d))
+symmetric_4bracket(g::TorusGrid, a, b, c, d) = integrate(g, symmetric_4bracket_density(
+    g, a, b, c, d))
 
 @doc raw"""
     gardner_2bracket_density(g, a, b, s)
@@ -162,7 +165,8 @@ gardner_2bracket_density(g::TorusGrid, a, b, s) = gardner_4bracket_density(g, a,
 gardner_2bracket(g::TorusGrid, a, b, s) = gardner_4bracket(g, a, s, b, s)
 
 @doc (@doc gardner_2bracket_density)
-symmetric_2bracket_density(g::TorusGrid, a, b, s) = symmetric_4bracket_density(g, a, s, b, s)
+symmetric_2bracket_density(g::TorusGrid, a, b, s) = symmetric_4bracket_density(
+    g, a, s, b, s)
 
 @doc (@doc gardner_2bracket_density)
 symmetric_2bracket(g::TorusGrid, a, b, s) = symmetric_4bracket(g, a, s, b, s)
@@ -211,20 +215,20 @@ This is the same obstruction that the discrete Lie-Poisson brackets meet when th
 prescribed — see the discussion of the intrinsic singularity on the
 [Discrete Lie-Poisson brackets](@ref) page — seen here from the four-bracket side.
 """
-weighted_2bracket_density(g::TorusGrid, a, b, s, w) =
-    w .* symmetric_2bracket_density(g, a, b, s)
+weighted_2bracket_density(g::TorusGrid, a, b, s, w) = w .*
+                                                      symmetric_2bracket_density(g, a, b, s)
 
 @doc (@doc weighted_2bracket_density)
-weighted_2bracket(g::TorusGrid, a, b, s, w) =
-    integrate(g, weighted_2bracket_density(g, a, b, s, w))
+weighted_2bracket(g::TorusGrid, a, b, s, w) = integrate(g, weighted_2bracket_density(
+    g, a, b, s, w))
 
 @doc (@doc weighted_2bracket_density)
-weighted_4bracket_density(g::TorusGrid, a, b, c, d, w) =
-    w .* symmetric_4bracket_density(g, a, b, c, d)
+weighted_4bracket_density(g::TorusGrid, a, b, c, d, w) = w .* symmetric_4bracket_density(
+    g, a, b, c, d)
 
 @doc (@doc weighted_2bracket_density)
-weighted_4bracket(g::TorusGrid, a, b, c, d, w) =
-    integrate(g, weighted_4bracket_density(g, a, b, c, d, w))
+weighted_4bracket(g::TorusGrid, a, b, c, d, w) = integrate(g, weighted_4bracket_density(
+    g, a, b, c, d, w))
 
 @doc raw"""
     lie_poisson_2bracket(g, a, b, u)
@@ -264,8 +268,9 @@ the test fields must be generic rather than symmetric under any exchange of thei
 """
 function antisymmetry_residuals(fourbracket, g::TorusGrid, a, b, c, d)
     base = abs(fourbracket(g, a, b, c, d))
-    return (slot_exchange = abs(fourbracket(g, a, b, c, d) + fourbracket(g, c, b, a, d)) / base,
-            pair_exchange = abs(fourbracket(g, a, b, c, d) + fourbracket(g, c, d, a, b)) / base)
+    return (
+        slot_exchange = abs(fourbracket(g, a, b, c, d) + fourbracket(g, c, b, a, d)) / base,
+        pair_exchange = abs(fourbracket(g, a, b, c, d) + fourbracket(g, c, d, a, b)) / base)
 end
 
 @doc raw"""
@@ -285,10 +290,12 @@ single condition on the structure function. Two dimensions is essential: the rel
 vanishing of a ``3 \times 3`` determinant of gradients that live in a two-dimensional space,
 so it has no analogue in higher dimension.
 """
-plucker_residual(g::TorusGrid, a, b, c, u) =
-    canonical_bracket(g, a, b) .* canonical_bracket(g, c, u) .+
-    canonical_bracket(g, b, c) .* canonical_bracket(g, a, u) .+
-    canonical_bracket(g, c, a) .* canonical_bracket(g, b, u)
+plucker_residual(g::TorusGrid, a, b, c, u) = canonical_bracket(g, a, b) .*
+                                             canonical_bracket(g, c, u) .+
+                                             canonical_bracket(g, b, c) .*
+                                             canonical_bracket(g, a, u) .+
+                                             canonical_bracket(g, c, a) .*
+                                             canonical_bracket(g, b, u)
 
 @doc raw"""
     jacobi_residual(g, a, b, c, cu, dcu; normalised = true)
@@ -320,9 +327,11 @@ Distinct from [`jacobi_residual(::DiscreteBracket, ::AbstractVector)`](@ref), wh
 same question of a discrete structure matrix; here there is no matrix, only fields.
 """
 function jacobi_residual(g::TorusGrid, a, b, c, cu, dcu; normalised::Bool = true)
-    term(p, q, r) = integrate(g, cu .* canonical_bracket(g, dcu .* canonical_bracket(g, p, q), r))
+    term(p, q, r) = integrate(g, cu .*
+                                 canonical_bracket(g, dcu .* canonical_bracket(g, p, q), r))
     res = abs(term(a, b, c) + term(b, c, a) + term(c, a, b))
-    scale = integrate(g, abs.(cu .* canonical_bracket(g, dcu .* canonical_bracket(g, a, b), c)))
+    scale = integrate(g, abs.(cu .*
+                              canonical_bracket(g, dcu .* canonical_bracket(g, a, b), c)))
     normalised || return (res, scale)
     return iszero(scale) ? zero(res) : res / scale
 end

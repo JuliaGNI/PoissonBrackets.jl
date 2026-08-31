@@ -49,7 +49,7 @@ check_exact("cyclicity  int A[B,S] = int S[A,B]  [eq:cyclicity]",
     exact_residual(g -> begin
         a, b, s = Au(g), Bu(g), chi(g)
         relerr(integrate(g, a .* canonical_bracket(g, b, s)),
-               integrate(g, s .* canonical_bracket(g, a, b)))
+            integrate(g, s .* canonical_bracket(g, a, b)))
     end))
 
 check_exact("G_x = A_u B_ux - (1/2) d_x(A_u B_u)  [eq:gardner-total-derivative]",
@@ -64,14 +64,15 @@ check_exact("int F G_x = int F A_u B_ux + (1/2) int F_x A_u B_u  [eq:gardner-ibp
     exact_residual(g -> begin
         a, b, F = Au(g), Bu(g), Cu(g)
         normerr(integrate(g, F .* gardner_x(g, a, b)),
-                integrate(g, F .* a .* ∂x(g, b)) + integrate(g, ∂x(g, F) .* a .* b) / 2,
-                integrate(g, abs.(F .* gardner_x(g, a, b))))
+            integrate(g, F .* a .* ∂x(g, b)) + integrate(g, ∂x(g, F) .* a .* b) / 2,
+            integrate(g, abs.(F .* gardner_x(g, a, b))))
     end))
 
 check_exact("G_{x,y} - G_{y,x} = -[A_u,B_u]  [eq:gardner-curl]",
     exact_residual(g -> begin
         a, b = Au(g), Bu(g)
-        ∂y(g, gardner_x(g, a, b)) .- ∂x(g, gardner_y(g, a, b)) .+ canonical_bracket(g, a, b)
+        ∂y(g, gardner_x(g, a, b)) .- ∂x(g, gardner_y(g, a, b)) .+
+        canonical_bracket(g, a, b)
     end))
 
 header("2. Section 4.1: reduction to Lie-Poisson form")
@@ -95,27 +96,29 @@ check_refined("int X^2[Xa,Xb] = (1/2) int X^4[a,b]  [lem:quotient-identity]",
         s = chi(g)
         a, b = Au(g) ./ s, Bu(g) ./ s
         relerr(integrate(g, s .^ 2 .* canonical_bracket(g, s .* a, s .* b)),
-               integrate(g, s .^ 4 .* canonical_bracket(g, a, b)) / 2)
+            integrate(g, s .^ 4 .* canonical_bracket(g, a, b)) / 2)
     end)...)
 
 check_refined("{A,B}_S = (1/4) int S_u^4 [A_u/S_u, B_u/S_u]  [prop:gardner-reduction]",
     refined_residuals(g -> begin
         a, b, s = Au(g), Bu(g), chi(g)
         relerr(gardner_2bracket(g, a, b, s),
-               integrate(g, s .^ 4 .* canonical_bracket(g, a ./ s, b ./ s)) / 4)
+            integrate(g, s .^ 4 .* canonical_bracket(g, a ./ s, b ./ s)) / 4)
     end)...)
 
 check_exact("{A,B}_S = (1/2) int S_u^2 [A_u, B_u]  [prop:gardner-reduction]",
     exact_residual(g -> begin
         a, b, s = Au(g), Bu(g), chi(g)
         relerr(gardner_2bracket(g, a, b, s),
-               integrate(g, s .^ 2 .* canonical_bracket(g, a, b)) / 2)
+            integrate(g, s .^ 2 .* canonical_bracket(g, a, b)) / 2)
     end))
 
-check_refined("S = (2/3) int u^{3/2}  ->  (1/2) int u[A_u,B_u]  [eq:gardner-structure-function]",
+check_refined(
+    "S = (2/3) int u^{3/2}  ->  (1/2) int u[A_u,B_u]  [eq:gardner-structure-function]",
     refined_residuals(g -> begin
         a, b, u = Au(g), Bu(g), uu(g)
-        relerr(gardner_2bracket(g, a, b, sqrt.(u)), lie_poisson_2bracket(g, a, b, u) / 2)
+        relerr(gardner_2bracket(g, a, b, sqrt.(u)), lie_poisson_2bracket(g, a, b, u) /
+                                                    2)
     end)...)
 
 check_refined("S_u = sqrt(2u)  ->  int u[A_u,B_u] EXACTLY  [eq:lie-poisson]",
@@ -132,12 +135,12 @@ check_exact("Plücker relation, pointwise  [lem:plucker]",
 # Jacobi for {A,B}_c = int c(u)[A_u,B_u], on linear functionals A = int(alpha u), for which
 # the second variations vanish identically and the residual is exactly the obstruction (4.22).
 for (name, cfun, cprime) in [
-        ("c(u) = u",               u -> u,                 u -> 1.0),
-        ("c(u) = u^3",             u -> u^3,               u -> 3u^2),
-        ("c(u) = (1+log u)^2 / 2", u -> (1 + log(u))^2 / 2, u -> (1 + log(u)) / u),
-        ("c(u) = exp(u)",          u -> exp(u),            u -> exp(u)),
-        ("c(u) = sin(u)",          u -> sin(u),            u -> cos(u)),
-    ]
+    ("c(u) = u", u -> u, u -> 1.0),
+    ("c(u) = u^3", u -> u^3, u -> 3u^2),
+    ("c(u) = (1+log u)^2 / 2", u -> (1 + log(u))^2 / 2, u -> (1 + log(u)) / u),
+    ("c(u) = exp(u)", u -> exp(u), u -> exp(u)),
+    ("c(u) = sin(u)", u -> sin(u), u -> cos(u))
+]
     check_refined("Jacobi identity, $name  [thm:jacobi]",
         refined_residuals(g -> begin
             u = uu(g)
@@ -160,7 +163,7 @@ check_refined("{A, int kappa(u)}_c = 0  [prop:casimirs]",
         c = (1 .+ log.(u)) .^ 2 ./ 2          # some structure function
         dkappa = 3 .* u .^ 2 .+ cos.(u)       # kappa'(u) for kappa = u^3 + sin u
         normerr(integrate(g, c .* canonical_bracket(g, a, dkappa)), 0.0,
-                integrate(g, abs.(c .* canonical_bracket(g, a, dkappa))))
+            integrate(g, abs.(c .* canonical_bracket(g, a, dkappa))))
     end)...)
 
 header("5. Section 5: the symmetric/antisymmetric bracket")
@@ -169,10 +172,11 @@ check_exact("{A,B}_S = int S_u^2 [A_u,B_u], no factor 1/2  [prop:sym-antisym-red
     exact_residual(g -> begin
         a, b, s = Au(g), Bu(g), chi(g)
         relerr(symmetric_2bracket(g, a, b, s),
-               integrate(g, s .^ 2 .* canonical_bracket(g, a, b)))
+            integrate(g, s .^ 2 .* canonical_bracket(g, a, b)))
     end))
 
-check_refined("S = (2/3) int u^{3/2}  ->  int u[A_u,B_u] EXACTLY  [eq:sym-antisym-reduction]",
+check_refined(
+    "S = (2/3) int u^{3/2}  ->  int u[A_u,B_u] EXACTLY  [eq:sym-antisym-reduction]",
     refined_residuals(g -> begin
         a, b, u = Au(g), Bu(g), uu(g)
         relerr(symmetric_2bracket(g, a, b, sqrt.(u)), lie_poisson_2bracket(g, a, b, u))
@@ -186,7 +190,7 @@ check_refined("weighted: {A,B}_S = 2 int Phi(u)[A_u,B_u]  [prop:weighted-reducti
     refined_residuals(g -> begin
         a, b, u = Au(g), Bu(g), uu(g)
         relerr(weighted_2bracket(g, a, b, sqrt.(u), u),
-               2 * integrate(g, (u .^ 2 ./ 4) .* canonical_bracket(g, a, b)))
+            2 * integrate(g, (u .^ 2 ./ 4) .* canonical_bracket(g, a, b)))
     end)...)
 
 check_refined("omega = u/(2(1+log u)), S = int u log u  ->  LP  [ex:log-entropy]",
@@ -194,7 +198,7 @@ check_refined("omega = u/(2(1+log u)), S = int u log u  ->  LP  [ex:log-entropy]
         a, b, u = Au(g), Bu(g), uu(g)
         s = 1 .+ log.(u)
         relerr(weighted_2bracket(g, a, b, s, u ./ (2 .* s)),
-               lie_poisson_2bracket(g, a, b, u))
+            lie_poisson_2bracket(g, a, b, u))
     end)...)
 
 # s = (2/3) u^{3/2}, omega = u  =>  Phi' = u/2, Phi = u^2/4,  c = omega s'^2/4 + Phi/2 = 3u^2/8
@@ -202,7 +206,7 @@ check_refined("weighted Gardner: c = omega s'^2/4 + Phi/2  [rem:weighted-gardner
     refined_residuals(g -> begin
         a, b, u = Au(g), Bu(g), uu(g)
         relerr(integrate(g, u .* gardner_2bracket_density(g, a, b, sqrt.(u))),
-               integrate(g, (3 .* u .^ 2 ./ 8) .* canonical_bracket(g, a, b)))
+            integrate(g, (3 .* u .^ 2 ./ 8) .* canonical_bracket(g, a, b)))
     end)...)
 
 header("7. Section 6: the two symmetric operators")
@@ -210,16 +214,19 @@ header("7. Section 6: the two symmetric operators")
 check_exact("the two-bracket vanishes identically  [prop:sym-sym-vanishes]",
     exact_residual(g -> begin
         a, b, s = Au(g), Bu(g), chi(g)
-        num = integrate(g, symmetric_x(g, a, s) .* symmetric_y(g, b, s) .-
-                           symmetric_x(g, b, s) .* symmetric_y(g, a, s))
-        normerr(num, 0.0, integrate(g, abs.(symmetric_x(g, a, s) .* symmetric_y(g, b, s))))
+        num = integrate(g,
+            symmetric_x(g, a, s) .* symmetric_y(g, b, s) .-
+            symmetric_x(g, b, s) .* symmetric_y(g, a, s))
+        normerr(num, 0.0, integrate(g, abs.(symmetric_x(g, a, s) .*
+                                            symmetric_y(g, b, s))))
     end))
 
 check_exact("alternative pairings -> int S_ux S_uy [A_u,B_u]  [eq:sym-sym-alternative]",
     exact_residual(g -> begin
         a, b, s = Au(g), Bu(g), chi(g)
-        lhs = integrate(g, ∂x(g, a) .* ∂x(g, s) .* ∂y(g, b) .* ∂y(g, s) .-
-                           ∂x(g, b) .* ∂x(g, s) .* ∂y(g, a) .* ∂y(g, s))
+        lhs = integrate(g,
+            ∂x(g, a) .* ∂x(g, s) .* ∂y(g, b) .* ∂y(g, s) .-
+            ∂x(g, b) .* ∂x(g, s) .* ∂y(g, a) .* ∂y(g, s))
         relerr(lhs, integrate(g, ∂x(g, s) .* ∂y(g, s) .* canonical_bracket(g, a, b)))
     end))
 
@@ -234,13 +241,13 @@ let g = spectral_grid(SPECTRAL_N), a = Au(g), b = Bu(g), c = Cu(g), d = chi(g)
     symm = antisymmetry_residuals(symmetric_4bracket, g, a, b, c, d)
 
     check("Gardner satisfies (i), slot exchange   [~ 0]  [lem:antisymmetry]",
-          gard.slot_exchange < 1e-11, @sprintf("%.2e", gard.slot_exchange))
+        gard.slot_exchange < 1e-11, @sprintf("%.2e", gard.slot_exchange))
     check("Gardner VIOLATES  (ii), pair exchange [>> 0]  [lem:antisymmetry]",
-          gard.pair_exchange > 1e-3, @sprintf("%.2e", gard.pair_exchange))
+        gard.pair_exchange > 1e-3, @sprintf("%.2e", gard.pair_exchange))
     check("Sec. 5 VIOLATES   (i), slot exchange  [>> 0]  [lem:antisymmetry]",
-          symm.slot_exchange > 1e-3, @sprintf("%.2e", symm.slot_exchange))
+        symm.slot_exchange > 1e-3, @sprintf("%.2e", symm.slot_exchange))
     check("Sec. 5 satisfies  (ii), pair exchange  [~ 0]  [lem:antisymmetry]",
-          symm.pair_exchange < 1e-11, @sprintf("%.2e", symm.pair_exchange))
+        symm.pair_exchange < 1e-11, @sprintf("%.2e", symm.pair_exchange))
 end
 
 summary("verify_fourbracket_identities.jl")

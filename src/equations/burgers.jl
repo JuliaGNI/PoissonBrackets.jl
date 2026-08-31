@@ -90,8 +90,8 @@ Exact, not approximate: ``\mathbb{J} \, \partial C/\partial u = 0`` to round-off
 at the same time a consistent quadrature of the continuous Casimir
 ``2 \int_\Omega \sqrt{u} \, dx``.
 """
-burgers_casimir(s::DiscreteSpace{T}) where {T} =
-    GaugedCasimir{T, typeof(_2sqrt), typeof(_invsqrt)}(basis_integrals(s), _2sqrt, _invsqrt)
+burgers_casimir(s::DiscreteSpace{T}) where {T} = GaugedCasimir{
+    T, typeof(_2sqrt), typeof(_invsqrt)}(basis_integrals(s), _2sqrt, _invsqrt)
 
 _2sqrt(u) = 2 * sqrt(u)
 _invsqrt(u) = 1 / sqrt(u)
@@ -158,8 +158,9 @@ function BurgersSystem(s::DiscreteSpace{T}) where {T}
     BurgersSystem{T, typeof(s), typeof(b), typeof(h), typeof(c), typeof(f)}(s, b, h, c, f)
 end
 
-BurgersSystem(p::Integer, ne::Integer; L = 2π, kwargs...) =
+function BurgersSystem(p::Integer, ne::Integer; L = 2π, kwargs...)
     BurgersSystem(LagrangeSpace(p, ne; L = L, kwargs...))
+end
 
 Base.eltype(::BurgersSystem{T}) where {T} = T
 nbasis(sys::BurgersSystem) = nbasis(sys.space)

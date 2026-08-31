@@ -4,11 +4,11 @@ using SimpleSplines: UniformMesh, RandomMesh
 using Test
 
 @testset "$(rpad("Miura Tests",80))" begin
-
     @testset "$(rpad("the mass identity int u_h = -int v_h^2 is EXACT",76))" begin
         # Pairing û = M_h(v̂) with the partition of unity gives this to the last bit, and it
         # is what confines the image of the map to non-positive mass.
         for (nm, mk) in SPLINE_MESHES, N in (16, 24, 32)
+
             s = SplineSpace(mk(N), 3)
             v̂ = project(s, miura_initial_v(2π))
             û = miura_map(s, v̂)
@@ -45,7 +45,8 @@ using Test
         L = miura_derivative(s, v̂)
         h = 1e-6
         for m in (1, 5, 11)
-            e = zeros(N); e[m] = h
+            e = zeros(N)
+            e[m] = h
             vp = v̂ .+ L \ e
             vm = v̂ .- L \ e
             fd = (poisson_matrix(kdv_miura_bracket(s, vp), û) .-
@@ -137,7 +138,8 @@ using Test
         @test A ≈ A'
         fdH = zeros(12, 12)
         for m in 1:12
-            e = zeros(12); e[m] = h
+            e = zeros(12)
+            e[m] = h
             fdH[:, m] = (gradient(H, s, v̂ .+ e) .- gradient(H, s, v̂ .- e)) ./ 2h
         end
         @test A ≈ fdH atol = 1e-4 * maximum(abs, A)
@@ -179,13 +181,14 @@ using Test
         # Runge-Kutta method conserves quadratic invariants does not apply in this chart.
         # What is chart-free is the VALUE of a function, so a discrete gradient method,
         # whose property is ḡ ⋅ Δv̂ = ΔH̃ by construction, does conserve it.
-        s   = SplineSpace(UniformMesh(20, 2π), 3)
+        s = SplineSpace(UniformMesh(20, 2π), 3)
         sys = MiuraSystem(s)
-        v0  = project(s, miura_initial_v(2π))
-        dt  = 1.6e-3
-        NT  = round(Int, 0.2 / dt)
+        v0 = project(s, miura_initial_v(2π))
+        dt = 1.6e-3
+        NT = round(Int, 0.2 / dt)
 
-        mid = integrate(sys, Integrator(sys.flow, ImplicitMidpoint(), dt), v0, NT; stride = 5)
+        mid = integrate(
+            sys, Integrator(sys.flow, ImplicitMidpoint(), dt), v0, NT; stride = 5)
         @test drift(mid, :H2) > 1e-6            # ~7e-5
         @test drift(mid, :H2) < 1e-3
 
@@ -199,10 +202,10 @@ using Test
         # exactly the continuous one. What is exact is the other direction: ∫v_h is a Casimir
         # of P¹ in this chart, so a run started off ∫v = 0 stays off it, and the
         # near-degeneracy is not something a trajectory can wander into.
-        s   = SplineSpace(UniformMesh(20, 2π), 3)
+        s = SplineSpace(UniformMesh(20, 2π), 3)
         sys = MiuraSystem(s)
-        v0  = project(s, miura_initial_v(2π))
-        c0  = miura_casimir(sys, v0)
+        v0 = project(s, miura_initial_v(2π))
+        c0 = miura_casimir(sys, v0)
         @test abs(c0) > 1                       # v₀ = 1 + sin x is well off the set
 
         for meth in (ImplicitMidpoint(), Gonzalez())
@@ -222,26 +225,28 @@ using Test
         # and the condition number really is the two regimes the docstring quotes
         vzero = project(s, x -> sin(x))          # ∫v = 0
         @test cond(miura_derivative(s, vzero)) > 1e6
-        @test cond(miura_derivative(s, v0))    < 1e2
+        @test cond(miura_derivative(s, v0)) < 1e2
     end
 
     @testset "$(rpad("the Poisson property transports through the chart",76))" begin
         # This is the first genuine Poisson integrator for a discrete SECOND KdV structure;
         # the Galerkin bracket admits none.
-        s   = SplineSpace(UniformMesh(20, 2π), 3)
+        s = SplineSpace(UniformMesh(20, 2π), 3)
         sys = MiuraSystem(s)
-        v0  = project(s, miura_initial_v(2π))
-        dt  = 1.6e-3
+        v0 = project(s, miura_initial_v(2π))
+        dt = 1.6e-3
 
         integ = Integrator(sys.flow, ImplicitMidpoint(), dt)
-        v1 = copy(v0); integrate_step!(v1, integ)
+        v1 = copy(v0)
+        integrate_step!(v1, integ)
         DΦv = tangent_map(integ, copy(v0))
 
         P1 = poisson_matrix(sys.bracket)
         @test maximum(abs, DΦv * P1 * DΦv' - P1) / maximum(abs, P1) < 1e-13
 
         # pushed forward, DΦᵤ = L(v¹) DΦᵥ L(v⁰)⁻¹ must map P²_M(v⁰) to P²_M(v¹)
-        L0 = miura_derivative(s, v0); L1 = miura_derivative(s, v1)
+        L0 = miura_derivative(s, v0)
+        L1 = miura_derivative(s, v1)
         DΦu = L1 * DΦv * inv(L0)
         PM0 = poisson_matrix(kdv_miura_bracket(s, v0), v0)
         PM1 = poisson_matrix(kdv_miura_bracket(s, v1), v1)
@@ -262,10 +267,10 @@ using Test
         # obstruction being spectral and not a matter of signs -- and for λ below the lowest
         # Hill eigenvalue every one of them does.
         cases = (("cos", SplineSpace(UniformMesh(32, 2π), 3), cosine(2π)),
-                 ("mixed", SplineSpace(UniformMesh(32, 2π), 3), x -> sin(x) + 0.4cos(2x)),
-                 ("soliton", SplineSpace(UniformMesh(64, 40.0), 3), soliton(1.0, 10.0, 40.0)),
-                 ("2-soliton", SplineSpace(UniformMesh(64, 40.0), 3),
-                  two_soliton(1.2, 0.8, 12.0, 22.0, 40.0)))
+            ("mixed", SplineSpace(UniformMesh(32, 2π), 3), x -> sin(x) + 0.4cos(2x)),
+            ("soliton", SplineSpace(UniformMesh(64, 40.0), 3), soliton(1.0, 10.0, 40.0)),
+            ("2-soliton", SplineSpace(UniformMesh(64, 40.0), 3),
+                two_soliton(1.2, 0.8, 12.0, 22.0, 40.0)))
         for (_, s, f) in cases
             û = project(s, f)
             @test miura_invert(s, û) === nothing            # nothing at λ = 0
@@ -314,10 +319,10 @@ using Test
     @testset "$(rpad("a lambda-shifted Miura run conserves all three invariants",76))" begin
         # On the u side the extra -4λ P¹ ∂H₂/∂û is a constant-speed translation, so the
         # trajectory is the KdV solution in a moving frame and every invariant survives.
-        s   = SplineSpace(UniformMesh(24, 2π), 3)
-        û0  = project(s, cosine(2π))
-        λ   = miura_lambda(s, û0)
-        v0  = miura_invert(s, û0; λ = λ)
+        s = SplineSpace(UniformMesh(24, 2π), 3)
+        û0 = project(s, cosine(2π))
+        λ = miura_lambda(s, û0)
+        v0 = miura_invert(s, û0; λ = λ)
         @test v0 !== nothing
         sys = MiuraSystem(s; λ = λ)
         @test miura_lambda(sys) == λ
@@ -329,9 +334,9 @@ using Test
         # rule holds the mass. C₀ is the mKdV momentum here, not a Casimir, so neither method
         # holds it for free.
         mid = integrate(sys, Integrator(sys.flow, ImplicitMidpoint(), 1e-3; û₀ = v0), v0,
-                        200; stride = 10)
-        dg  = integrate(sys, Integrator(sys.flow, Gonzalez(), 1e-3; û₀ = v0), v0, 200;
-                        stride = 10)
+            200; stride = 10)
+        dg = integrate(sys, Integrator(sys.flow, Gonzalez(), 1e-3; û₀ = v0), v0, 200;
+            stride = 10)
         @test drift(dg, :H2) < 1e-12                # discrete gradient: energy exact
         @test drift(mid, :H2) > 1e-9                # midpoint: not, H̃ being quartic
         @test absolute_drift(mid, :C0) < absolute_drift(dg, :C0)   # ... but it holds the mass
@@ -349,5 +354,4 @@ using Test
         @test v0(0.0) ≈ 1
         @test v0(π/2) ≈ 2
     end
-
 end

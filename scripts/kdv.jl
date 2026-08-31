@@ -61,52 +61,57 @@ const LSOL = 40.0
 
 const CASES = [
     Case(key = "cos", title = "u₀ = cos x",
-         n = 64, L = 2π, T = T_END, dt = 1e-3,
-         u0 = cosine(2π)),
-
+        n = 64, L = 2π, T = T_END, dt = 1e-3,
+        u0 = cosine(2π)),
     Case(key = "soliton1", title = "single soliton",
-         n = 128, L = LSOL, T = T_END, dt = 5e-3,
-         u0 = soliton(1.0, 10.0, LSOL), note = "ten full traversals"),
-
+        n = 128, L = LSOL, T = T_END, dt = 5e-3,
+        u0 = soliton(1.0, 10.0, LSOL), note = "ten full traversals"),
     Case(key = "soliton2", title = "two-soliton",
-         n = 128, L = LSOL, T = T_END, dt = 5e-3,
-         u0 = two_soliton(1.2, 0.8, 12.0, 22.0, LSOL), note = "eight overtakings"),
+        n = 128, L = LSOL, T = T_END, dt = 5e-3,
+        u0 = two_soliton(1.2, 0.8, 12.0, 22.0, LSOL), note = "eight overtakings"),
 
     # Shi, Fu and Liu, Appl. Math. Comput. 508 (2026) 129620, Problem 4.2
     Case(key = "soliton3", title = "three solitons",
-         n = 256, L = 200.0, T = 250.0, dt = 0.1,
-         u0 = three_solitons(), xleft = -100.0,
-         note = "the tall wave overtakes both"),
+        n = 256, L = 200.0, T = 250.0, dt = 0.1,
+        u0 = three_solitons(), xleft = -100.0,
+        note = "the tall wave overtakes both"),
 
     # ... and Problem 4.3
     Case(key = "soliton5", title = "five solitons",
-         n = 384, L = 300.0, T = 500.0, dt = 1/16,
-         u0 = five_solitons(), xleft = -150.0,
-         note = "the tall wave overtakes all four"),
+        n = 384, L = 300.0, T = 500.0, dt = 1/16,
+        u0 = five_solitons(), xleft = -150.0,
+        note = "the tall wave overtakes all four"),
 
     # posed in v; u₀ = M_h(v₀)
     Case(key = "miura", title = "Miura, v₀ = 1 + sin x",
-         n = 64, L = 2π, T = T_END, dt = 1e-3,
-         v0 = miura_initial_v(2π), note = "u₀ = M_h(v₀)"),
+        n = 64, L = 2π, T = T_END, dt = 1e-3,
+        v0 = miura_initial_v(2π), note = "u₀ = M_h(v₀)")
 ]
 
-find_case(k) = (i = findfirst(c -> c.key == k, CASES);
-                i === nothing ? error("unknown case $(k); known: " *
-                                      join((c.key for c in CASES), ", ")) : CASES[i])
+function find_case(k)
+    (i = findfirst(c -> c.key == k, CASES);
+        i === nothing ?
+        error("unknown case $(k); known: " *
+              join((c.key for c in CASES), ", ")) : CASES[i])
+end
 
 """The six runs posed in u: colour carries the integrator, line style the vector field."""
-runs_u(sys) = (("midpoint, flow 1",          sys.flow1, ImplicitMidpoint(),   false),
-               ("midpoint, flow 2",          sys.flow2, ImplicitMidpoint(),   false),
-               ("discrete gradient, flow 1", sys.flow1, Gonzalez(),           false),
-               ("AVF, flow 1",               sys.flow1, AverageVectorField(), false),
-               ("RK4, flow 1",               sys.flow1, RungeKutta4(),        true),
-               ("RK4, flow 2",               sys.flow2, RungeKutta4(),        true))
+function runs_u(sys)
+    (("midpoint, flow 1", sys.flow1, ImplicitMidpoint(), false),
+        ("midpoint, flow 2", sys.flow2, ImplicitMidpoint(), false),
+        ("discrete gradient, flow 1", sys.flow1, Gonzalez(), false),
+        ("AVF, flow 1", sys.flow1, AverageVectorField(), false),
+        ("RK4, flow 1", sys.flow1, RungeKutta4(), true),
+        ("RK4, flow 2", sys.flow2, RungeKutta4(), true))
+end
 
 """The two Miura runs, carried in v. They cannot be added to `runs_u`: a MiuraSystem holds
 v̂ as its state, so the two families never appear on the same system object — only on the
 same figure, through the same initial u_h."""
-runs_v(sysM) = (("midpoint, Miura",          sysM.flow, ImplicitMidpoint(), false),
-                ("discrete gradient, Miura", sysM.flow, Gonzalez(),         false))
+function runs_v(sysM)
+    (("midpoint, Miura", sysM.flow, ImplicitMidpoint(), false),
+        ("discrete gradient, Miura", sysM.flow, Gonzalez(), false))
+end
 
 function run_one(sys, flow, meth, x0, dt, T)
     NT = max(round(Int, T / dt), NOUT)
@@ -131,12 +136,14 @@ function note(msg)
     flush(stderr)
 end
 
-report(label, traj) = note(
-    "  " * rpad(label, 26) *
-    " |ΔH₁| = $(round(drift(traj, :H1), sigdigits = 2))" *
-    "  |ΔH₂| = $(round(drift(traj, :H2), sigdigits = 2))" *
-    "  |ΔC₀| = $(round(absolute_drift(traj, :C0), sigdigits = 2))" *
-    "  g(H₁) = $(round(growth(traj, :H1), sigdigits = 2))")
+function report(label, traj)
+    note(
+        "  " * rpad(label, 26) *
+        " |ΔH₁| = $(round(drift(traj, :H1), sigdigits = 2))" *
+        "  |ΔH₂| = $(round(drift(traj, :H2), sigdigits = 2))" *
+        "  |ΔC₀| = $(round(absolute_drift(traj, :C0), sigdigits = 2))" *
+        "  g(H₁) = $(round(growth(traj, :H1), sigdigits = 2))")
+end
 
 """The two families the figures are split into.
 
@@ -162,8 +169,8 @@ end
 
 function summarise(label, traj, dt, steps)
     RunSummary(label, dt, steps,
-               drift(traj, :H1), drift(traj, :H2), absolute_drift(traj, :C0),
-               growth(traj, :H1), growth(traj, :H2))
+        drift(traj, :H1), drift(traj, :H2), absolute_drift(traj, :C0),
+        growth(traj, :H1), growth(traj, :H2))
 end
 
 """Two significant digits, which is all any of these numbers carries."""
@@ -180,7 +187,7 @@ function write_summary(case::Case, rows::Vector{RunSummary}, s)
         println(io, "| | |")
         println(io, "|:--|:--|")
         println(io, "| domain | ``[", round(case.xleft; digits = 1), ", ",
-                    round(case.xleft + case.L; digits = 1), ")`` |")
+            round(case.xleft + case.L; digits = 1), ")`` |")
         println(io, "| degrees of freedom | ", nbasis(s), " |")
         println(io, "| spline degree | ", case.p, " |")
         println(io, "| final time | ", case.T, " |")
@@ -191,23 +198,24 @@ function write_summary(case::Case, rows::Vector{RunSummary}, s)
         println(io, "## Invariant errors")
         println(io)
         println(io, "Maximum over the run of the deviation from the initial value. ",
-                    "``H_1`` and ``H_2`` are relative, ``C_0`` absolute — the mass is zero ",
-                    "for some of these initial conditions, and a relative error would be ",
-                    "meaningless there.")
+            "``H_1`` and ``H_2`` are relative, ``C_0`` absolute — the mass is zero ",
+            "for some of these initial conditions, and a relative error would be ",
+            "meaningless there.")
         println(io)
-        println(io, "The last two columns are the *growth* of the error envelope, the ratio ",
-                    "of its size over the last tenth of the run to the first. Near one means ",
-                    "a bounded oscillation; large means a secular drift. This is the number ",
-                    "that separates \"the invariant departs and stays there\" from \"the ",
-                    "invariant is being lost\", and a single end-of-run figure cannot tell ",
-                    "them apart.")
+        println(
+            io, "The last two columns are the *growth* of the error envelope, the ratio ",
+            "of its size over the last tenth of the run to the first. Near one means ",
+            "a bounded oscillation; large means a secular drift. This is the number ",
+            "that separates \"the invariant departs and stays there\" from \"the ",
+            "invariant is being lost\", and a single end-of-run figure cannot tell ",
+            "them apart.")
         println(io)
         println(io, "| run | Δt | steps | max ΔH₁ | max ΔH₂ | max ΔC₀ | growth H₁ | growth H₂ |")
         println(io, "|:--|--:|--:|--:|--:|--:|--:|--:|")
         for r in rows
             println(io, "| ", r.label, " | ", fmt(r.dt), " | ", r.steps, " | ",
-                    fmt(r.dH1), " | ", fmt(r.dH2), " | ", fmt(r.dC0), " | ",
-                    fmt(r.gH1), " | ", fmt(r.gH2), " |")
+                fmt(r.dH1), " | ", fmt(r.dH2), " | ", fmt(r.dC0), " | ",
+                fmt(r.gH1), " | ", fmt(r.gH2), " |")
         end
         println(io)
 
@@ -217,38 +225,42 @@ function write_summary(case::Case, rows::Vector{RunSummary}, s)
         best1 = rows[argmin([r.dH1 for r in rows])]
         best2 = rows[argmin([r.dH2 for r in rows])]
         uchart = filter(r -> !occursin("Miura", r.label), rows)
-        vchart = filter(r ->  occursin("Miura", r.label), rows)
+        vchart = filter(r -> occursin("Miura", r.label), rows)
 
         println(io, "## Reading")
         println(io)
-        println(io, "- ``H_1`` is held best by **", best1.label, "** (", fmt(best1.dH1), ").")
-        println(io, "- ``H_2`` is held best by **", best2.label, "** (", fmt(best2.dH2), ").")
+        println(
+            io, "- ``H_1`` is held best by **", best1.label, "** (", fmt(best1.dH1), ").")
+        println(
+            io, "- ``H_2`` is held best by **", best2.label, "** (", fmt(best2.dH2), ").")
         println(io, "- In the ``u`` chart the mass is conserved by every method, to ",
-                    fmt(maximum(r.dC0 for r in uchart)), " or better. Its gradient spans the ",
-                    "kernel of the first bracket, so any increment in that bracket's range ",
-                    "leaves it alone — explicit Euler included.")
+            fmt(maximum(r.dC0 for r in uchart)), " or better. Its gradient spans the ",
+            "kernel of the first bracket, so any increment in that bracket's range ",
+            "leaves it alone — explicit Euler included.")
         if !isempty(vchart)
-            println(io, "- In the ``v`` chart it is **not** conserved, and drifts by up to ",
-                        fmt(maximum(r.dC0 for r in vchart)), ". That is not a defect of the ",
-                        raw"integrator: the Casimir of ``\mathbb{P}^1`` there is ",
-                        raw"``\int_\Omega v_h \, dx``, and the quantity that maps over is ",
-                        raw"``C_{0,d} = \int_\Omega v_h^2 \, dx``, which is not in the ",
-                        "kernel of anything.")
+            println(
+                io, "- In the ``v`` chart it is **not** conserved, and drifts by up to ",
+                fmt(maximum(r.dC0 for r in vchart)), ". That is not a defect of the ",
+                raw"integrator: the Casimir of ``\mathbb{P}^1`` there is ",
+                raw"``\int_\Omega v_h \, dx``, and the quantity that maps over is ",
+                raw"``C_{0,d} = \int_\Omega v_h^2 \, dx``, which is not in the ",
+                "kernel of anything.")
         end
         drifting = filter(r -> r.gH1 > 5 || r.gH2 > 5, rows)
         if isempty(drifting)
             println(io, "- Every error envelope is bounded: no growth ratio exceeds 5.")
         else
             println(io, "- Growing envelopes (ratio above 5, i.e. a secular drift rather ",
-                        "than a bounded oscillation): ",
-                        join(("**" * r.label * "**" for r in drifting), ", "), ".")
+                "than a bounded oscillation): ",
+                join(("**" * r.label * "**" for r in drifting), ", "), ".")
         end
-        println(io, "- No method here holds both Hamiltonians. That is what the Ge-Marsden ",
-                    "theorem leads one to expect, rather than a gap in the list: a Poisson ",
-                    "integrator that also conserved the Hamiltonian exactly would reproduce ",
-                    "the exact flow up to a reparametrisation of time. The theorem's ",
-                    "non-degeneracy hypotheses are not checked for these systems, so it is ",
-                    "the reason for the trade-off and not a proof of it.")
+        println(
+            io, "- No method here holds both Hamiltonians. That is what the Ge-Marsden ",
+            "theorem leads one to expect, rather than a gap in the list: a Poisson ",
+            "integrator that also conserved the Hamiltonian exactly would reproduce ",
+            "the exact flow up to a reparametrisation of time. The theorem's ",
+            "non-degeneracy hypotheses are not checked for these systems, so it is ",
+            "the reason for the trade-off and not a proof of it.")
         println(io)
         println(io, "## Figures")
         println(io)
@@ -266,8 +278,9 @@ function write_summary(case::Case, rows::Vector{RunSummary}, s)
 end
 
 function run_case(case::Case)
-    note("running $(case.key): $(case.title)" * (isempty(case.note) ? "" : "  ($(case.note))"))
-    s   = SplineSpace(case.n, case.p; L = case.L)
+    note("running $(case.key): $(case.title)" *
+         (isempty(case.note) ? "" : "  ($(case.note))"))
+    s = SplineSpace(case.n, case.p; L = case.L)
     sys = KdVSystem(s)
 
     # The `miura` case is posed in v, and the u system is then seeded from u₀ = M_h(v₀) so
@@ -281,11 +294,11 @@ function run_case(case::Case)
     local sysM, v0, u0
     if case.v0 !== nothing
         sysM = MiuraSystem(s)
-        v0   = project(s, case.v0)
-        u0   = miura_map(s, v0)
+        v0 = project(s, case.v0)
+        u0 = miura_map(s, v0)
     else
         u0 = project(s, case.u0)
-        λ  = miura_lambda(s, u0)
+        λ = miura_lambda(s, u0)
         v0 = miura_invert(s, u0; λ = λ)
         if v0 === nothing
             note("no Miura preimage at λ = $(round(λ; digits = 4)); skipping the v-chart runs")
@@ -298,7 +311,7 @@ function run_case(case::Case)
     end
 
     dt_rk4 = RK4_SAFETY * min(PoissonBrackets.stability_limit(sys.flow1, u0),
-                              PoissonBrackets.stability_limit(sys.flow2, u0))
+        PoissonBrackets.stability_limit(sys.flow2, u0))
 
     trajs, labels, finals = Trajectory[], String[], Vector{Float64}[]
     rows = RunSummary[]
@@ -311,7 +324,9 @@ function run_case(case::Case)
         # `plot_kdv_energies.py`, which uses `dt_rk4` outright.
         dt = explicit ? dt_rk4 : case.dt
         traj, NT = run_one(sys, flow, meth, u0, dt, case.T)
-        push!(trajs, traj); push!(labels, label); push!(finals, traj.final)
+        push!(trajs, traj)
+        push!(labels, label)
+        push!(finals, traj.final)
         push!(rows, summarise(label, traj, dt, NT))
         report(label, traj)
     end
@@ -319,7 +334,8 @@ function run_case(case::Case)
     if sysM !== nothing
         for (label, flow, meth, _) in runs_v(sysM)
             traj, NT = run_one(sysM, flow, meth, v0, case.dt, case.T)
-            push!(trajs, traj); push!(labels, label)
+            push!(trajs, traj)
+            push!(labels, label)
             # the state of a Miura run is v̂; map it before plotting alongside the others
             push!(finals, miura_map(sysM, traj.final))
             push!(rows, summarise(label, traj, case.dt, NT))
@@ -340,15 +356,15 @@ function run_case(case::Case)
 
         for inv in (:H1, :H2, :C0)
             save(joinpath(FIGDIR, "kdv-$(case.key)-$(inv)-$(gname).pdf"),
-                 energyplot(trajs[keep], labels[keep];
-                            name = inv,
-                            title = "$(case.title) — $(GROUP_TITLE[g])"))
+                energyplot(trajs[keep], labels[keep];
+                    name = inv,
+                    title = "$(case.title) — $(GROUP_TITLE[g])"))
         end
 
         save(joinpath(FIGDIR, "kdv-$(case.key)-state-$(gname).pdf"),
-             stateplot(sys, vcat([u0], finals[keep]), vcat(["initial"], labels[keep]);
-                       xleft = case.xleft,
-                       title = "$(case.title) — $(GROUP_TITLE[g]): initial and final states"))
+            stateplot(sys, vcat([u0], finals[keep]), vcat(["initial"], labels[keep]);
+                xleft = case.xleft,
+                title = "$(case.title) — $(GROUP_TITLE[g]): initial and final states"))
     end
 
     write_summary(case, rows, s)
@@ -356,7 +372,7 @@ function run_case(case::Case)
 end
 
 let cases = filter(a -> !startswith(a, "--"), ARGS)
-for k in (isempty(cases) ? [c.key for c in CASES] : cases)
-    run_case(find_case(k))
-end
+    for k in (isempty(cases) ? [c.key for c in CASES] : cases)
+        run_case(find_case(k))
+    end
 end

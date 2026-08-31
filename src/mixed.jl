@@ -27,16 +27,18 @@ the discrete-gradient methods carry a rank-one term in `∂ḡ/∂y` that would 
 """
 mixed_dimension(::ImplicitMidpoint, N::Integer) = 2N
 
-mixed_dimension(m::IntegratorMethod, ::Integer) = throw(ArgumentError(
-    "formulation = :mixed is implemented for ImplicitMidpoint only, but got " *
-    "$(nameof(typeof(m))); use formulation = :dense"))
+function mixed_dimension(m::IntegratorMethod, ::Integer)
+    throw(ArgumentError(
+        "formulation = :mixed is implemented for ImplicitMidpoint only, but got " *
+        "$(nameof(typeof(m))); use formulation = :dense"))
+end
 
 """
     mixed_state(z, N)
 
 Views of the state `y` and the auxiliary `v` in the stacked unknown `z`.
 """
-mixed_state(z::AbstractVector, N::Integer) = (view(z, 1:N), view(z, N+1:2N))
+mixed_state(z::AbstractVector, N::Integer) = (view(z, 1:N), view(z, (N + 1):2N))
 
 """
     _pattern_union(mats...)
@@ -76,13 +78,15 @@ guarantees, and what the `nnz` check in [`mixed_jacobian!`](@ref) verifies.
 function _scatter_add!(J::SparseMatrixCSC, A::SparseMatrixCSC, roff::Integer, coff::Integer)
     rows, vals = rowvals(A), nonzeros(A)
     for j in axes(A, 2), k in nzrange(A, j)
+
         J[rows[k] + roff, j + coff] += vals[k]
     end
     J
 end
 
-_scatter_add!(J::SparseMatrixCSC, A::AbstractMatrix, roff::Integer, coff::Integer) =
+function _scatter_add!(J::SparseMatrixCSC, A::AbstractMatrix, roff::Integer, coff::Integer)
     _scatter_add!(J, sparse(A), roff, coff)
+end
 
 """
     mixed_jacobian_prototype(f, method)
@@ -159,7 +163,8 @@ Eliminating `v` recovers `σ M (y - uⁿ - Δt M⁻¹ K(ū) M⁻¹ ∂H/∂u(ū)
 `residual!` up to the scaling — the two describe the same step, and the tests hold them
 to that.
 """
-function mixed_residual!(r::AbstractVector, ::ImplicitMidpoint, f::HamiltonianFlow, un, z, Δt, σ)
+function mixed_residual!(
+        r::AbstractVector, ::ImplicitMidpoint, f::HamiltonianFlow, un, z, Δt, σ)
     N = length(un)
     y, v = mixed_state(z, N)
     r₁, r₂ = mixed_state(r, N)
@@ -200,7 +205,8 @@ independent of `ū` because the block is linear in it. Every entry is banded, so
 the mixed formulation earns its keep: the dense `residual_jacobian!` forms
 `Minv * K * Minv * ∂²H`, two dense `N × N` products per assembly.
 """
-function mixed_jacobian!(j::SparseMatrixCSC, ::ImplicitMidpoint, f::HamiltonianFlow, un, z, Δt, σ)
+function mixed_jacobian!(
+        j::SparseMatrixCSC, ::ImplicitMidpoint, f::HamiltonianFlow, un, z, Δt, σ)
     N = length(un)
     y, v = mixed_state(z, N)
     ū = (un .+ y) ./ 2
@@ -218,9 +224,10 @@ function mixed_jacobian!(j::SparseMatrixCSC, ::ImplicitMidpoint, f::HamiltonianF
     # A pattern that grew means the prototype was not a superset after all, and the linear
     # solver's symbolic factorization is now stale. Cheap next to the assembly, and the
     # failure it catches is otherwise a wrong answer rather than an error.
-    nnz(j) == nz₀ || error("the mixed Jacobian's sparsity pattern grew during assembly, from " *
-                           "$(nz₀) to $(nnz(j)) stored entries; mixed_jacobian_prototype did " *
-                           "not cover it")
+    nnz(j) == nz₀ ||
+        error("the mixed Jacobian's sparsity pattern grew during assembly, from " *
+              "$(nz₀) to $(nnz(j)) stored entries; mixed_jacobian_prototype did " *
+              "not cover it")
     j
 end
 

@@ -4,10 +4,9 @@ using SimpleSplines: UniformMesh
 using Test
 
 @testset "$(rpad("Diagnostics Tests",80))" begin
-
-    s   = SplineSpace(UniformMesh(16, 2π), 3)
+    s = SplineSpace(UniformMesh(16, 2π), 3)
     sys = KdVSystem(s)
-    u0  = project(s, sin)
+    u0 = project(s, sin)
 
     @testset "$(rpad("fused invariants agree with the individual Hamiltonians",76))" begin
         û = 0.3 .* randn(16)
@@ -36,11 +35,11 @@ using Test
         # oscillates with a period of tens of steps, so the value at the END of each window
         # -- what plain subsampling would record -- can sit well below the window's peak.
         integ = Integrator(sys.flow1, ImplicitMidpoint(), 2e-3)
-        fine  = integrate(sys, integ, u0, 200; stride = 1)
+        fine = integrate(sys, integ, u0, 200; stride = 1)
         per_step = deviation(fine, :H1)
 
         windowed = integrate(sys, Integrator(sys.flow1, ImplicitMidpoint(), 2e-3), u0, 200;
-                             stride = 20)
+            stride = 20)
         sampled = per_step[20:20:200]                    # what subsampling would report
 
         @test length(deviation(windowed, :H1)) == length(sampled)
@@ -63,7 +62,7 @@ using Test
         # report Inf for a quantity that is in fact conserved to round-off
         c0 = project(s, cosine(2π))
         traj = integrate(sys, Integrator(sys.flow1, ImplicitMidpoint(), 1e-3), c0, 100;
-                         stride = 10)
+            stride = 10)
         @test abs(traj.reference.C0) < 1e-14
         @test_throws ArgumentError drift(traj, :C0)
         @test absolute_drift(traj, :C0) < 1e-12
@@ -74,5 +73,4 @@ using Test
         @test_throws ArgumentError integrate(sys, integ, u0, 10; stride = 0)
         @test_throws ArgumentError integrate(sys, integ, u0, 5; stride = 10)
     end
-
 end

@@ -28,10 +28,11 @@ using PoissonBrackets
 using LinearAlgebra
 using Printf
 
-include(joinpath(@__DIR__, "check.jl")); using .Checks: header, check, summary
+include(joinpath(@__DIR__, "check.jl"));
+using .Checks: header, check, summary
 
 "A smooth, strictly positive periodic profile."
-u_exact(x)    = 2.0 + sin(x) + 0.3 * cos(2.0 * x)
+u_exact(x) = 2.0 + sin(x) + 0.3 * cos(2.0 * x)
 dudx_exact(x) = cos(x) - 0.6 * sin(2.0 * x)
 
 "(x, M, K, I, L) for the periodic Lagrange space of degree p on ne elements."
@@ -40,13 +41,13 @@ function assemble(p, ne)
     Minv = inverse_mass_matrix(s)
     S = derivative_matrix(s)
     return nodes(s), Matrix(mass_matrix(s)), Minv * (S - S') * Minv,
-           basis_integrals(s), domainlength(s)
+    basis_integrals(s), domainlength(s)
 end
 
 # Quoted like Python's list-of-strings repr, so the tables diff exactly against the script
 # this replaces. Once the Python is gone the quotes can go with it.
 sci(v) = "[" * join(["'" * (@sprintf("%.2e", x)) * "'" for x in v], ", ") * "]"
-fx(v)  = "[" * join(["'" * (@sprintf("%.2f", x)) * "'" for x in v], ", ") * "]"
+fx(v) = "[" * join(["'" * (@sprintf("%.2f", x)) * "'" for x in v], ", ") * "]"
 
 header("1. Structure of K = M^-1 D M^-1")
 
@@ -67,13 +68,13 @@ for (p, ne) in ((1, 25), (2, 13), (1, 24), (2, 12))
     km = maximum(abs, K * n)
     check("$tag: K (M 1) = 0", km < 1e-9, @sprintf("max|K M 1| = %.2e", km))
     check("$tag: n_i = int phi_i, i.e. M 1 is the vector of basis integrals",
-          maximum(abs, n - I) < 1e-10)
+        maximum(abs, n - I) < 1e-10)
     check("$tag: sum_i int phi_i = |Omega|", abs(sum(I) - L) < 1e-10)
     if iseven(N)
         saw = [(-1.0)^i for i in 0:(N - 1)]
         ks = maximum(abs, K * (M * saw))
         check("$tag: the extra kernel vector is the sawtooth mode (spurious Casimir)",
-              ks < 1e-9, @sprintf("max|K M saw| = %.2e", ks))
+            ks < 1e-9, @sprintf("max|K M saw| = %.2e", ks))
     end
 end
 
@@ -81,9 +82,9 @@ header("2. C(u) = 2 sum_i (int phi_i) sqrt(u_i) is an exact Casimir of J")
 
 for (p, ne) in ((1, 24), (2, 12))
     x, M, K, I, L = assemble(p, ne)
-    u  = u_exact.(x)
+    u = u_exact.(x)
     su = sqrt.(u)
-    J  = su .* K .* su'
+    J = su .* K .* su'
     gradC = I ./ su                      # ∂/∂u_i of 2 Σ_i I_i √u_i
     tag = "P$p, $ne elements"
     jc = maximum(abs, J * gradC)
@@ -93,8 +94,8 @@ for (p, ne) in ((1, 24), (2, 12))
     ys = sqrt.(u_exact.(xs))
     Cc = 2.0 * (sum(ys) - (ys[1] + ys[end]) / 2) * step(xs)     # trapezoid
     check("$tag: C approximates 2 int sqrt(u)", abs(Cd - Cc) / abs(Cc) < 1e-3,
-          @sprintf("discrete = %.8f, continuous = %.8f, rel. err = %.2e",
-                   Cd, Cc, abs(Cd - Cc) / abs(Cc)))
+        @sprintf("discrete = %.8f, continuous = %.8f, rel. err = %.2e",
+            Cd, Cc, abs(Cd - Cc) / abs(Cc)))
 end
 
 header("3. Consistency: J grad H reproduces 3 u u_x, second order")
@@ -103,19 +104,20 @@ for p in (1, 2)
     errs, hs = Float64[], Float64[]
     for ne in (16, 32, 64, 128)
         x, M, K, I, L = assemble(p, ne)
-        u  = u_exact.(x)
+        u = u_exact.(x)
         su = sqrt.(u)
-        J  = su .* K .* su'
+        J = su .* K .* su'
         udot = J * (M * u)                    # H = ½ u·M·u ≈ ½ ∫u²
         ex = 3.0 .* u_exact.(x) .* dudx_exact.(x)
         push!(errs, maximum(abs, udot - ex) / maximum(abs, ex))
         push!(hs, L / ne)
     end
-    rates = [log(errs[i] / errs[i+1]) / log(hs[i] / hs[i+1]) for i in 1:length(errs)-1]
+    rates = [log(errs[i] / errs[i + 1]) / log(hs[i] / hs[i + 1])
+             for i in 1:(length(errs) - 1)]
     println("   P$p: rel. errors $(sci(errs))")
     println("   P$p: observed rates $(fx(rates))")
     check("P$p: J grad H converges to 3 u u_x at order >= 2", rates[end] > 1.8,
-          @sprintf("finest rate = %.2f", rates[end]))
+        @sprintf("finest rate = %.2f", rates[end]))
 end
 
 header("4. Poisson integration in the variables ubar_i = sqrt(u_i)")
@@ -132,10 +134,10 @@ header("4. Poisson integration in the variables ubar_i = sqrt(u_i)")
 # witness is the comparison against the pushforward of the u-space field in section 3.
 let p = 2, ne = 16
     x, M, K, I, L = assemble(p, ne)
-    u0  = u_exact.(x)
+    u0 = u_exact.(x)
     ub0 = sqrt.(u0)
 
-    energy(ub)      = 0.5 * dot(ub .^ 2, M * (ub .^ 2))
+    energy(ub) = 0.5 * dot(ub .^ 2, M * (ub .^ 2))
     grad_energy(ub) = 2.0 .* ub .* (M * (ub .^ 2))     # dH/dūᵢ = 2 ūᵢ (M u)ᵢ
 
     function step!(ub, dt)
@@ -164,19 +166,22 @@ let p = 2, ne = 16
             hmax = max(hmax, abs(energy(ub) - H0) / abs(H0))
             cmax = max(cmax, abs(2.0 * dot(I, ub) - C0) / abs(C0))
         end
-        push!(dts, dt); push!(dHs, hmax); push!(dCs, cmax)
+        push!(dts, dt)
+        push!(dHs, hmax)
+        push!(dCs, cmax)
     end
 
     println("   dt                    $(sci(dts))")
     println("   max rel. |H - H0|     $(sci(dHs))")
     println("   max rel. |C - C0|     $(sci(dCs))")
-    rates = [log(dHs[i] / dHs[i+1]) / log(dts[i] / dts[i+1]) for i in 1:length(dts)-1]
+    rates = [log(dHs[i] / dHs[i + 1]) / log(dts[i] / dts[i + 1])
+             for i in 1:(length(dts) - 1)]
     println("   energy error rates    $(fx(rates))")
 
     check("the Casimir C = 2 I . ubar is conserved to round-off for every dt",
-          maximum(dCs) < 1e-12, @sprintf("max rel. drift = %.2e", maximum(dCs)))
+        maximum(dCs) < 1e-12, @sprintf("max rel. drift = %.2e", maximum(dCs)))
     check("the energy error is bounded and second order in dt", rates[end] > 1.8,
-          @sprintf("finest rate = %.2f", rates[end]))
+        @sprintf("finest rate = %.2f", rates[end]))
     check("u stays positive over the integration", minimum(ub .^ 2) > 0)
 end
 

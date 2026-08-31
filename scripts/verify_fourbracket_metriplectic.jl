@@ -40,6 +40,7 @@ header("1. the closed form is the contraction of the Kulkarni-Nomizu tensor")
 let worst = 0.0
     Random.seed!(4711)
     for n in (2, 3, 4, 5), _ in 1:20
+
         σ, μ = random_psd(n, n), random_psd(n, n)
         α, h = randn(n), randn(n)
         closed = metriplectic_bracket(σ, μ, α, h)
@@ -47,7 +48,7 @@ let worst = 0.0
         worst = max(worst, abs(closed - tensor) / max(abs(closed), 1.0))
     end
     check("eq. (2.6) closed form = R^{ijkl} contracted, n = 2..5", worst < 1e-12,
-          @sprintf("worst relative difference %.2e", worst))
+        @sprintf("worst relative difference %.2e", worst))
 end
 
 header("2. Proposition 2.1: positive semi-definiteness, swept over dimension and rank")
@@ -60,10 +61,12 @@ for n in (2, 3, 5, 8)
         worst = Inf
         for _ in 1:TRIALS
             worst = min(worst, metriplectic_bracket(random_psd(n, rs), random_psd(n, rm),
-                                                    randn(n), randn(n)))
+                randn(n), randn(n)))
         end
-        check(@sprintf("n = %d, rank(sigma) = %d, rank(mu) = %d, %d trials", n, rs, rm, TRIALS),
-              worst > -1e-8, @sprintf("min value %11.3e", worst))
+        check(
+            @sprintf("n = %d, rank(sigma) = %d, rank(mu) = %d, %d trials", n, rs, rm,
+                TRIALS),
+            worst > -1e-8, @sprintf("min value %11.3e", worst))
     end
 end
 
@@ -82,8 +85,8 @@ let found = nothing, ntried = 0
         end
     end
     check("an indefinite sigma does produce negative values, n = 4", found !== nothing,
-          found === nothing ? "none in 100000 draws -- UNEXPECTED" :
-              @sprintf("%.3e after %d draws", found, ntried))
+        found === nothing ? "none in 100000 draws -- UNEXPECTED" :
+        @sprintf("%.3e after %d draws", found, ntried))
 end
 
 summary("verify_fourbracket_metriplectic.jl")

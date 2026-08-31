@@ -73,8 +73,9 @@ end
 One claim whose identity is exact algebra plus integration by parts, so that on a spectral
 grid the residual must be at roundoff.  Passes if `abs(residual) <= atol`.
 """
-check_exact(label, residual; atol = 1e-11) =
+function check_exact(label, residual; atol = 1e-11)
     check(label, abs(residual) <= atol, @sprintf("%.2e   (atol %.0e)", abs(residual), atol))
+end
 
 """
     check_refined(label, coarse, fine; atol = 1e-11, minrate = 40)
@@ -96,7 +97,7 @@ function check_refined(label, coarse, fine; atol = 1e-11, minrate = 40.0)
     c, f = abs(coarse), abs(fine)
     rate = c / max(f, 1e-300)
     return check(label, f <= atol || rate >= minrate,
-                 @sprintf("%.2e -> %.2e   %.0fx", c, f, rate))
+        @sprintf("%.2e -> %.2e   %.0fx", c, f, rate))
 end
 
 """
@@ -123,8 +124,10 @@ Rationals print as `p/q`, and as `p` when the denominator is one, rather than in
 `p//q` form. That is not a cosmetic whim: it is the form the Python prototypes print, and
 keeping it means a `diff` of the two outputs shows only the numbers that genuinely differ.
 """
-fmt(x::Rational) = isone(denominator(x)) ? string(numerator(x)) :
-                   string(numerator(x), "/", denominator(x))
+function fmt(x::Rational)
+    isone(denominator(x)) ? string(numerator(x)) :
+    string(numerator(x), "/", denominator(x))
+end
 fmt(x::AbstractFloat) = string(x)
 fmt(x) = string(x)
 

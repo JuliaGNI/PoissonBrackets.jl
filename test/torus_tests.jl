@@ -7,7 +7,7 @@ using Test
     # A trigonometric polynomial of highest mode three, together with its exact derivatives,
     # so that the spectral grid at N = 16 has to reproduce them to roundoff and the
     # finite-difference grid has to converge to them at order eight.
-    field(g)  = sample(g, (x, y) -> sin(x) + 0.6cos(2y) + 0.4sin(x + y) + 0.25cos(2x - 3y))
+    field(g) = sample(g, (x, y) -> sin(x) + 0.6cos(2y) + 0.4sin(x + y) + 0.25cos(2x - 3y))
     fieldx(g) = sample(g, (x, y) -> cos(x) + 0.4cos(x + y) - 0.5sin(2x - 3y))
     fieldy(g) = sample(g, (x, y) -> -1.2sin(2y) + 0.4cos(x + y) + 0.75sin(2x - 3y))
 
@@ -35,11 +35,12 @@ using Test
 
     @testset "$(rpad("the finite-difference grid converges at order eight",76))" begin
         # log u is not band-limited, so this is the regime the fd8 grid exists for
-        err(N) = let g = finite_difference_grid(N)
-            u = sample(g, (x, y) -> 3.0 + 0.4sin(x) + 0.3cos(y))
-            exact = sample(g, (x, y) -> 0.4cos(x) / (3.0 + 0.4sin(x) + 0.3cos(y)))
-            maximum(abs, ∂x(g, log.(u)) .- exact)
-        end
+        err(N) =
+            let g = finite_difference_grid(N)
+                u = sample(g, (x, y) -> 3.0 + 0.4sin(x) + 0.3cos(y))
+                exact = sample(g, (x, y) -> 0.4cos(x) / (3.0 + 0.4sin(x) + 0.3cos(y)))
+                maximum(abs, ∂x(g, log.(u)) .- exact)
+            end
         e64, e128 = err(64), err(128)
         @test e64 / e128 > 40           # 2^8 = 256 predicted; the constant is not one
         @test log2(e64 / e128) > 6
@@ -82,7 +83,8 @@ using Test
     @testset "$(rpad("the canonical bracket is antisymmetric and kills its own arguments",76))" begin
         for g in (spectral_grid(16), finite_difference_grid(32))
             a, b = field(g), sample(g, (x, y) -> cos(y) + 0.5sin(2x) + 0.3cos(x - y))
-            @test maximum(abs, canonical_bracket(g, a, b) .+ canonical_bracket(g, b, a)) < 1e-12
+            @test maximum(abs, canonical_bracket(g, a, b) .+ canonical_bracket(g, b, a)) <
+                  1e-12
             @test maximum(abs, canonical_bracket(g, a, a)) < 1e-12
             # int f[g,h] is fully cyclic, which is the identity every reduction rests on
             c = sample(g, (x, y) -> 2.0 + 0.5sin(x - y))
@@ -96,5 +98,4 @@ using Test
         @test_throws ArgumentError spectral_grid(1)
         @test finite_difference_grid(9) isa TorusGrid
     end
-
 end

@@ -18,8 +18,8 @@ The names of the quantities [`invariants`](@ref) returns, in order.
 function invariant_names end
 
 function invariants(sys::KdVSystem, û::AbstractVector)
-    s  = sys.space
-    w  = quadrature_weights(s)
+    s = sys.space
+    w = quadrature_weights(s)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     wu = w .* uh
@@ -27,8 +27,8 @@ function invariants(sys::KdVSystem, û::AbstractVector)
     # see the docstring -- so the two have to be changed together; a sign convention that
     # moved in one and not the other would show up as a spurious drift and nothing else.
     (H1 = (dot(w, ux .^ 2) - 2 * dot(wu, uh .^ 2)) / 2,
-     H2 = dot(wu, uh) / 2,
-     C0 = sum(wu))
+        H2 = dot(wu, uh) / 2,
+        C0 = sum(wu))
 end
 
 invariant_names(::KdVSystem) = (:H1, :H2, :C0)
@@ -48,9 +48,9 @@ a Casimir in this chart — the Casimir of ``\mathbb{P}^1`` in ``\hat{v}`` is
 [`miura_casimir`](@ref), ``\int v_h``, which corresponds to nothing in ``u``.
 """
 function invariants(sys::MiuraSystem, v̂::AbstractVector)
-    s  = sys.space
-    w  = quadrature_weights(s)
-    û  = miura_map(s, v̂, sys.H.λ)
+    s = sys.space
+    w = quadrature_weights(s)
+    û = miura_map(s, v̂, sys.H.λ)
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     wu = w .* uh
@@ -58,21 +58,21 @@ function invariants(sys::MiuraSystem, v̂::AbstractVector)
     # see the docstring -- so the two have to be changed together; a sign convention that
     # moved in one and not the other would show up as a spurious drift and nothing else.
     (H1 = (dot(w, ux .^ 2) - 2 * dot(wu, uh .^ 2)) / 2,
-     H2 = dot(wu, uh) / 2,
-     C0 = sum(wu))
+        H2 = dot(wu, uh) / 2,
+        C0 = sum(wu))
 end
 
 invariant_names(::MiuraSystem) = (:H1, :H2, :C0)
 
 function invariants(sys::CamassaHolmSystem, m̂::AbstractVector)
-    s  = sys.space
-    w  = quadrature_weights(s)
-    û  = velocity(sys, m̂)               # one Helmholtz solve for all three
+    s = sys.space
+    w = quadrature_weights(s)
+    û = velocity(sys, m̂)               # one Helmholtz solve for all three
     uh = field(s, û, 0)
     ux = field(s, û, 1)
     (H1 = (dot(w, uh .^ 2) + dot(w, ux .^ 2)) / 2,
-     H2 = (dot(w, uh .^ 3) + dot(w .* uh, ux .^ 2)) / 2,
-     C0 = dot(w, field(s, m̂, 0)))
+        H2 = (dot(w, uh .^ 3) + dot(w .* uh, ux .^ 2)) / 2,
+        C0 = dot(w, field(s, m̂, 0)))
 end
 
 invariant_names(::CamassaHolmSystem) = (:H1, :H2, :C0)
@@ -80,11 +80,10 @@ invariant_names(::CamassaHolmSystem) = (:H1, :H2, :C0)
 function invariants(sys::BurgersSystem, û::AbstractVector)
     s = sys.space
     (H = hamiltonian(sys.H, s, û),
-     C = hamiltonian(sys.C, s, û))
+        C = hamiltonian(sys.C, s, û))
 end
 
 invariant_names(::BurgersSystem) = (:H, :C)
-
 
 @doc raw"""
     Trajectory
@@ -145,23 +144,23 @@ julia> length(traj)
 ```
 """
 function integrate(sys, integ::Integrator{T}, û₀::AbstractVector, nsteps::Integer;
-                   stride::Integer = 1) where {T}
+        stride::Integer = 1) where {T}
     stride ≥ 1 || throw(ArgumentError("the output stride must be positive, got $(stride)"))
     nsteps ≥ stride || throw(ArgumentError(
         "the run is $(nsteps) steps but the output stride is $(stride); there would be no " *
         "complete output window"))
 
-    û    = collect(T, û₀)
-    ref  = invariants(sys, û)
+    û = collect(T, û₀)
+    ref = invariants(sys, û)
     names = invariant_names(sys)
-    nk   = length(names)
+    nk = length(names)
     # Ceiling, and a final short window, so that all `nsteps` steps are taken even when the
     # stride does not divide them. Rounding down instead would silently drop up to
     # `stride - 1` steps -- 381 of the 766781 of the explicit cosine run -- while the tables
     # went on reporting `nsteps`, and would end the run before the final time.
     nout = cld(nsteps, stride)
 
-    t   = Vector{T}(undef, nout)
+    t = Vector{T}(undef, nout)
     dev = zeros(T, nk, nout)
     ref0 = T[getproperty(ref, n) for n in names]
 
@@ -196,7 +195,7 @@ zero there would report `Inf` for a quantity that is in fact conserved to round-
 """
 function drift(traj::Trajectory{T}, name::Symbol; atol = sqrt(eps(T))) where {T}
     ref = abs(getproperty(traj.reference, name))
-    d   = maximum(deviation(traj, name))
+    d = maximum(deviation(traj, name))
     # The guard is on `atol` rather than on exact zero because the reference value of a
     # quantity that vanishes mathematically does not vanish numerically: the mass of the
     # cosine initial condition comes out around 1e-17, and dividing a 1e-15 deviation by it
@@ -228,10 +227,9 @@ function growth(traj::Trajectory, name::Symbol; fraction = 1//10)
     n = length(d)
     m = max(1, round(Int, n * fraction))
     first_env = maximum(@view d[1:m])
-    last_env  = maximum(@view d[end-m+1:end])
+    last_env = maximum(@view d[(end - m + 1):end])
     iszero(first_env) ? one(eltype(d)) : last_env / first_env
 end
-
 
 @doc raw"""
     energyplot(trajectories, labels; name = :H1, kwargs...)
@@ -317,12 +315,12 @@ The Okabe-Ito colour assigned to each integrator by [`energyplot`](@ref). Colour
 the *integrator*; line style carries the vector field.
 """
 const INTEGRATOR_COLORS = Dict(
-    "midpoint"                 => "#0072B2",
-    "discrete gradient"        => "#D55E00",
+    "midpoint" => "#0072B2",
+    "discrete gradient" => "#D55E00",
     "discrete gradient (mass)" => "#F0A070",
-    "AVF"                      => "#009E73",
-    "RK4"                      => "#E69F00",
-    "Euler"                    => "#CC79A7",
+    "AVF" => "#009E73",
+    "RK4" => "#E69F00",
+    "Euler" => "#CC79A7"
 )
 
 """

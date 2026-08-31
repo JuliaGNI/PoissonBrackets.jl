@@ -99,8 +99,10 @@ The residuals of `f(grid)` on two [`finite_difference_grid`](@ref)s, as the tupl
 For a claim involving fields that are not band-limited, where the residual is discretisation
 error and only its decay certifies the identity.  Splat it into `Checks.check_refined`.
 """
-refined_residuals(f; coarse::Int = COARSE_N, fine::Int = FINE_N) =
-    (_residual(f(finite_difference_grid(coarse))), _residual(f(finite_difference_grid(fine))))
+function refined_residuals(f; coarse::Int = COARSE_N, fine::Int = FINE_N)
+    (_residual(f(finite_difference_grid(coarse))),
+        _residual(f(finite_difference_grid(fine))))
+end
 
 """
     refinement_sweep(f; resolutions = REFINEMENT_RESOLUTIONS)
@@ -111,7 +113,8 @@ The full study behind [`refined_residuals`](@ref): two grids give a factor, four
 observed order and show whether it is holding up or the residual has reached the roundoff
 floor and stopped falling.
 """
-refinement_sweep(f; resolutions = REFINEMENT_RESOLUTIONS) =
+function refinement_sweep(f; resolutions = REFINEMENT_RESOLUTIONS)
     [_residual(f(finite_difference_grid(N))) for N in resolutions]
+end
 
 end # module

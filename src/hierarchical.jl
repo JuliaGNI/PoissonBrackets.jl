@@ -25,9 +25,10 @@
 # This was a file-level `@doc` block, which Julia attached to `_polymul` below and Documenter
 # then dropped: none of it reached the manual. The prose now lives in `docs/src/dirac.md`.
 
-_polymul(a::AbstractVector{T}, b::AbstractVector{T}) where {T} = begin
+function _polymul(a::AbstractVector{T}, b::AbstractVector{T}) where {T}
     c = zeros(T, length(a) + length(b) - 1)
     for i in eachindex(a), j in eachindex(b)
+
         c[i + j - 1] += a[i] * b[j]
     end
     c
@@ -42,11 +43,14 @@ function _polysub(a::AbstractVector{T}, b::AbstractVector{T}) where {T}
     c
 end
 
-_polyder(a::AbstractVector{T}) where {T} =
+function _polyder(a::AbstractVector{T}) where {T}
     length(a) ≤ 1 ? zeros(T, 1) : T[(k - 1) * a[k] for k in 2:length(a)]
+end
 
 "∫₀¹ of a polynomial given by its coefficients in ascending powers."
-_polyint01(a::AbstractVector{T}) where {T} = sum(a[k] // k for k in eachindex(a); init = zero(T))
+function _polyint01(a::AbstractVector{T}) where {T}
+    sum(a[k] // k for k in eachindex(a); init = zero(T))
+end
 
 @doc raw"""
     shifted_legendre([T = Rational{BigInt}], kmax) -> Vector{Vector{T}}
@@ -109,7 +113,7 @@ function dg_local_algebra(::Type{T}, p::Int) where {T}
     L = shifted_legendre(T, n - 1)
     dL = _polyder.(L)
     M = [_polyint01(_polymul(L[a], L[b])) for a in 1:n, b in 1:n]
-    Tt = Array{T,3}(undef, n, n, n)
+    Tt = Array{T, 3}(undef, n, n, n)
     for m in 1:n, a in 1:n, b in 1:n
         Tt[m, a, b] = _polyint01(_polymul(L[m],
             _polysub(_polymul(L[a], dL[b]), _polymul(L[b], dL[a]))))
@@ -138,6 +142,7 @@ function coarse_in_dg(::Type{T}, p::Int, ne::Int) where {T}
     N1, Ndg = p * ne, 2p * ne
     Q = zeros(T, N1, Ndg)
     for e in 0:(ne - 1), a in 1:(p + 1)
+
         i = mod(e * p + (a - 1), N1) + 1          # periodic wrap of the shared end node
         for k in 1:2p
             Q[i, e * 2p + k] += coef[a][k]
@@ -178,24 +183,27 @@ function assemble_dg_hierarchical(::Type{T}, p::Int, ne::Int) where {T}
     Q1 = coarse_in_dg(T, p, ne)
     N1 = size(Q1, 1)
     Q2 = transpose(kernel(Q1 * Mdg))                            # V₂ = V₁^⊥ in the DG space
-    Q  = vcat(Q1, Q2)
-    n  = size(Q, 1)
+    Q = vcat(Q1, Q2)
+    n = size(Q, 1)
 
     M = Q * Mdg * transpose(Q)
 
     # contract Tdg against Q on each slot in turn: O(n N³) rather than O(n³ N³)
     S1 = zeros(T, n, Ndg, Ndg)
     for i in 1:n, a in 1:Ndg
+
         iszero(Q[i, a]) && continue
         @views S1[i, :, :] .+= Q[i, a] .* Tdg[a, :, :]
     end
     S2 = zeros(T, n, n, Ndg)
     for j in 1:n, b in 1:Ndg
+
         iszero(Q[j, b]) && continue
         @views S2[:, j, :] .+= Q[j, b] .* S1[:, b, :]
     end
     T3 = zeros(T, n, n, n)
     for k in 1:n, c in 1:Ndg
+
         iszero(Q[k, c]) && continue
         @views T3[:, :, k] .+= Q[k, c] .* S2[:, :, c]
     end
@@ -204,4 +212,6 @@ function assemble_dg_hierarchical(::Type{T}, p::Int, ne::Int) where {T}
     return (; C, keep = collect(1:N1), con = collect((N1 + 1):n), M)
 end
 
-assemble_dg_hierarchical(p::Int, ne::Int) = assemble_dg_hierarchical(Rational{BigInt}, p, ne)
+function assemble_dg_hierarchical(p::Int, ne::Int)
+    assemble_dg_hierarchical(Rational{BigInt}, p, ne)
+end

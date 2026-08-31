@@ -39,8 +39,9 @@ using Test
         @test maximum(abs, gardner_x(g, a, b) .-
                            (a .* ∂x(g, b) .- ∂x(g, a .* b) ./ 2)) < 1e-12
         # the curl identity, eq. (4.18), which is what makes the reduction possible
-        @test maximum(abs, ∂y(g, gardner_x(g, a, b)) .- ∂x(g, gardner_y(g, a, b)) .+
-                           canonical_bracket(g, a, b)) < 1e-12
+        @test maximum(abs,
+            ∂y(g, gardner_x(g, a, b)) .- ∂x(g, gardner_y(g, a, b)) .+
+            canonical_bracket(g, a, b)) < 1e-12
     end
 
     @testset "$(rpad("the symmetric operators ARE total derivatives",76))" begin
@@ -51,8 +52,9 @@ using Test
         @test maximum(abs, symmetric_y(g, a, s) .- ∂y(g, a .* s)) < 1e-12
 
         b = Bu(g)
-        vanishes = integrate(g, symmetric_x(g, a, s) .* symmetric_y(g, b, s) .-
-                                symmetric_x(g, b, s) .* symmetric_y(g, a, s))
+        vanishes = integrate(g,
+            symmetric_x(g, a, s) .* symmetric_y(g, b, s) .-
+            symmetric_x(g, b, s) .* symmetric_y(g, a, s))
         scale = integrate(g, abs.(symmetric_x(g, a, s) .* symmetric_y(g, b, s)))
         @test abs(vanishes) / scale < 1e-12
     end
@@ -62,18 +64,24 @@ using Test
         a, b, s = Au(g), Bu(g), chi(g)
         @test gardner_2bracket(g, a, b, s) == gardner_4bracket(g, a, s, b, s)
         @test symmetric_2bracket(g, a, b, s) == symmetric_4bracket(g, a, s, b, s)
-        @test gardner_2bracket_density(g, a, b, s) == gardner_4bracket_density(g, a, s, b, s)
-        @test symmetric_2bracket_density(g, a, b, s) == symmetric_4bracket_density(g, a, s, b, s)
+        @test gardner_2bracket_density(g, a, b, s) ==
+              gardner_4bracket_density(g, a, s, b, s)
+        @test symmetric_2bracket_density(g, a, b, s) ==
+              symmetric_4bracket_density(g, a, s, b, s)
     end
 
     @testset "$(rpad("every bracket is the integral of its own density",76))" begin
         g = spectral_grid(16)
         a, b, c, d, s = Au(g), Bu(g), Cu(g), Du(g), chi(g)
         w = uu(g)
-        @test gardner_4bracket(g, a, b, c, d) ≈ integrate(g, gardner_4bracket_density(g, a, b, c, d))
-        @test symmetric_4bracket(g, a, b, c, d) ≈ integrate(g, symmetric_4bracket_density(g, a, b, c, d))
-        @test weighted_2bracket(g, a, b, s, w) ≈ integrate(g, weighted_2bracket_density(g, a, b, s, w))
-        @test weighted_4bracket(g, a, b, c, d, w) ≈ integrate(g, weighted_4bracket_density(g, a, b, c, d, w))
+        @test gardner_4bracket(g, a, b, c, d) ≈
+              integrate(g, gardner_4bracket_density(g, a, b, c, d))
+        @test symmetric_4bracket(g, a, b, c, d) ≈
+              integrate(g, symmetric_4bracket_density(g, a, b, c, d))
+        @test weighted_2bracket(g, a, b, s, w) ≈
+              integrate(g, weighted_2bracket_density(g, a, b, s, w))
+        @test weighted_4bracket(g, a, b, c, d, w) ≈
+              integrate(g, weighted_4bracket_density(g, a, b, c, d, w))
         # a unit weight is no weight at all
         one_ = fill(1.0, size(g))
         @test weighted_2bracket(g, a, b, s, one_) ≈ symmetric_2bracket(g, a, b, s)
@@ -98,8 +106,9 @@ using Test
             for N in (64, 128)
                 g = finite_difference_grid(N)
                 a, b, u = Au(g), Bu(g), uu(g)
-                push!(r, abs(f(g, a, b, u) - lie_poisson_2bracket(g, a, b, u)) /
-                         abs(lie_poisson_2bracket(g, a, b, u)))
+                push!(r,
+                    abs(f(g, a, b, u) - lie_poisson_2bracket(g, a, b, u)) /
+                    abs(lie_poisson_2bracket(g, a, b, u)))
             end
             r
         end
@@ -123,10 +132,10 @@ using Test
     @testset "$(rpad("Jacobi holds for EVERY structure function, on linear functionals",76))" begin
         # Theorem 4.5. Refinement, since log u and exp u are not band-limited.
         for (cfun, cprime) in ((u -> u, u -> 1.0),
-                               (u -> u^3, u -> 3u^2),
-                               (u -> (1 + log(u))^2 / 2, u -> (1 + log(u)) / u),
-                               (u -> exp(u), u -> exp(u)),
-                               (u -> sin(u), u -> cos(u)))
+            (u -> u^3, u -> 3u^2),
+            (u -> (1 + log(u))^2 / 2, u -> (1 + log(u)) / u),
+            (u -> exp(u), u -> exp(u)),
+            (u -> sin(u), u -> cos(u)))
             r = map((64, 128)) do N
                 g = finite_difference_grid(N)
                 u = uu(g)
@@ -141,9 +150,8 @@ using Test
         g = finite_difference_grid(64)
         u = uu(g)
         res, scale = jacobi_residual(g, Au(g), Bu(g), Cu(g), u, fill(1.0, size(g));
-                                     normalised = false)
+            normalised = false)
         @test scale > 0
         @test res / scale ≈ jacobi_residual(g, Au(g), Bu(g), Cu(g), u, fill(1.0, size(g)))
     end
-
 end

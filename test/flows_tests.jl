@@ -5,7 +5,6 @@ using SimpleSplines: UniformMesh, GradedMesh, RandomMesh
 using Test
 
 @testset "$(rpad("Hamiltonian Flow Tests",80))" begin
-
     @testset "$(rpad("vectorfield is the bracket contracted with the gradient",76))" begin
         s = SplineSpace(12, 3)
         sys = KdVSystem(s)
@@ -27,7 +26,8 @@ using Test
                 J = jacobian(flow, û)
                 h = 1e-6
                 for m in (1, 5, 11)
-                    e = zeros(12); e[m] = h
+                    e = zeros(12)
+                    e[m] = h
                     fd = (vectorfield(flow, û .+ e) .- vectorfield(flow, û .- e)) ./ 2h
                     @test J[:, m] ≈ fd atol = 1e-5 * max(1, maximum(abs, fd))
                 end
@@ -40,6 +40,7 @@ using Test
         # needed -- this is exactly what the skew-symmetrised assembly buys, and it is why
         # nq = 2 below is not a mistake.
         for (nm, mk) in SPLINE_MESHES, nq in (2, 3, 5, 8)
+
             s = SplineSpace(mk(16), 3; nq = nq)
             sys = KdVSystem(s)
             û = 0.3 .* randn(16)
@@ -84,7 +85,7 @@ using Test
             push!(errs, maximum(abs, d))
         end
         @test all(>(0), errs)                                   # they really do differ
-        rate = log2(errs[end-1] / errs[end])
+        rate = log2(errs[end - 1] / errs[end])
         @test rate > 4                                          # and converge fast
     end
 
@@ -101,5 +102,4 @@ using Test
             @test lhs ≈ rhs atol = 1e-10 * maximum(abs, rhs)
         end
     end
-
 end

@@ -4,7 +4,6 @@ using Random
 using Test
 
 @testset "$(rpad("Metriplectic Bracket Tests",80))" begin
-
     random_psd(rng, n, r) = (P = randn(rng, n, r); P * P')
 
     @testset "$(rpad("the Kulkarni-Nomizu tensor has the symmetries it is built for",76))" begin
@@ -30,6 +29,7 @@ using Test
         # this the positivity sweep would be evidence about a rearrangement, not the bracket.
         rng = MersenneTwister(11)
         for n in (2, 3, 4, 5), _ in 1:5
+
             σ, μ = random_psd(rng, n, n), random_psd(rng, n, n)
             α, h = randn(rng, n), randn(rng, n)
             @test metriplectic_bracket(σ, μ, α, h) ≈
@@ -43,11 +43,13 @@ using Test
         # kept, because they are where an inequality chain is likeliest to be lost.
         rng = MersenneTwister(4711)
         for n in (2, 3, 5), (rs, rm) in ((n, n), (1, n), (n, 1), (1, 1), (max(n - 1, 1), 1))
+
             worst = Inf
             for _ in 1:2000
-                worst = min(worst, metriplectic_bracket(random_psd(rng, n, rs),
-                                                        random_psd(rng, n, rm),
-                                                        randn(rng, n), randn(rng, n)))
+                worst = min(worst,
+                    metriplectic_bracket(random_psd(rng, n, rs),
+                        random_psd(rng, n, rm),
+                        randn(rng, n), randn(rng, n)))
             end
             @test worst > -1e-8
         end
@@ -59,8 +61,9 @@ using Test
         worst = Inf
         for _ in 1:500
             A = randn(rng, 4, 4)
-            worst = min(worst, metriplectic_bracket(A + A', random_psd(rng, 4, 4),
-                                                    randn(rng, 4), randn(rng, 4)))
+            worst = min(worst,
+                metriplectic_bracket(A + A', random_psd(rng, 4, 4),
+                    randn(rng, 4), randn(rng, 4)))
         end
         @test worst < -1e-6
     end
@@ -69,5 +72,4 @@ using Test
         @test_throws DimensionMismatch kulkarni_nomizu(zeros(3, 3), zeros(4, 4))
         @test_throws DimensionMismatch metriplectic_bracket(zeros(2, 2, 2, 2), zeros(3), zeros(3))
     end
-
 end

@@ -3,7 +3,6 @@ using LinearAlgebra
 using Test
 
 @testset "$(rpad("Exact Linear Algebra Tests",80))" begin
-
     @testset "$(rpad("rref reduces to the identity on a nonsingular matrix",76))" begin
         A = Rational{BigInt}[2 1 0; 1 3 1; 0 1 2]
         R, piv = rref(A)
@@ -28,9 +27,9 @@ using Test
 
     @testset "$(rpad("kernel dimension obeys rank-nullity, on rectangular input too",76))" begin
         for A in (Rational{BigInt}[1 2 3; 2 4 6],
-                  Rational{BigInt}[1 2; 2 4; 3 6],
-                  Rational{BigInt}[0 0; 0 0],
-                  Rational{BigInt}[1 0 0 0; 0 1 0 0])
+            Rational{BigInt}[1 2; 2 4; 3 6],
+            Rational{BigInt}[0 0; 0 0],
+            Rational{BigInt}[1 0 0 0; 0 1 0 0])
             K = kernel(A)
             @test size(K, 2) == size(A, 2) - exact_rank(A)
             @test A * K == zeros(Rational{BigInt}, size(A, 1), size(K, 2))

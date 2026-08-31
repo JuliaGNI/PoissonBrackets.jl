@@ -4,21 +4,20 @@ using SimpleSplines: UniformMesh, GradedMesh, RandomMesh
 using Test
 
 @testset "$(rpad("KdV Tests",80))" begin
-
     @testset "$(rpad("both flows reproduce -6 u u_x - u_xxx",76))" begin
         # for u = sin x the right-hand side is -3 sin 2x + cos x: only the nonlinear term
         # flips with the convention, the -u_xxx being common to both
         for p in 2:4
             errs = Float64[]
             for N in (32, 64)
-                s   = SplineSpace(UniformMesh(N, 2π), p)
+                s = SplineSpace(UniformMesh(N, 2π), p)
                 sys = KdVSystem(s)
-                û   = project(s, sin)
-                ex  = project(s, x -> -3sin(2x) + cos(x))
-                xs  = collect(range(0, 2π, length = 201))
-                sc  = maximum(abs, evaluate(s, ex, xs))
-                e1  = maximum(abs, evaluate(s, vectorfield(sys.flow1, û) .- ex, xs)) / sc
-                e2  = maximum(abs, evaluate(s, vectorfield(sys.flow2, û) .- ex, xs)) / sc
+                û = project(s, sin)
+                ex = project(s, x -> -3sin(2x) + cos(x))
+                xs = collect(range(0, 2π, length = 201))
+                sc = maximum(abs, evaluate(s, ex, xs))
+                e1 = maximum(abs, evaluate(s, vectorfield(sys.flow1, û) .- ex, xs)) / sc
+                e2 = maximum(abs, evaluate(s, vectorfield(sys.flow2, û) .- ex, xs)) / sc
                 @test e1 < 1e-3
                 @test e2 < 1e-3
                 push!(errs, e1)
@@ -88,9 +87,9 @@ using Test
         # generates its flow when it is built to, every method holds the mass, and NONE
         # holds the respective other Hamiltonian.
         N, p, dt, NT = 20, 3, 2e-3, 500
-        s   = SplineSpace(UniformMesh(N, 2π), p)
+        s = SplineSpace(UniformMesh(N, 2π), p)
         sys = KdVSystem(s)
-        u0  = project(s, cosine(2π))
+        u0 = project(s, cosine(2π))
 
         run(flow, meth) = integrate(sys, Integrator(flow, meth, dt), u0, NT; stride = 10)
 
@@ -125,9 +124,9 @@ using Test
     end
 
     @testset "$(rpad("the mass is free, even for explicit Euler",76))" begin
-        s   = SplineSpace(UniformMesh(20, 2π), 3)
+        s = SplineSpace(UniformMesh(20, 2π), 3)
         sys = KdVSystem(s)
-        u0  = project(s, cosine(2π))
+        u0 = project(s, cosine(2π))
         for meth in (ExplicitEuler(), RungeKutta4())
             traj = integrate(sys, Integrator(sys.flow1, meth, 1e-5), u0, 200; stride = 20)
             @test absolute_drift(traj, :C0) < 1e-12
@@ -142,5 +141,4 @@ using Test
         exact = [-((1 + 0.3sin(x))^2 + 0.3cos(x)) for x in xs]
         @test maximum(abs, evaluate(s, û, xs) .- exact) < 1e-6
     end
-
 end

@@ -26,8 +26,9 @@ const Q = Rational{BigInt}
 
 A random rational with numerator in `lo:hi` and denominator in `1:dmax`. May be zero.
 """
-rnd(rng::AbstractRNG; lo::Int = -6, hi::Int = 6, dmax::Int = 4) =
+function rnd(rng::AbstractRNG; lo::Int = -6, hi::Int = 6, dmax::Int = 4)
     Q(rand(rng, lo:hi)) // Q(rand(rng, 1:dmax))
+end
 
 rnd_vec(rng::AbstractRNG, n::Int; kwargs...) = Q[rnd(rng; kwargs...) for _ in 1:n]
 
@@ -41,6 +42,7 @@ function rnd_mat(rng::AbstractRNG, n::Int, kind::Symbol = :general; kwargs...)
     M = zeros(Q, n, n)
     if kind === :general
         for i in 1:n, j in 1:n
+
             M[i, j] = rnd(rng; kwargs...)
         end
     elseif kind === :diagonal
@@ -49,10 +51,12 @@ function rnd_mat(rng::AbstractRNG, n::Int, kind::Symbol = :general; kwargs...)
         end
     elseif kind === :symmetric
         for i in 1:n, j in i:n
+
             M[i, j] = M[j, i] = rnd(rng; kwargs...)
         end
     elseif kind === :antisymmetric
         for i in 1:n, j in (i + 1):n
+
             v = rnd(rng; kwargs...)
             M[i, j], M[j, i] = v, -v
         end
@@ -69,7 +73,8 @@ end
 A random rational vector with every entry strictly positive — the admissible region for the
 brackets gauged by `√u`, where `u_i ≤ 0` is not merely inconvenient but outside the domain.
 """
-positive_vec(rng::AbstractRNG, n::Int; kwargs...) =
+function positive_vec(rng::AbstractRNG, n::Int; kwargs...)
     Q[(abs(numerator(x)) + 1) // denominator(x) for x in rnd_vec(rng, n; kwargs...)]
+end
 
 end # module

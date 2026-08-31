@@ -54,8 +54,9 @@ function inverse_mass_matrix end
 
 The matrix ``\\int_\\Omega D^a \\phi_k \\, D^b \\phi_l \\, dx``.
 """
-mixed_matrix(s::DiscreteSpace, a::Integer, b::Integer) =
+function mixed_matrix(s::DiscreteSpace, a::Integer, b::Integer)
     basis_values(s, a) * Diagonal(quadrature_weights(s)) * basis_values(s, b)'
+end
 
 """
     weighted_matrix(space, f, a, b)
@@ -63,8 +64,9 @@ mixed_matrix(s::DiscreteSpace, a::Integer, b::Integer) =
 The matrix ``\\int_\\Omega f(x) \\, D^a \\phi_k \\, D^b \\phi_l \\, dx``, with `f` either a
 function of the coordinate or a vector already sampled at `quadrature_nodes`.
 """
-weighted_matrix(s::DiscreteSpace, f, a::Integer, b::Integer) =
+function weighted_matrix(s::DiscreteSpace, f, a::Integer, b::Integer)
     weighted_matrix(s, f.(quadrature_nodes(s)), a, b)
+end
 
 function weighted_matrix(s::DiscreteSpace, f::AbstractVector, a::Integer, b::Integer)
     length(f) == length(quadrature_weights(s)) || throw(DimensionMismatch(
@@ -112,8 +114,9 @@ vector of values at `quadrature_nodes`.
 """
 project(s::DiscreteSpace, f) = project(s, f.(quadrature_nodes(s)))
 
-project(s::DiscreteSpace, f::AbstractVector) =
+function project(s::DiscreteSpace, f::AbstractVector)
     mass_factorization(s) \ (basis_values(s, 0) * (quadrature_weights(s) .* f))
+end
 
 """
     project!(û, space, f)
@@ -125,7 +128,6 @@ function project!(û::AbstractVector, s::DiscreteSpace, f::AbstractVector)
     û .= basis_values(s, 0) * (quadrature_weights(s) .* f)
     mass_solve!(û, mass_factorization(s), û)
 end
-
 
 ## Spline space
 
@@ -161,15 +163,17 @@ struct SplineSpace{T, QT <: SplineQuadrature{T}} <: DiscreteSpace{T}
     # The dense inverse is built by solving against the identity rather than by inverting
     # the assembled matrix: the mass matrix is sparse now, and on a uniform mesh each of
     # those N solves goes through the planned transforms of `CirculantMass`.
-    SplineSpace(q::QT) where {T, QT <: SplineQuadrature{T}} =
-        new{T, QT}(q, mass_operator(q) \ Matrix{T}(I, nbasis(q), nbasis(q)))
+    SplineSpace(q::QT) where {T, QT <: SplineQuadrature{T}} = new{T, QT}(
+        q, mass_operator(q) \ Matrix{T}(I, nbasis(q), nbasis(q)))
 end
 
-SplineSpace(mesh::Mesh, p::Integer; kwargs...) =
+function SplineSpace(mesh::Mesh, p::Integer; kwargs...)
     SplineSpace(SplineQuadrature(PeriodicBSplineBasis(mesh, p); kwargs...))
+end
 
-SplineSpace(n::Integer, p::Integer; L = 2π, kwargs...) =
+function SplineSpace(n::Integer, p::Integer; L = 2π, kwargs...)
     SplineSpace(UniformMesh(n, L), p; kwargs...)
+end
 
 quadrature(s::SplineSpace) = s.quadrature
 basis(s::SplineSpace) = basis(s.quadrature)
@@ -197,9 +201,9 @@ inverse_mass_matrix(s::SplineSpace) = s.Minv
 The `d`-th derivative of the discrete field with coefficients `û` at the point or points
 `x`, which need not be quadrature points.
 """
-evaluate(s::SplineSpace, û::AbstractVector, x, d::Integer = 0) =
+function evaluate(s::SplineSpace, û::AbstractVector, x, d::Integer = 0)
     evaluate(basis(s.quadrature), û, x, d)
-
+end
 
 ## Nodal Lagrange space
 
@@ -271,7 +275,7 @@ struct LagrangeSpace{T, MO <: MassOperator{T}} <: DiscreteSpace{T}
     cache::Dict{Tuple{Int, Int}, SparseMatrixCSC{T, Int}}
 
     function LagrangeSpace{T}(p::Integer, ne::Integer; L = 2π,
-                              nq::Integer = 2p + 4) where {T}
+            nq::Integer = 2p + 4) where {T}
         p ≥ 1 || throw(ArgumentError(
             "the degree of a Lagrange element must be at least one, got p = $(p)"))
         ne ≥ 1 || throw(ArgumentError(
@@ -290,9 +294,9 @@ struct LagrangeSpace{T, MO <: MassOperator{T}} <: DiscreteSpace{T}
         ξ = gauss_legendre_nodes(T, nq)
         ω = gauss_legendre_weights(T, nq)
 
-        x  = zeros(T, N)
+        x = zeros(T, N)
         xq = Vector{T}(undef, ne * nq)
-        w  = Vector{T}(undef, ne * nq)
+        w = Vector{T}(undef, ne * nq)
 
         # Only the p+1 basis functions supported on an element are evaluated there, and only
         # those entries are stored. A dense tabulation is (p+1)/N full -- under one per cent
@@ -304,26 +308,26 @@ struct LagrangeSpace{T, MO <: MassOperator{T}} <: DiscreteSpace{T}
         Vs = [zeros(T, nnzΦ) for _ in 0:1]
 
         t = 0
-        for e in 0:ne-1
+        for e in 0:(ne - 1)
             gidx = [mod1(e * p + a + 1, N) for a in 0:p]
             # Only the first p local nodes are *owned* by this element; local node p is
             # local node 0 of the next one. Assigning it here too would be harmless inside
             # the domain but wrong at the wrap, where the last element would overwrite the
             # coordinate of node 1 with L instead of 0.
-            for a in 0:p-1
-                x[gidx[a+1]] = e * h + ξloc[a+1] * h
+            for a in 0:(p - 1)
+                x[gidx[a + 1]] = e * h + ξloc[a + 1] * h
             end
             for r in 1:nq
                 q = e * nq + r
                 xq[q] = e * h + h * ξ[r]
-                w[q]  = h * ω[r]
+                w[q] = h * ω[r]
                 for a in 0:p
                     t += 1
-                    Is[t] = gidx[a+1]
+                    Is[t] = gidx[a + 1]
                     Js[t] = q
-                    Vs[1][t] = ℓ[ξ[r], a+1]
+                    Vs[1][t] = ℓ[ξ[r], a + 1]
                     # the chain rule of the map from the reference element: d/dx = (1/h) d/dξ
-                    Vs[2][t] = dℓ[ξ[r], a+1] / h
+                    Vs[2][t] = dℓ[ξ[r], a + 1] / h
                 end
             end
         end
@@ -331,7 +335,7 @@ struct LagrangeSpace{T, MO <: MassOperator{T}} <: DiscreteSpace{T}
         # `sparse` SUMS duplicate (i,q) pairs, which is the `+=` the dense assembly used to
         # do. The only way to get a duplicate here is ne == 1, where the wrap makes local
         # nodes 0 and p the same degree of freedom on the one element.
-        Φ = [sparse(Is, Js, Vs[d+1], N, ne * nq) for d in 0:1]
+        Φ = [sparse(Is, Js, Vs[d + 1], N, ne * nq) for d in 0:1]
 
         M = Φ[1] * Diagonal(w) * Φ[1]'
         M = (M + M') / 2                # symmetric by construction; enforce it exactly
@@ -352,20 +356,21 @@ struct LagrangeSpace{T, MO <: MassOperator{T}} <: DiscreteSpace{T}
         # ∫ φ_i dx and the f ⊙ w buffer are constants of the discretisation, assembled once
         # rather than rebuilt on every call, as in `SimpleSplines.SplineQuadrature`.
         integrals = Φ[1] * w
-        scratch   = Vector{T}(undef, ne * nq)
+        scratch = Vector{T}(undef, ne * nq)
 
         # The dense inverse is built by solving against the identity rather than by inverting
         # an assembled matrix, matching `SplineSpace`.
         Minv = mass \ Matrix{T}(I, N, N)
 
         new{T, typeof(mass)}(Int(p), Int(ne), Lx, Int(nq), x, xq, w, Φ, mass, Minv,
-                             integrals, scratch,
-                             Dict{Tuple{Int, Int}, SparseMatrixCSC{T, Int}}())
+            integrals, scratch,
+            Dict{Tuple{Int, Int}, SparseMatrixCSC{T, Int}}())
     end
 end
 
-LagrangeSpace(p::Integer, ne::Integer; L = 2π, kwargs...) =
+function LagrangeSpace(p::Integer, ne::Integer; L = 2π, kwargs...)
     LagrangeSpace{typeof(float(L))}(p, ne; L = L, kwargs...)
+end
 
 nbasis(s::LagrangeSpace) = s.p * s.ne
 degree(s::LagrangeSpace) = s.p
@@ -405,17 +410,19 @@ function basis_values(s::LagrangeSpace, d::Integer = 0)
     0 ≤ d ≤ 1 || throw(ArgumentError(
         "a Lagrange finite element basis is only C⁰, so derivatives beyond the first do " *
         "not exist across element boundaries; order $(d) was requested"))
-    s.Φ[d+1]
+    s.Φ[d + 1]
 end
 
-evaluate(s::LagrangeSpace, û::AbstractVector, x::Number, d::Integer = 0) =
+function evaluate(s::LagrangeSpace, û::AbstractVector, x::Number, d::Integer = 0)
     _lagrange_evaluate(s, û, x, d)
+end
 
-evaluate(s::LagrangeSpace, û::AbstractVector, X::AbstractVector, d::Integer = 0) =
+function evaluate(s::LagrangeSpace, û::AbstractVector, X::AbstractVector, d::Integer = 0)
     [_lagrange_evaluate(s, û, x, d) for x in X]
+end
 
 function _lagrange_evaluate(s::LagrangeSpace{T}, û::AbstractVector, x::Number,
-                            d::Integer) where {T}
+        d::Integer) where {T}
     length(û) == nbasis(s) || throw(DimensionMismatch(
         "the coefficient vector has $(length(û)) entries but the space has $(nbasis(s))"))
     0 ≤ d ≤ 1 || throw(ArgumentError(
@@ -432,7 +439,7 @@ function _lagrange_evaluate(s::LagrangeSpace{T}, û::AbstractVector, x::Number,
 
     v = zero(T)
     for a in 0:s.p
-        v += û[mod1(e * s.p + a + 1, N)] * B[ξ, a+1]
+        v += û[mod1(e * s.p + a + 1, N)] * B[ξ, a + 1]
     end
     d == 1 ? v / h : v
 end
@@ -460,13 +467,15 @@ function nodal_derivative_matrix(s::LagrangeSpace{T}) where {T}
 
     E = zeros(T, N, N)
     count = zeros(Int, N)
-    for e in 0:s.ne-1, b in 0:s.p
+    for e in 0:(s.ne - 1), b in 0:s.p
+
         count[mod1(e * s.p + b + 1, N)] += 1
     end
-    for e in 0:s.ne-1
+    for e in 0:(s.ne - 1)
         gidx = [mod1(e * s.p + a + 1, N) for a in 0:s.p]
         for a in 0:s.p, b in 0:s.p
-            E[gidx[a+1], gidx[b+1]] += dℓ[ξloc[b+1], a+1] / h / count[gidx[b+1]]
+
+            E[gidx[a + 1], gidx[b + 1]] += dℓ[ξloc[b + 1], a + 1] / h / count[gidx[b + 1]]
         end
     end
     return E
