@@ -318,7 +318,7 @@ The weak-form operator ``\\mathbb{A}_{KL}``, without the surrounding inverse mas
 the local, tensor-coefficient stiffness matrix built on ``M \\mathbb{D}_s`` minus the
 nonlocal cross term of [`_cross_factors`](@ref).
 
-Dense, unlike [`metric_operator(::DoubleBracket, û)`](@ref): the cross term is a rank-nine
+Dense, unlike the [`DoubleBracket`](@ref) operator: the cross term is a rank-nine
 correction and a bracket that is nonlocal in space cannot be sparse.
 """
 function metric_operator(b::CollisionBracket, û::AbstractVector)
@@ -439,8 +439,8 @@ The tensor ``\partial \mathbb{G}_{ij} / \partial \hat{u}_m``, analytic.
 
 The state enters twice — through ``\hat{\phi} = \Lambda \hat{u}``, on which the operator
 depends quadratically, and through ``M(x, u_h(x))``, in which it is bilinear — so each column
-is one perturbed assembly and one sandwich, ``N`` of both. That is the same cost
-[`metric_derivative(::DoubleBracket, û)`](@ref) pays, and for the same reason: an
+is one perturbed assembly and one sandwich, ``N`` of both. That is the same cost a
+``\Lambda``-generated [`DoubleBracket`](@ref) pays, and for the same reason: an
 ``N \times N \times N`` tensor is not something a time loop should ask for, and a metriplectic
 flow built on this bracket wants the directional derivative instead.
 
