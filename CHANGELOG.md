@@ -46,6 +46,23 @@ Everything is computed from the structure constants alone — the Killing form a
 `κ_mn = Σ_ij c_mi^j c_nj^i` — so nothing depends on the matrix realisation `sine_algebra`
 happens to use. No new exports and no new dependencies; the script uses `sine_algebra`,
 `lie_poisson_matrix`, `lie_poisson_derivative`, `jacobi_residual`, `so3` and `se3` as they stand.
+### Added — an adversarial re-check of the structure-function bracket
+
+`scripts/fable/III1_refutation.jl` attacks the same statement as
+`scripts/fable/III1_structure_function_4d.jl` — that `{A,B}_c = ∫ c(f){A_f,B_f} μ` is Poisson for
+every smooth `c` — from an independent implementation that shares no code with it or with
+`fabletools.jl`, so that a defect in the shared machinery cannot hide in both. It computes the
+Jacobiator by carrying each field's first variation as a linear differential operator and
+integrating that operator by parts, rather than by directional derivatives and cyclicity, and
+compares the result against a closed form derived separately. 99 checks, exact over `ℚ(i)`.
+
+The statement survives, in dimensions 2, 4, 5, 6 and 8, for degenerate bivectors and on an
+odd-dimensional torus with no symplectic form at all. Two things it establishes that the earlier
+script does not: the identity `Q μ = α∧β∧γ∧δ∧ω^{n−2}/(n−2)!` holds with sign `+1` **only** against
+the Liouville form, since `ω^n/n!` and `dx_1∧…∧dv_n` differ by `(−1)^{n(n−1)/2}`; and the Jacobiator
+is non-zero — `−127697733/64` — as soon as the volume form is not Liouville, so that hypothesis is
+load-bearing rather than decorative. Every vanishing verdict is guarded by an assertion that the
+integrand could have been non-zero, after three separate accidental zeros during development.
 
 ### Added — the four-bracket manuscript
 
