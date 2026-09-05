@@ -47,8 +47,10 @@ const SCRIPTS = [
     "verify_fourbracket_identities.jl",
     "verify_fourbracket_convergence.jl",
     "verify_fourbracket_log_entropy.jl",
-    # the metric half: the collision-like bracket's O(N_q) moment collapse
-    "verify_metric_collapse.jl"
+    # the metric half: the collision-like bracket's O(N_q) moment collapse, and the flow the
+    # metric brackets generate once a Hamiltonian and an entropy are attached to them
+    "verify_metric_collapse.jl",
+    "verify_metriplectic_flow.jl"
 ]
 
 const RULE = "="^67

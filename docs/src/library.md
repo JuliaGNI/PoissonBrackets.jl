@@ -73,7 +73,18 @@ Pages = ["hamiltonians.jl"]
 
 ```@autodocs
 Modules = [PoissonBrackets]
-Pages = ["flows.jl"]
+Pages = ["src/flows.jl"]
+```
+
+## Metriplectic flows — `metriplecticflows.jl`
+
+`Pages` is matched against the *end* of each source path, so the section above has to be
+qualified against this one: a bare `"flows.jl"` matches `metriplecticflows.jl` as well, and
+every docstring here would be emitted twice.
+
+```@autodocs
+Modules = [PoissonBrackets]
+Pages = ["metriplecticflows.jl"]
 ```
 
 ## Integrators — `integrators.jl`

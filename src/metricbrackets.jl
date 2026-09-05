@@ -404,11 +404,16 @@ end
 The same ``N`` perturbed assemblies as [`metric_derivative`](@ref), but each one contracted
 against ``\mathbb{M}^{-1} v`` and solved once rather than sandwiched.
 
-That is the whole saving, and it is an order rather than a constant: the perturbed operator
-``\dot{\mathbb{A}}^m`` is sparse, so ``\dot{\mathbb{A}}^m w`` costs ``O(N)`` where
-``\mathbb{M}^{-1} \dot{\mathbb{A}}^m \mathbb{M}^{-1}`` costs ``O(N^3)``. What is left is
-``N`` assemblies and ``N + 1`` mass solves, against the ``O(N^4)`` of building the tensor and
-contracting it afterwards.
+What that removes is the ``N`` sandwiches — ``O(N^3)`` each, so ``O(N^4)`` in total — and what
+it cannot remove is the ``N`` perturbed assemblies, which both paths pay. So the saving is
+asymptotic and modest at reachable sizes: measured in `scripts/verify_metriplectic_flow.jl`,
+**1.3× at ``N = 25`` rising to 2.1× at ``N = 121``**. The assemblies dominate throughout, and
+claiming an order here would be an extrapolation rather than a measurement. Contrast
+[`metric_directional`](@ref)`(::ProjectorBracket, …)`, which assembles nothing and is 147×
+at the same size.
+
+Never *slower*, though, and that is the claim that is load-bearing: this runs once per Newton
+iteration and the tensor cannot.
 """
 function metric_directional(b::DoubleBracket{T, ST, <:AbstractMatrix}, û::AbstractVector,
         v::AbstractVector) where {T, ST}
@@ -584,8 +589,11 @@ D_{im} = - \frac{(\hat{\phi} \cdot v) \, \Lambda_{im}
 \qquad n = \hat{\phi}^T \mathbb{M} \hat{\phi} .
 ```
 
-Nothing of size ``N^3`` is formed, and no quadrature is touched — this is two matrix-vector
-products and two dot products.
+Nothing of size ``N^3`` is formed, no quadrature is touched and nothing is assembled — this is
+two matrix-vector products and two dot products. It is the one bracket for which the saving is
+genuinely an order: `scripts/verify_metriplectic_flow.jl` measures **12× at ``N = 25`` and
+147× at ``N = 121``**, growing because there is no assembly left to dominate the sandwich it
+removes.
 """
 function metric_directional(
         b::ProjectorBracket{T, ST, <:AbstractMatrix}, û::AbstractVector,

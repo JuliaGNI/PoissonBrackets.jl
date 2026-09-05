@@ -478,11 +478,16 @@ The perturbed assemblies of [`metric_derivative`](@ref), each contracted against
 ``\mathbb{M}^{-1} v`` and solved once instead of sandwiched.
 
 The operator derivative is dense here — the cross term is nonlocal — so this is ``N``
-assemblies of size ``N^2`` and ``N + 1`` mass solves, against the ``O(N^4)`` of ``N``
-sandwiches. The state enters through ``\hat{\phi} = \Lambda \hat{u}`` and through
-``M(x, u_h)``, and the same short-circuit applies: a prescribed ``\phi`` with a
-state-independent mobility makes the bracket constant, and the derivative is zero without any
-assembly at all.
+assemblies of size ``N^2`` and ``N + 1`` mass solves, against the same ``N`` assemblies plus
+``N`` sandwiches. Of the four brackets this is the one where contracting first buys least:
+`scripts/verify_metriplectic_flow.jl` measures **1.4× at ``N = 25`` and 1.9× at ``N = 121``**,
+because it is the dense assemblies rather than the sandwiches that dominate at any size a
+two-dimensional problem reaches. Never slower, which is what the Newton iteration needs, but
+not an order.
+
+The state enters through ``\hat{\phi} = \Lambda \hat{u}`` and through ``M(x, u_h)``, and the
+same short-circuit applies: a prescribed ``\phi`` with a state-independent mobility makes the
+bracket constant, and the derivative is zero without any assembly at all.
 """
 function metric_directional(b::CollisionBracket{T}, û::AbstractVector,
         v::AbstractVector) where {T}
