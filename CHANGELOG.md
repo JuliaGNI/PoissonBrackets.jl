@@ -31,7 +31,7 @@ kept as a verification of the index conventions, not as evidence for the hypothe
 
 Two negative controls, and they are half the point of the script:
 
-- `I₃`, the cubic invariant, in the third slot gives `1.038` relative deviation after optimal
+- `I₃`, the cubic invariant, in the third slot gives `1.019` relative deviation after optimal
   rescaling — the quadratic hypothesis is load-bearing, and the reason is checked directly as a
   homogeneity mismatch, degree 1 against degree 2 in `ω`.
 - **`se(3)`**, where `κ` is singular *and* its degenerate directions are non-central, so even
@@ -45,7 +45,7 @@ Two negative controls, and they are half the point of the script:
 Everything is computed from the structure constants alone — the Killing form as
 `κ_mn = Σ_ij c_mi^j c_nj^i` — so nothing depends on the matrix realisation `sine_algebra`
 happens to use. No new exports and no new dependencies; the script uses `sine_algebra`,
-`lie_poisson_matrix`, `lie_poisson_derivative`, `jacobi_residual` and `so3` as they stand.
+`lie_poisson_matrix`, `lie_poisson_derivative`, `jacobi_residual`, `so3` and `se3` as they stand.
 
 ### Added — the four-bracket manuscript
 

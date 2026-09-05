@@ -55,9 +55,9 @@
 # script first used and which does not bite: there kappa is singular, but the degenerate
 # directions are central, so the bracket vanishes on them anyway and pinv(kappa) recovers J
 # exactly (measured: max|B3 - J| = 0). se(3) has a rotation-translation bracket living on its
-# degenerate directions, and there pinv recovers nothing at all. This is the same trap
-# `Projects/CLAUDE.md` records for so(3) as a Jacobi control, in a second guise: a control that
-# fails for a reason that does not generalise is no better than one that cannot fail.
+# degenerate directions, and there pinv recovers nothing at all. This is the same trap the `so3`
+# docstring already warns about for Jacobi controls, in a second guise: a control that fails for
+# a reason that does not generalise is no better than one that cannot fail.
 
 using PoissonBrackets
 using LinearAlgebra
@@ -115,8 +115,13 @@ end
 # lambda with kappa^-1 = lambda * P, so that the Killing quadratic form and Zeitlin's I_2
 # differ by exactly this factor. Returned with the residual of that ansatz, so a caller
 # cannot use the scale without also being able to check that the shape held.
+#
+# The scale is read off P's SUPPORT. P is a permutation matrix, so most of it is zero, and an
+# entry where P vanishes says nothing about lambda -- taking the largest |kappa^-1| over the
+# whole matrix would divide by zero there and return NaN in place of a residual, whenever the
+# ansatz is false enough for the two maxima to disagree.
 function killing_pairing_scale(κinv, P)
-    k = argmax(abs.(κinv))
+    k = argmax(i -> iszero(P[i]) ? -Inf : abs(κinv[i]), eachindex(κinv))
     λ = κinv[k] / P[k]
     return λ, rel(κinv, λ .* P)
 end
@@ -245,8 +250,11 @@ let N = 3
     end
     J = lie_poisson_matrix(C, w)
     B3 = three_bracket_matrix(c, dI3)
-    # best possible rescaling, so the verdict cannot be an artefact of normalisation
-    α = dot(vec(J), vec(B3)) / dot(vec(B3), vec(B3))
+    # Best possible rescaling, so the verdict cannot be an artefact of normalisation. `dot`
+    # conjugates its FIRST argument, so the minimiser of |J - alpha B3| is dot(B3, J)/dot(B3, B3)
+    # and not the other order -- w is complex here, so the two differ by a conjugation and the
+    # wrong one reports a residual larger than the optimum, flattering the control.
+    α = dot(vec(B3), vec(J)) / dot(vec(B3), vec(B3))
     err = rel(α .* B3, J)
     check("N = $N: [., ., I_3] is NOT the Lie-Poisson bracket, at any scale",
         err > 1e-2, @sprintf("relative deviation after optimal rescaling = %.3f", err))
