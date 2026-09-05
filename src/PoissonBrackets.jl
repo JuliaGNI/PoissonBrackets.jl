@@ -14,6 +14,7 @@ import Sparspak
 # extended rather than defined here, so that the packages of the ecosystem share one
 # generic function per accessor
 import GeometricBase: integrate, value
+import LinearAlgebra: issymmetric
 import SimpleSplines: basis, basis_integrals, basis_values, degree, domainlength,
                       evaluate, l2_projection, mass_factorization, mass_matrix,
                       mass_operator, mass_solve!, mixed_matrix, nbasis,
@@ -49,6 +50,13 @@ export poisson_matrix, poisson_apply, poisson_tensor, isantisymmetric,
        jacobi_residual, structure_constant_residual
 
 include("brackets.jl")
+
+export MetricBracket, DoubleBracket, ProjectorBracket
+export metric_matrix, metric_apply, metric_derivative, metric_operator,
+       hamiltonian_field, project_orthogonal,
+       issymmetric, ispositive_semidefinite, degeneracy_residual
+
+include("metricbrackets.jl")
 
 export lie_poisson_matrix, lie_poisson_derivative,
        so3, se3, so_n, random_antisymmetric_c, sine_algebra, sine_coefficient,

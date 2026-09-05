@@ -37,11 +37,19 @@ Pages = ["tensorspaces.jl"]
 
 `Pages` is matched against the *end* of each source path, so this filter has to be qualified:
 a bare `"brackets.jl"` also matches `fourbrackets.jl`, whose docstrings belong to
-[Poisson brackets from four-brackets](@ref) and would otherwise be emitted twice.
+[Poisson brackets from four-brackets](@ref), and `metricbrackets.jl`, whose belong to the
+section below; both would otherwise be emitted twice.
 
 ```@autodocs
 Modules = [PoissonBrackets]
 Pages = ["src/brackets.jl"]
+```
+
+## Metric brackets — `metricbrackets.jl`
+
+```@autodocs
+Modules = [PoissonBrackets]
+Pages = ["metricbrackets.jl"]
 ```
 
 ## Hamiltonians — `hamiltonians.jl`
