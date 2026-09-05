@@ -19,7 +19,13 @@
 #       the weight at the mean of u must be 3/2 times the weight at every other mode;
 #   6.  THE FUNDAMENTAL IDENTITY is out of reach by theorem, not by effort. A Nambu-Poisson
 #       tensor of order >= 3 satisfying it must be decomposable (Gautheron; Alekseevsky-Guha),
-#       hence of rank three.
+#       hence of rank three;
+#   7.  NAMBU'S OWN CRITERION, which is neither of the above but LIOUVILLE'S THEOREM. A
+#       constant anti-symmetric tensor gives a divergence-free flow for any pair of slot
+#       functions, which covers the wedge tensor and nothing more. For {u,H2,C0}, where S
+#       really does depend on u, the flow is divergence-free all the same -- and not for
+#       that reason: the trace sum_i dS_ijk/duhat_i is a nonzero matrix whose CASIMIR
+#       column alone vanishes.
 #
 # Needs SymPy.
 
@@ -479,5 +485,212 @@ println("      a Nambu-Poisson tensor of order >= 3 must be decomposable (Gauthe
 println("      Alekseevsky-Guha), hence of rank three: an N-dof discretisation satisfying")
 println("      the FI would move on three-dimensional leaves.  The FI is not a hard goal")
 println("      but an impossible one, and anti-symmetry alone is the usable structure.")
+
+# --------------------------------------------------------------------------
+header("7. Nambu's own criterion: is the flow divergence-free in coefficient space?")
+
+# The guiding principle of Nambu (1973) is neither the Jacobi identity nor the fundamental
+# identity but LIOUVILLE'S THEOREM: his eq. (3) is div(grad H x grad G) = 0.  The discrete
+# analogue asks whether
+#
+#     udot_i = sum_jk S_ijk a_j b_k ,    a = dF/duhat ,  b = dG/duhat
+#
+# has vanishing divergence sum_i d(udot_i)/d(uhat_i) on the coefficient space.  Expanding,
+#
+#     div = sum_ijk [ (dS_ijk/duhat_i) a_j b_k  +  S_ijk F_ij b_k  +  S_ijk a_j G_ik ] ,
+#
+# and the last two terms die: S is anti-symmetric in (i,j) while the Hessian F_ij is
+# symmetric, and anti-symmetric in (i,k) while G_ik is symmetric.  So the whole question is
+# the first term, and for a CONSTANT S there is nothing left.
+
+"sum_i d(udot_i)/d(uhat_i) by central differences on the flow itself"
+function divergence_fd(flow, x; h = 1e-6)
+    n = length(x)
+    s = 0.0
+    for i in 1:n
+        e = zeros(n)
+        e[i] = h
+        s += (flow(x + e)[i] - flow(x - e)[i]) / (2h)
+    end
+    s
+end
+
+"random T[m,i,j,k], anti-symmetric in the three slots (i,j,k) and free in m"
+function rand_slotantisym4(n, rng)
+    T = zeros(n, n, n, n)
+    for m in 1:n
+        T[m, :, :, :] = rand_antisym3(n, rng; integer = false)
+    end
+    T
+end
+
+# 7a. the structural lemma: a constant totally anti-symmetric S is divergence-free for ANY
+#     pair of functions, whatever they are
+let rng = MersenneTwister(7), n = 6
+    S = rand_antisym3(n, rng; integer = false)
+    sym(A) = (A + transpose(A)) / 2
+    Fh, Gh = sym(randn(rng, n, n)), sym(randn(rng, n, n))
+    fv, gv, x = randn(rng, n), randn(rng, n), randn(rng, n)
+    grF(y) = Fh * y + fv
+    grG(y) = Gh * y + gv
+    flow(y) = [sum(S[i, j, k] * grF(y)[j] * grG(y)[k] for j in 1:n, k in 1:n) for i in 1:n]
+
+    hess = sum(S[i, j, k] * (Fh[i, j] * grG(x)[k] + grF(x)[j] * Gh[i, k])
+    for i in 1:n, j in 1:n, k in 1:n)
+    check("the two Hessian terms cancel against anti-symmetry, identically",
+        abs(hess) < 1e-10, @sprintf("|sum S (F_ij b_k + a_j G_ik)| = %.2e", abs(hess)))
+    d = divergence_fd(flow, x)
+    sc = maximum(abs, flow(x))
+    check("so a CONSTANT anti-symmetric S gives a divergence-free flow, for any F and G",
+        abs(d) / max(sc, 1.0) < 1e-8, @sprintf("div = %.2e against |flow| = %.2e", d, sc))
+end
+
+# 7b. the controls.  Anti-symmetry alone is NOT enough once S depends on the field, and one
+#     of the two obvious controls cannot fail.
+let rng = MersenneTwister(8), n = 6
+    T = rand_slotantisym4(n, rng)
+    S(y) = [sum(T[m, i, j, k] * y[m] for m in 1:n) for i in 1:n, j in 1:n, k in 1:n]
+    a, b = randn(rng, n), randn(rng, n)
+    x = randn(rng, n)
+    flow(y) = [sum(S(y)[i, j, k] * a[j] * b[k] for j in 1:n, k in 1:n) for i in 1:n]
+    d = divergence_fd(flow, x)
+    check("negative control: a FIELD-DEPENDENT anti-symmetric S is not divergence-free",
+        abs(d) / maximum(abs, flow(x)) > 1e-3,
+        @sprintf("div = %.3f against |flow| = %.3f", d, maximum(abs, flow(x))))
+
+    # the trap, in the spirit of the dimension-four warning in section 6
+    T4 = zeros(n, n, n, n)
+    for m in 1:n, i in 1:n, j in 1:n, k in 1:n
+        # anti-symmetrise T over ALL FOUR indices
+        T4[m, i, j, k] = (T[m, i, j, k] - T[i, m, j, k] - T[j, i, m, k] - T[k, i, j, m]) / 4
+    end
+    tr4 = maximum(abs, [sum(T4[i, i, j, k] for i in 1:n) for j in 1:n, k in 1:n])
+    check(
+        "TRAP: if the field index is anti-symmetric against the first slot too, the " *
+        "trace sum_i dS_ijk/duhat_i vanishes identically and the control cannot fail",
+        tr4 < 1e-10, @sprintf("max |sum_i T4[i,i,j,k]| = %.2e over a tensor of scale %.2e",
+            tr4, maximum(abs, T4)))
+end
+
+# 7c. the discrete wedge tensor.  P1 does not depend on the field, so S is constant and 7a
+#     applies: this is an instance of the lemma, not independent evidence.
+for uniform in (true, false)
+    tag = uniform ? "uniform" : "arbitrary"
+    s, _ = setup(16; p = 3, uniform)
+    P1 = poisson_matrix(kdv_bracket_1(s), zeros(nbasis(s)))
+    nb = nbasis(s)
+    g = mass_grad(s)
+    S = [(P1[i, j] + P1[j, k] + P1[k, i]) / L for i in 1:nb, j in 1:nb, k in 1:nb]
+    function flow(y)
+        d1 = grad_H1(s, y)
+        [sum(S[i, j, k] * d1[j] * g[k] for j in 1:nb, k in 1:nb) for i in 1:nb]
+    end
+    u_h = project(s, U0)
+    d, sc = divergence_fd(flow, u_h), maximum(abs, flow(u_h))
+    check("$tag: the wedge flow is divergence-free -- Nambu's Liouville criterion holds",
+        abs(d) / max(sc, 1.0) < 1e-6, @sprintf("div = %.2e against |flow| = %.2e", d, sc))
+end
+println("      but that is 7a, not a fact about Nambu brackets: P1 is a constant matrix, so")
+println("      the wedge tensor is a constant tensor and nothing else could have happened")
+
+# 7d. {u,H2,C0}, where S genuinely depends on u.  Built on an ORTHONORMAL real trigonometric
+#     basis, so the Gram matrix is the identity and dF/duhat_j is the coefficient vector of
+#     delta F / delta u -- no mass matrix anywhere.  delta H2 / delta u = u, so a = uhat.
+function real_basis(K)
+    B = [Dict(0 => complex(1 / sqrt(2π)))]
+    for k in 1:K
+        c = 1 / (2 * sqrt(π))
+        push!(B, Dict(k => complex(c), -k => complex(c)))            # cos kx / sqrt(pi)
+        push!(B, Dict(k => complex(0, -c), -k => complex(0, c)))     # sin kx / sqrt(pi)
+    end
+    B
+end
+function tohat(f, B)
+    [real(2π * sum(ComplexF64[get(f, -k, 0.0im) * v for (k, v) in ψ]; init = 0.0im))
+     for ψ in B]
+end
+function tofield(uhat, B)
+    d = Dict{Int, ComplexF64}()
+    for (ψ, c) in zip(B, uhat), (k, v) in ψ
+
+        d[k] = get(d, k, 0.0im) + c * v
+    end
+    d
+end
+
+"S0[i,j,k] and dS_ijk/duhat_m for the (H2,C0) bracket in the basis B"
+function h2_tensors(B, g0, gn)
+    n = length(B)
+    sg = make_sigma(g0, gn)
+    S0 = [real(spectral(tau_wronski, B[i], B[j], B[k])) for i in 1:n, j in 1:n, k in 1:n]
+    dS = [real(spectral(sg, B[i], B[j], B[k]; u = B[m]))
+          for m in 1:n, i in 1:n, j in 1:n, k in 1:n]
+    S0, dS
+end
+
+let K = 3, B = real_basis(K), rng = MersenneTwister(9)
+    n = length(B)
+    S0, dS = h2_tensors(B, 3im, 2im)
+    uhat = randn(rng, n)
+    S(y) = S0 .+ [sum(dS[m, i, j, k] * y[m] for m in 1:n) for i in 1:n, j in 1:n, k in 1:n]
+    gC0 = [i == 1 ? sqrt(2π) : 0.0 for i in 1:n]    # dC0/duhat: the constant mode only
+    flow(y) = [sum(S(y)[i, j, k] * y[j] * gC0[k] for j in 1:n, k in 1:n) for i in 1:n]
+
+    # the construction is validated by reproducing what section 5 already established
+    e = maximum(abs, flow(uhat) - tohat(kdv_rhs(tofield(uhat, B)), B))
+    check("the tensor in the real basis reproduces the KdV right-hand side",
+        e < 1e-9, @sprintf("max error %.2e against |rhs| = %.2f", e,
+            maximum(abs, tohat(kdv_rhs(tofield(uhat, B)), B))))
+    dd = maximum([maximum(abs, S(uhat) + permutedims(S(uhat), (2, 1, 3))),
+        maximum(abs, S(uhat) + permutedims(S(uhat), (1, 3, 2))),
+        maximum(abs, S(uhat) + permutedims(S(uhat), (3, 2, 1)))])
+    check("and is totally anti-symmetric there", dd < 1e-10,
+        @sprintf("max defect %.2e at scale %.2f", dd, maximum(abs, S(uhat))))
+
+    d = divergence_fd(flow, uhat)
+    check("{u,H2,C0} is divergence-free: Nambu's criterion holds for the new bracket too",
+        abs(d) / maximum(abs, flow(uhat)) < 1e-8,
+        @sprintf("div = %.2e against |flow| = %.2f", d, maximum(abs, flow(uhat))))
+
+    # and it is NOT 7a: here S really does depend on the field
+    tr = [sum(dS[i, i, j, k] for i in 1:n) for j in 1:n, k in 1:n]
+    check("this is not 7a: the trace sum_i dS_ijk/duhat_i is a NONZERO matrix",
+        maximum(abs, tr) > 1.0,
+        @sprintf("max |trace| = %.2f at tensor scale %.2f", maximum(abs, tr),
+            maximum(abs, dS)))
+    check("what vanishes is its CASIMIR column alone, the third slot being the constant",
+        maximum(abs, tr[:, 1]) < 1e-10 && maximum(abs, tr[:, 2:end]) > 1.0,
+        @sprintf("Casimir column %.2e, every other column up to %.2f",
+            maximum(abs, tr[:, 1]), maximum(abs, tr[:, 2:end])))
+    for k in 2:4
+        dv = sum(dS[i, i, j, k] * uhat[j] for i in 1:n, j in 1:n)
+        check("negative control: with psi_$k in the third slot instead, div is order one",
+            abs(dv) > 1e-2, @sprintf("div = %+.4f", dv))
+    end
+end
+for K in (2, 4, 5)
+    B = real_basis(K)
+    _, dS = h2_tensors(B, 3im, 2im)
+    n = length(B)
+    tr = [sum(dS[i, i, j, k] for i in 1:n) for j in 1:n, k in 1:n]
+    check("K = $K: the Casimir column of the trace still vanishes exactly",
+        maximum(abs, tr[:, 1]) < 1e-10 && maximum(abs, tr[:, 2:end]) > 1.0,
+        @sprintf("Casimir column %.2e, others up to %.2f", maximum(abs, tr[:, 1]),
+            maximum(abs, tr[:, 2:end])))
+end
+let B = real_basis(3), n = length(B)
+    for (a, b, why) in ((2im, 2im, "uniform 2i"), (3im, 3im, "uniform 3i"))
+        _, dS = h2_tensors(B, a, b)
+        tr = [sum(dS[i, i, j, k] for i in 1:n) for j in 1:n, k in 1:n]
+        check(
+            "and it does not depend on the zero-mode anomaly ($why is inconsistent " *
+            "with KdV, and still gives a vanishing Casimir column)",
+            maximum(abs, tr[:, 1]) < 1e-10,
+            @sprintf("Casimir column %.2e", maximum(abs, tr[:, 1])))
+    end
+end
+println("      so Liouville is a property of the PAIR of slot functions here, not of the")
+println("      bracket: it is the whole one-function family of section 5 that has a")
+println("      vanishing Casimir column, and the mechanism is not identified by this script")
 
 summary("verify_kdv_nambu.jl")

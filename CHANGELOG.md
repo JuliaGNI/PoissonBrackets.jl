@@ -50,6 +50,61 @@ were wrong.
 `[compat]` is unchanged at `SimpleSplines = "1"`. The package is still unregistered and still
 `1.0.0-DEV`, so the `[sources]` entries and the comments explaining them stay as they are.
 
+### Added — Nambu's Liouville criterion, as section 7 of `verify_kdv_nambu.jl`
+
+Nambu's guiding principle in 1973 was neither the Jacobi identity nor the fundamental identity
+of 1994 but **Liouville's theorem**: his eq. (3) is `div(∇H × ∇G) = 0`, and both slot functions
+being conserved is a *consequence* of antisymmetry rather than the design goal. The script
+reported a Jacobi residual and a Poisson-map residual and never asked his question. It does now,
+in nineteen checks, taking the script from 48 to 67.
+
+**The structural half is a two-line cancellation.** For `u̇_i = Σ_jk S_ijk a_j b_k`,
+
+```
+div = Σ_ijk [ (∂S_ijk/∂û_i) a_j b_k  +  S_ijk F_ij b_k  +  S_ijk a_j G_ik ]
+```
+
+and the last two terms die on the spot: `S` is antisymmetric in `(i,j)` where the Hessian `F_ij`
+is symmetric, and antisymmetric in `(i,k)` where `G_ik` is. **So a constant totally
+antisymmetric `S` is divergence-free for any pair of slot functions whatever**, and that is the
+whole of the wedge tensor's Liouville property — `𝖯¹` is a constant matrix, measured at
+`4.8 × 10⁻⁸` on a uniform mesh and `6.0 × 10⁻⁹` on an arbitrary one. Recorded as an instance of
+the lemma, not as evidence about Nambu brackets: nothing else could have happened.
+
+**The interesting case is `{u, H₂, C₀}`, and the answer is not the one the shape suggests.**
+There `S` genuinely depends on `u`, so the first term survives — and the flow is divergence-free
+anyway, at `2.2 × 10⁻¹⁰` against a flow of size `38.9`. It is *not* the lemma in disguise: the
+trace `Σ_i ∂S_ijk/∂û_i` is a nonzero matrix, `max |trace| = 4.99` at a tensor scale of `2.86`.
+**What vanishes is its Casimir column alone** — the column belonging to the constant function in
+the third slot — exactly, while every other column reaches `4.99`. Put `ψ₂`, `ψ₃` or `ψ₄` there
+instead and the divergence is `−0.50`, `+1.17`, `+0.67`. So Liouville here is a property of the
+*pair of slot functions*, not of the bracket.
+
+It survives every variation tried: truncations `K = 2, 3, 4, 5`, and both of the uniform weights
+`g ≡ 2i` and `g ≡ 3i` that section 5 shows are *inconsistent* with KdV. So it is the whole
+one-function family of section 5 that has a vanishing Casimir column, not the particular
+solution, and the zero-mode anomaly has nothing to do with it. **The mechanism is not identified
+here**, and the script says so rather than guessing.
+
+Two things make the checks non-vacuous, in the spirit of the `se(3)` control above.
+
+- A **negative control**: the same construction with a field-dependent antisymmetric `S` gives
+  `div = 2.454` against a flow of `9.050`, so antisymmetry alone does not buy Liouville.
+- The **trap**, and it is the one that would have been walked into. If the field index is
+  antisymmetric against the first slot as well — a tensor antisymmetric in all four indices —
+  then `Σ_i T_iijk` vanishes identically and the control cannot fail. Measured at exactly zero
+  over a tensor of scale `0.78`. The control therefore uses a `T` antisymmetric in the three
+  slots only.
+
+`{u, H₂, C₀}` is built on an **orthonormal** real trigonometric basis, so the Gram matrix is the
+identity and `∂F/∂û_j` is the coefficient vector of `δF/δu` with no mass matrix anywhere. That
+construction is validated rather than assumed: it reproduces the KdV right-hand side to
+`7.1 × 10⁻¹⁵` against `|rhs| = 38.9`, which is section 5's result recomputed through the new
+representation. Divergences are measured by central differences on the flow itself, and the
+closed form agrees with them.
+
+No new exports and no new dependencies.
+
 ### Added — `verify_zeitlin_three_bracket.jl`
 
 Whether the Bialynicki-Birula--Morrison three-bracket `[A, B, S] = {A, B}` reproduces the Zeitlin
