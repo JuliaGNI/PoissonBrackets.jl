@@ -245,11 +245,12 @@ tabulation: a basis function is supported on at most two elements, so only ``p+1
 ``N`` rows are structurally nonzero in any quadrature column — 0.8 % of a dense table at
 `p = 2`, `ne = 192`. The mass matrix that comes out of it is sparse too, and is wrapped in a
 `SimpleSplines.FactorizedMass`, i.e. a sparse Cholesky, so that [`project!`](@ref) and
-`mass_solve!` work here as they do on a spline space. `CirculantMass` is *not* usable: it
-needs one degree of freedom per cell, which holds only at ``p = 1``. Only
-[`inverse_mass_matrix`](@ref) is dense, and it is built by solving against the identity.
-[`mixed_matrix`](@ref) is memoised, so the stiffness matrix is assembled once per space
-rather than once per Newton iteration.
+`mass_solve!` work here as they do on a spline space. `CirculantMass` is *not* usable beyond
+``p = 1``: the nodes within an element are not translates of one another, so the matrix is
+block-circulant in ``p \times p`` blocks rather than circulant, which `CirculantMass` checks
+at construction and rejects. Only [`inverse_mass_matrix`](@ref) is dense, and it is built by
+solving against the identity. [`mixed_matrix`](@ref) is memoised, so the stiffness matrix is
+assembled once per space rather than once per Newton iteration.
 
 # A trap
 
@@ -340,10 +341,15 @@ struct LagrangeSpace{T, MO <: MassOperator{T}} <: DiscreteSpace{T}
         M = Φ[1] * Diagonal(w) * Φ[1]'
         M = (M + M') / 2                # symmetric by construction; enforce it exactly
 
-        # A `FactorizedMass`, i.e. a sparse Cholesky, rather than `mass_operator(M, mesh)`:
-        # that would dispatch to `CirculantMass`, which needs size(M,1) == ncells and is
-        # therefore valid only at p == 1, where N = ne. The mass solve is not where the time
-        # goes in any case -- the assembly is, and that is what the sparsity above is for.
+        # A `FactorizedMass`, i.e. a sparse Cholesky, chosen here rather than through
+        # `mass_operator(M, basis)`: that reads the representation off a `SimpleSplines`
+        # basis, and a Lagrange space is not built on one. Neither alternative would fit in
+        # any case. `CirculantMass` verifies circulance, which this matrix has only at
+        # p == 1; for p > 1 it is block-circulant in p×p blocks. `BandedMass` takes its
+        # half-bandwidth from the stored entries, and the corner entries of the periodic
+        # wrap put that at N - 1, so it would factorise a dense matrix and call it banded.
+        # The mass solve is not where the time goes -- the assembly is, and that is what
+        # the sparsity above is for.
         mass = try
             FactorizedMass(M)
         catch err
