@@ -245,13 +245,12 @@ tabulation: a basis function is supported on at most two elements, so only ``p+1
 ``N`` rows are structurally nonzero in any quadrature column — 0.8 % of a dense table at
 `p = 2`, `ne = 192`. The mass matrix that comes out of it is sparse too, and is wrapped in a
 `SimpleSplines.FactorizedMass`, i.e. a sparse Cholesky, so that [`project!`](@ref) and
-`mass_solve!` work here as they do on a spline space. `CirculantMass` is *not* usable: it
-verifies circulance, and for ``p > 1`` the matrix is block-circulant with ``p \times p``
-blocks rather than circulant, the nodes within an element not being translates of one
-another. Only [`inverse_mass_matrix`](@ref) is dense, and it is built by solving against
-the identity.
-[`mixed_matrix`](@ref) is memoised, so the stiffness matrix is assembled once per space
-rather than once per Newton iteration.
+`mass_solve!` work here as they do on a spline space. `CirculantMass` is *not* usable beyond
+``p = 1``: the nodes within an element are not translates of one another, so the matrix is
+block-circulant in ``p \times p`` blocks rather than circulant, which `CirculantMass` checks
+at construction and rejects. Only [`inverse_mass_matrix`](@ref) is dense, and it is built by
+solving against the identity. [`mixed_matrix`](@ref) is memoised, so the stiffness matrix is
+assembled once per space rather than once per Newton iteration.
 
 # A trap
 

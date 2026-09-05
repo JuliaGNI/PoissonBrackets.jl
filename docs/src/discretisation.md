@@ -69,9 +69,9 @@ every Newton iteration of every step.
 of one cardinal spline — so it is diagonalised by the discrete Fourier transform and a solve
 is two planned transforms and a pointwise division. On a graded or random mesh it is banded
 modulo ``N`` but *not* circulant, and a sparse Cholesky is what is left. SimpleSplines
-chooses between the two by basis type; see its `MassOperator`. This is the right
-representation of the operator, but it is worth being clear that it is not where the time
-goes: at ``N = 384`` a mass solve is 0.001 ms against a 4.2 ms implicit step.
+dispatches on the basis and, for a periodic basis, on its mesh; see its `MassOperator`. This
+is the right representation of the operator, but it is worth being clear that it is not where
+the time goes: at ``N = 384`` a mass solve is 0.001 ms against a 4.2 ms implicit step.
 
 ## Brackets
 

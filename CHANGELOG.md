@@ -10,12 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
-### Requires SimpleSplines with boundary conditions and tensor products
+### Tracks the reshaped SimpleSplines
 
 The package is now built and tested against SimpleSplines `c74e37d`, which replaced the
 periodic-only package with three bases, arbitrary homogeneous boundary conditions, and tensor
-products of any number of them. **Nothing here changes.** The suite passes unaltered — 1171
-assertions, 16 testsets — and no number moved.
+products of any number of them. **Nothing here changes.** The suite passes unaltered and no
+number moved.
 
 That is worth recording rather than assuming, because the dependency's own notes list three
 breaking changes, and none of the three is reachable from here:
