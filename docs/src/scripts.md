@@ -4,7 +4,7 @@ CurrentModule = PoissonBrackets
 
 # The verification scripts
 
-`scripts/` holds twenty-two scripts that machine-verify the claims of the three manuscripts,
+`scripts/` holds twenty-three scripts that machine-verify the claims of the three manuscripts,
 plus two that draw their figures. Eighteen of them are the converted Python prototypes that used
 to live in the manuscripts' `Scripts/` directories; [Verification](@ref) records the agreement
 claim by claim and the errata the comparison turned up. The four `verify_fourbracket_*` scripts
@@ -17,7 +17,7 @@ why the entries here are one line long.
 ## Running them
 
 ```sh
-julia --project=scripts scripts/run_all.jl          # all twenty-one; nonzero exit on failure
+julia --project=scripts scripts/run_all.jl          # all twenty-two; nonzero exit on failure
 julia --project=scripts scripts/verify_kdv_bea.jl   # or just one
 ```
 
@@ -89,6 +89,7 @@ each, here.
 | `verify_burgers_discretisation.jl` | the discrete Burgers bracket: ``\mathbb{K}`` antisymmetric of rank ``N-1``, the exact ``\sqrt{u}`` Casimir, second-order consistency, and integration in ``\bar{u}`` | [Burgers](@ref) |
 | `verify_liepoisson_structure_constants.jl` | nodal finite elements violate the structure-constant condition and refinement does not help; the sine bracket closes into ``\mathfrak{su}(N)`` exactly; a plain Fourier truncation does not | [Discrete Lie-Poisson brackets](@ref) |
 | `verify_liepoisson_4bracket.jl` | the antisymmetric four-bracket generates **every** finite-dimensional Lie-Poisson bracket, and the ``3/2`` power is forced | [Four-brackets](@ref) |
+| `verify_zeitlin_three_bracket.jl` | the Bialynicki-Birula--Morrison three-bracket ``[A,B,I_2]`` reproduces the Zeitlin bracket on ``\mathfrak{su}(N)``, the truncation supplying the non-degenerate Killing form the continuum lacks; with ``\mathfrak{se}(3)`` and the cubic Casimir as the controls that fail | [Discrete Lie-Poisson brackets](@ref) |
 | `verify_gardner_4bracket.jl` | the Gardner-like ansatz is decomposable, hence rank ``\le 2``; Jacobi ``\iff`` Frobenius involutivity | [Four-brackets](@ref) |
 | `verify_dirac_reduction.jl` | the Jacobiator transports tensorially through the Dirac projector, so reduction preserves the Jacobi identity and never creates it; the four realisations; what survives | [Dirac reduction](@ref) |
 | `search_dirac_variants.jl` | an exhaustive search for a variant that *does* create it — B1a–B4. **Exploratory and slow; excluded from `run_all.jl`** | [The search for a repair](@ref) |
