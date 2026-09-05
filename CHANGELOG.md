@@ -10,6 +10,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Added — `verify_zeitlin_three_bracket.jl`
+
+Whether the Bialynicki-Birula--Morrison three-bracket `[A, B, S] = {A, B}` reproduces the Zeitlin
+bracket on `su(N)`. It does, at `N = 3, 5`, to `2 × 10⁻¹⁵`.
+
+The question is not routine, which is why the script exists rather than a remark. Salmon (2005)
+§5 reports that this mechanism fails for the two-dimensional vorticity bracket, the continuum
+algebra being neither semi-simple nor carrying a quadratic Killing Casimir. **The sine-bracket
+truncation supplies both hypotheses**: the Killing form of `sine_algebra(N)` is non-degenerate,
+the lowered structure constants `c_ijk = c_ij^m κ_mk` are totally antisymmetric to `6 × 10⁻¹⁶`,
+and `κ^{mn} ∝ δ_{m+n,0}`, so Zeitlin's `I₂ = Σ_k ω_k ω_{-k}` *is* that Casimir. The mechanism
+fails before truncation and works after it.
+
+Two negative controls, and they are half the point of the script:
+
+- `I₃`, the cubic invariant, in the third slot gives `1.038` relative deviation after optimal
+  rescaling — the quadratic hypothesis is load-bearing, and the reason is checked directly as a
+  homogeneity mismatch, degree 1 against degree 2 in `ω`.
+- `so3(Float64, n)` for `n > 3` has a singular Killing form, and the lowered `c_ijk` annihilates
+  the abelian directions — semi-simplicity is load-bearing. This is the algebra whose docstring
+  already warns against using it as a Jacobi control; here its degeneracy is the property under
+  test.
+
+Everything is computed from the structure constants alone — the Killing form as
+`κ_mn = Σ_ij c_mi^j c_nj^i` — so nothing depends on the matrix realisation `sine_algebra`
+happens to use. No new exports and no new dependencies; the script uses `sine_algebra`,
+`lie_poisson_matrix`, `lie_poisson_derivative`, `jacobi_residual` and `so3` as they stand.
+
 ### Added — the four-bracket manuscript
 
 `poisson-brackets-from-four-brackets.tex` arrived with a standalone Julia verification suite of
