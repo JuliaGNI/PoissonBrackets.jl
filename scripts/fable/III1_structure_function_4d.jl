@@ -40,7 +40,6 @@
 # All fields have the mean <.> = (2pi)^{-2n} integral, so no pi appears in the exact part.
 
 using PoissonBrackets
-using LinearAlgebra
 using Random
 using Printf
 
@@ -381,8 +380,11 @@ for n in (2, 3)
     end
     topc = get(top, collect(1:D), zero(Q)) // factorial(n - 2)   # a^b^c^d^omega^{n-2}/(n-2)!
     S = S_pair(n, α, β, γ, δ)
+    # !iszero(S): the covectors are drawn from a range that includes zero, and a draw giving S = 0
+    # would turn the identity into 0 == 0.
     check(
-        "n = $n: S(a,b,c,d) * (omega^n/n!) == a^b^c^d^omega^{n-2}/(n-2)!", S * μc == topc,
+        "n = $n: S(a,b,c,d) * (omega^n/n!) == a^b^c^d^omega^{n-2}/(n-2)!, with S != 0",
+        !iszero(S) && S * μc == topc,
         "S = " * fmt(S) * ", top/mu = " * fmt(topc // μc))
 end
 
@@ -501,6 +503,11 @@ check_exact("c = f, N = 32: Lie-Poisson at round-off (control)", results[32].lp;
 check_exact("c = f^2, N = 32: at round-off (band-limited, so exact quadrature)", results[32].sq; atol = 1e-11)
 check_refined("c = f^{3/2}: residual falls under refinement 16 -> 32 (or is at round-off)",
     results[16].pow32, results[32].pow32; atol = 1e-11, minrate = 40.0)
+# 12 and 24 are computed at full 4-D cost; without this they would appear in the table and in no
+# assertion, and the section would advertise a refinement over four resolutions and gate on two.
+check("c = f^{3/2}: the residual also falls from N = 12 to N = 24",
+    results[24].pow32 <= max(results[12].pow32, 1e-11),
+    @sprintf("%.2e -> %.2e", results[12].pow32, results[24].pow32))
 # The grid fields are the trigonometric polynomials of section 3, so the floating-point residual
 # for c = phi(z) f must reproduce the exact rational one -- and stay there under refinement.
 phiz_exact = Float64(normalised(jac4[:phiz]...))
@@ -512,17 +519,34 @@ check(
 
 header("4b. 2-D spectral grid, c = f^{3/2}: the positive control for the floating-point code (Thm 4.5)")
 
-function float_jacobiator_2d(N)
+# Returns the largest cyclic term alongside the normalised residual.  This is the only code in the
+# file that exercises GF2 at all, and `normalised` reports abs(sum) when the scale is zero -- so
+# without the scale a pipeline that produced nothing at all would print 0.0 and pass.
+function float_jacobiator_2d(N, c)
     f = sample2(N, (x, v) -> 3 + cos(x) + 0.5sin(x + v) + cos(v) / 3)
     φA = sample2(N, (x, v) -> 1 + 0.5cos(v) + sin(x - v) / 3)
     φB = sample2(N, (x, v) -> 0.5sin(x + v) + cos(x))
     φC = sample2(N, (x, v) -> cos(x - v) + 0.5sin(v))
     ψC = sample2(N, (x, v) -> sin(x) + 0.5cos(2x + v))
     Af, Bf, Cf = functionals(φA, φB, φC, ψC)
-    normalised(jacobiator(F -> jpow(F, 1.5), Af, Bf, Cf, f)...)
+    s, scale = jacobiator(c(N), Af, Bf, Cf, f)
+    return normalised(s, scale), scale
 end
-r2 = (float_jacobiator_2d(16), float_jacobiator_2d(32))
-check_refined("2-D, c = f^{3/2}: residual 16 -> 32", r2...; atol = 1e-11, minrate = 40.0)
+pow32_2d = _ -> (F -> jpow(F, 1.5))
+r2_16, sc16 = float_jacobiator_2d(16, pow32_2d)
+r2_32, sc32 = float_jacobiator_2d(32, pow32_2d)
+check("2-D: the cyclic terms are non-zero, so a vanishing residual is cancellation",
+    sc16 > 0 && sc32 > 0, @sprintf("largest term %.3e at N = 16, %.3e at N = 32", sc16,
+        sc32))
+check_refined(
+    "2-D, c = f^{3/2}: residual 16 -> 32", r2_16, r2_32; atol = 1e-11, minrate = 40.0)
+# The 2-D negative control, on the same GF2 path.  It has to be DERIVATIVE-dependent: c = phi(z) f
+# and c = f^2 + phi(z) both satisfy Jacobi exactly in two dimensions -- 3b proves it -- so only
+# c = f d_x f fails here, and it is the exact 2-D negative of 3b evaluated on the grid instead.
+r2neg, _ = float_jacobiator_2d(32, _ -> (F -> F * ∂(F, 1)))
+check("2-D, c = f d_x f: the same code path gives a residual far above the positive case",
+    r2neg > 1000 * max(r2_16, r2_32),
+    @sprintf("%.3e against %.3e", r2neg, max(r2_16, r2_32)))
 
 # ---------------------------------------------------------------------------
 # 5. the finite-dimensional counterpart: J_ij = sum_m c_ij^m w(z_m) with nonlinear w
@@ -543,7 +567,7 @@ check("se(3), w = z: Jacobi exactly (control)", iszero(jacobi_residual(P, dP)), 
 P, dP = weighted_lie_poisson(se3(), zq, z -> z^2, z -> 2z)
 check("se(3), w = z^2: Jacobi FAILS (Prop. 32-forced)", !iszero(jacobi_residual(P, dP)),
     "normalised residual " * fmt(jacobi_residual(P, dP)))
-modes, Csine = sine_algebra(3)
+_, Csine = sine_algebra(3)
 zf = rand(rng, size(Csine, 1)) .+ 0.5
 P, dP = weighted_lie_poisson(Csine, zf, z -> z, z -> one(z))
 check("su(3) sine algebra, w = z: Jacobi to round-off (control)",

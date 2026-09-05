@@ -20,18 +20,18 @@
 #     c^{ij} = int p^i p^j du^1, the frozen family a(f^1, f^2) with a = Phi(u1 + phi(u2))) against
 #     controls that must fail (g = f^1 f^2, g = (f^1)^2 / 2, c = Hess(u1^2 u2 / 2), and the
 #     frozen a = u1 u2 which passes in 2-D and fails in 4-D exactly as (B) predicts).
-# (b) c = c(f, grad f):  O = < c_f S(dA,dB,dC,dc) > + sum_cyc < {A_f,B_f} c_{,a} d_a {C_f, c} >.
-#     The second term's principal symbol forces c_{,a} = 0: no first-order dependence survives,
-#     in any dimension.  Checked exactly for c = f_x f_v (the paper's eq:sym-sym-alternative),
-#     |grad f|^2, {f, g}, and the second-order c = Laplace f, f Laplace f, f_{x1 x1}; the formula
+# (b) c = c(f, grad f):  O = < c_f S(dA,dB,dC,dc) > + sum_cyc < {A_f,B_f} c_{,a} d_a {C_f, c} >,
+#     whose second term has a principal symbol forcing c_{,a} = 0: no first-order dependence
+#     survives, in any dimension.  What is checked here is the CONCLUSION, instance by instance,
+#     not that split -- `obstruction_general` forms the unsplit sum, and nothing isolates the two
+#     terms.  The instances are c = f_x f_v (the paper's eq:sym-sym-alternative), |grad f|^2,
+#     {f, g}, f + {f, g}, and the second-order c = Laplace f, f Laplace f, f_{x1 x1}; the formula
 #     for O is checked against the jet Jacobiator; the Casimirs int kappa(f) are shown lost.
 # (c) The multi-field 4-bracket < T^{ijkl} (A_i B_j {C_k, D_l} - C_k D_l {A_i, B_j}) > generates
 #     c^{ik} = T^{ijkl} s_j s_l from S = int s(f), checked exactly.
 #
 # All means <.> are (2pi)^{-2n} times the integral, so no pi appears.  Exact over Q(i) throughout.
 
-using PoissonBrackets
-using LinearAlgebra
 using Printf
 
 include(joinpath(@__DIR__, "..", "check.jl"));
@@ -62,7 +62,9 @@ function mjacobiator(c, A, B, C, f)
     return sum(t), maximum(abs, t)
 end
 
-normalised(s, scale) = iszero(scale) ? abs(s) : abs(s) / scale
+# Convert before dividing: this is the reporting path, and a Rational{Int128} quotient of two
+# perfectly good residuals can overflow while being printed.
+normalised(s, scale) = iszero(scale) ? Float64(abs(s)) : Float64(abs(s)) / Float64(scale)
 
 # ---------------------------------------------------------------------------
 # fields: sparse, involving every coordinate, no exchange symmetry
@@ -160,11 +162,20 @@ for (D, a, b, c, g) in (
         fmt(J1) * ", " * fmt(J2) * ", " * fmt(J3))
     check("$(D)-D: J1 + J2 + J3 == 0 (Pluecker in 2-D, exact top form in 4-D)",
         iszero(J1 + J2 + J3), fmt(J1 + J2 + J3))
-    # the two specialisations of the proof: c = a, g = b isolates T1 - T2;  b = a, g = c isolates T2 - T3
-    check("$(D)-D: c = a, g = b gives J1 = <{a,b}^2> > 0, J2 = -J1, J3 = 0",
-        mean(pb(a, b) * pb(a, b)) > 0 &&
-            mean(pb(b, a) * pb(a, b)) == -mean(pb(a, b) * pb(a, b)),
-        fmt(mean(pb(a, b) * pb(a, b))))
+    # The two specialisations of the proof, each evaluated in all three components rather than
+    # asserted in a label.  c = a, g = b sends (J1,J2,J3) to (S, -S, 0) with S = <{a,b}^2>;
+    # b = a, g = c sends it to (0, T, -T) with T = <{a,c}^2>.
+    S = (mean(pb(a, b) * pb(a, b)), mean(pb(b, a) * pb(a, b)), mean(pb(a, a) * pb(b, b)))
+    T = (mean(pb(a, a) * pb(c, c)), mean(pb(a, c) * pb(a, c)), mean(pb(c, a) * pb(a, c)))
+    check("$(D)-D: c = a, g = b gives (J1, J2, J3) = (S, -S, 0), S = <{a,b}^2> > 0",
+        S[1] > 0 && S[2] == -S[1] && iszero(S[3]), "(" * join(fmt.(S), ", ") * ")")
+    check("$(D)-D: b = a, g = c gives (J1, J2, J3) = (0, T, -T), T = <{a,c}^2> > 0",
+        T[2] > 0 && T[3] == -T[2] && iszero(T[1]), "(" * join(fmt.(T), ", ") * ")")
+    # This is what "exactly one relation" needs: two independent points of the plane J1+J2+J3 = 0,
+    # so the plane is the whole of it and no second relation constrains the three functionals.
+    check(
+        "$(D)-D: the two specialisations are linearly independent -- one relation, not two",
+        !iszero(S[1] * T[2] - S[2] * T[1]), "2x2 minor " * fmt(S[1] * T[2] - S[2] * T[1]))
 end
 
 # ---------------------------------------------------------------------------
@@ -173,7 +184,7 @@ end
 
 header("2. Several fields: full Jacobiator by jets, m = 2, exact  (A) associativity, (B) closedness")
 
-# Third trap (met here): if every mean <phiC f1>, <psiC f2>, <chiC f1> vanishes, C_l(f) = 0 at the
+# A trap this section has to avoid: if every mean <phiC f1>, <psiC f2>, <chiC f1> vanishes, C_l(f) = 0 at the
 # base point, and then the obstruction is zero for EVERY bracket -- each cyclic term carries a
 # factor C_l -- while the individual Jacobiator terms need not be.  Unless phiC, psiC and chiC each
 # carry a mode of f, all four 4-D negatives below give an exact zero for this reason.
@@ -214,12 +225,13 @@ mcases = (
         "c = Hess(u1^2 u2 / 2) = [f2, f1; f1, 0]   d_k c^{ij} totally symmetric, (A) FAILS",
         F -> sym2(F[2], F[1], 0 * F[1]), false, false)
 )
-mjac = Dict{Tuple{Symbol, Int}, Tuple{Q, Q}}()
-for (key, label, c, zero2, zero4) in mcases
+for (_, label, c, zero2, zero4) in mcases
     for (D, f, mf, expect_zero) in ((2, f2, mf2, zero2), (4, f4, mf4, zero4))
         t = @elapsed s, scale = mjacobiator(c, mf..., f)
-        mjac[(key, D)] = (s, scale)
-        ok = expect_zero ? iszero(s) : !iszero(s)
+        # `scale` is the largest of the three cyclic terms.  A vanishing verdict is only evidence
+        # if it came from cancellation, so require it: without this, anything that zeroes the whole
+        # pipeline reports every expect_zero case as a pass.
+        ok = expect_zero ? (iszero(s) && !iszero(scale)) : !iszero(s)
         check("$(D)-D  " * label, ok,
             "Jacobiator " * fmt(s) * ", largest term " * fmt(scale) *
             @sprintf(", normalised %.3e  (%.1fs)", Float64(normalised(s, scale)), t))
@@ -239,8 +251,9 @@ let z = 0 * la4, A = F -> [la4 + 0 * F[1], z + 0 * F[1]],
     J1 = mean(pb(la4, lb4) * pb(lc4, lg4))
     check("Hess, linear functionals: Jacobiator == -J1 != 0", s == -J1 && !iszero(J1),
         "Jacobiator " * fmt(s) * ", -J1 = " * fmt(-J1))
-    s0, _ = mjacobiator(F -> sym2(F[1], F[2], 0 * F[1]), A, B, C, f)
-    check("R[e]/e^2 (associative) on the same data: exactly zero (control)", iszero(s0), fmt(s0))
+    s0, scale0 = mjacobiator(F -> sym2(F[1], F[2], 0 * F[1]), A, B, C, f)
+    check("R[e]/e^2 (associative) on the same data: exactly zero (control)",
+        iszero(s0) && !iszero(scale0), fmt(s0) * ", largest term " * fmt(scale0))
 end
 
 header("2b. Casimirs int kappa(f1,f2): iff sum_j dc^{ij} ^ d(d_j kappa) = 0 for every i  (4-D, exact)")
@@ -328,7 +341,8 @@ for (idx, (label, c, expect_zero)) in enumerate(dcases)
         cg = F -> c(F, g)
         t = @elapsed s, scale = jacobiator(cg, fun..., f)
         djac[(idx, D)] = (s, scale)
-        check("$(D)-D  " * label, expect_zero ? iszero(s) : !iszero(s),
+        # As in section 2: a vanishing verdict counts only if the terms that cancelled were there.
+        check("$(D)-D  " * label, expect_zero ? (iszero(s) && !iszero(scale)) : !iszero(s),
             "Jacobiator " * fmt(s) * ", largest term " * fmt(scale) *
             @sprintf(", normalised %.3e  (%.1fs)", Float64(normalised(s, scale)), t))
     end
@@ -337,7 +351,6 @@ end
 header("3a. The general obstruction (*) sum_cyc <{A_f,B_f} Dc.{C_f,c}> equals the Jacobiator (nonlinear functionals)")
 
 for (idx, (label, c, _)) in enumerate(dcases)
-    idx in (1, 2, 3, 4, 6) || continue
     for (D, f, fun, g) in ((2, sf2, sfun2, g2), (4, sf4, sfun4, g4))
         O = obstruction_general(F -> c(F, g), fun..., f)
         check("$(D)-D  (*) == Jacobiator for " * strip(split(label, "  ")[1]),
@@ -349,8 +362,9 @@ end
 header("3b. Minimal exact example, 2-D, linear functionals A_f = sin(2x + v), B_f = sin v, C_f = cos(x - v)")
 
 # f = 3 + cos x cos v, c = f_x f_v: exactly one of the three cyclic terms survives and equals 1/8.
-# (A_f = sin x on the same data gives an exact zero -- the symbol argument needs a generic a, not a
-# single low mode; with a = sin x the orders of the operator R(a, b) cancel against each other.)
+# A_f must carry a generic mode rather than a single low one: at A_f = sin x the orders of the
+# operator R(a, b) cancel against each other and the Jacobiator is exactly zero for a reason that
+# has nothing to do with the theorem.
 let a = sink((2, 1)), b = sink((0, 1)), γ = cosk((1, -1)),
     u = 3 + cosk((1, 0)) * cosk((0, 1)),
     lin = (F -> a + 0 * F, F -> b + 0 * F, F -> γ + 0 * F)
@@ -363,8 +377,10 @@ let a = sink((2, 1)), b = sink((0, 1)), γ = cosk((1, -1)),
         "c = f_x f_v: equals sum_cyc <{a,b} (d_x{c,q} f_v + f_x d_v{c,q})>, q = f_x f_v", O ==
                                                                                           s,
         fmt(O))
-    s2, _ = jacobiator(F -> F * F, lin..., u)
-    check("c = f^2 on the same data: exactly zero (control)", iszero(s2), fmt(s2))
+    s2, scale2 = jacobiator(F -> F * F, lin..., u)
+    check(
+        "c = f^2 on the same data: exactly zero (control)", iszero(s2) && !iszero(scale2),
+        fmt(s2) * ", largest term " * fmt(scale2))
 end
 
 header("3c. Casimirs int kappa(f): lost under any derivative dependence  ({K, A}, K = int f^3/3, exact, 2-D)")
@@ -378,10 +394,17 @@ for (label, c, expect_zero) in (
     s = bracket(c, F -> F * F, sfun2[1], sf2)
     check(label, expect_zero ? iszero(s) : !iszero(s), "{K, A} = " * fmt(s))
 end
-# mass is always a Casimir: K_f = 1
-check("c = f_x f_v: mass int f is a Casimir",
-    iszero(bracket(F -> ∂(F, 1) * ∂(F, 2), F -> 1 + 0 * F, sfun2[1], sf2)),
-    fmt(bracket(F -> ∂(F, 1) * ∂(F, 2), F -> 1 + 0 * F, sfun2[1], sf2)))
+# Mass survives every c in this family, and structurally: K_f = 1 and {1, A_f} = 0 whatever c is.
+# On its own that cannot fail, so it is paired here with int f^3/3 on the SAME c, which must not
+# vanish -- the pair is what carries the section's point, that derivative dependence costs the
+# f-dependent Casimirs and leaves the mass.
+let c = F -> ∂(F, 1) * ∂(F, 2)
+    mass = bracket(c, F -> 1 + 0 * F, sfun2[1], sf2)
+    cubic = bracket(c, F -> F * F, sfun2[1], sf2)
+    check("c = f_x f_v: mass int f survives where int f^3/3 does not",
+        iszero(mass) && !iszero(cubic),
+        "{mass, A} = " * fmt(mass) * ", {int f^3/3, A} = " * fmt(cubic))
+end
 
 # ---------------------------------------------------------------------------
 # 4. the four-bracket side: < T^{ijkl} (A_i B_j {C_k, D_l} - C_k D_l {A_i, B_j}) >
@@ -401,38 +424,36 @@ Tnil = zeros(Int, 2, 2, 2, 2)
 Tnil[1, 1, 1, 1] = 1;
 Tnil[1, 2, 2, 2] = 1;
 Tnil[2, 2, 1, 2] = 1;                     # c^{11} = s_1^2, c^{12} = s_2^2, c^{22} = 0: Lie-Poisson of R[e]/e^2 for s = 2/3 sum u^{3/2}
-for (label, T, S, cexp) in (
+for (label, T, S, cexp, poisson) in (
     ("T diagonal, s = u1^2 + u2^3 (separable): c = diag(4 f1^2, 9 f2^4)", Tdiag,
     F -> [2 * F[1], 3 * F[2] * F[2]], F -> sym2(4 * F[1] * F[1], 0 * F[1], 9 * F[2] * F[2] *
-                                                                           F[2] * F[2])),
+                                                                           F[2] * F[2]), true),
     ("T diagonal, s = u1^2 + u1 u2 (not separable): c = diag((2f1 + f2)^2, f1^2)", Tdiag,
     F -> [2 * F[1] + F[2], F[1]], F -> sym2(
         (2 * F[1] + F[2]) * (2 * F[1] + F[2]), 0 *
                                                F[1], F[1] *
-                                                     F[1])),
+                                                     F[1]), false),
     ("T of R[e]/e^2, s = u1^2 + u2^2: c = [4 f1^2, 4 f2^2; 4 f2^2, 0]", Tnil,
-    F -> [2 * F[1], 2 * F[2]], F -> sym2(4 * F[1] * F[1], 4 * F[2] * F[2], 0 * F[1])))
+    F -> [2 * F[1], 2 * F[2]], F -> sym2(4 * F[1] * F[1], 4 * F[2] * F[2], 0 * F[1]), false))
     A, B = mf2[1](f2), mf2[2](f2)
     Sf = S(f2)
     lhs = fourbracket(T, A, Sf, B, Sf)
     rhs = mbracket(cexp, mf2[1], mf2[2], f2)
     check(label * ": {A,S;B,S} == {A,B}_c", lhs == rhs, fmt(lhs) * " == " * fmt(rhs))
-    check(label * ": antisymmetric in A, B", lhs == -fourbracket(T, B, Sf, A, Sf), fmt(lhs))
+    # T^{ijkl} = T^{klij} for both arrays here, and that symmetry is what forces the antisymmetry;
+    # assert it alongside, so the check is about the four-bracket and not only about two literals.
+    check(label * ": antisymmetric in A, B (forced by T^{ijkl} = T^{klij})",
+        lhs == -fourbracket(T, B, Sf, A, Sf) &&
+            all(T[i, j, k, l] == T[k, l, i, j] for i in 1:2, j in 1:2, k in 1:2, l in 1:2),
+        "sum with the swap " * fmt(lhs + fourbracket(T, B, Sf, A, Sf)))
+    # Checked here rather than recomputed after the loop: the same three structure functions were
+    # entered twice and every Jacobiator evaluated twice, with the printed one gating nothing.
     s, scale = mjacobiator(cexp, mf2..., f2)
-    println(@sprintf("      Jacobi of the generated bracket in 2-D: %s  (normalised %.3e)",
-        fmt(s),
-        Float64(normalised(s, scale))))
+    check(
+        label * (poisson ? ": the generated bracket is Poisson" :
+         ": the generated bracket FAILS Jacobi"),
+        poisson ? (iszero(s) && !iszero(scale)) : !iszero(s),
+        "Jacobiator " * fmt(s) * ", largest term " * fmt(scale))
 end
-check("T diagonal, separable s: generated bracket is Poisson (decoupled species)",
-    iszero(mjacobiator(
-        F -> sym2(4 * F[1] * F[1], 0 * F[1], 9 * F[2] * F[2] * F[2] *
-                                             F[2]), mf2..., f2)[1]))
-check("T diagonal, non-separable s: generated bracket FAILS Jacobi ((A) needs s_12 = 0)",
-    !iszero(mjacobiator(
-        F -> sym2((2 * F[1] + F[2]) * (2 * F[1] + F[2]), 0 * F[1], F[1] *
-                                                                   F[1]), mf2..., f2)[1]))
-check(
-    "T of R[e]/e^2 with quadratic s: generated bracket FAILS Jacobi (only s ~ u^{3/2} gives the affine c)",
-    !iszero(mjacobiator(F -> sym2(4 * F[1] * F[1], 4 * F[2] * F[2], 0 * F[1]), mf2..., f2)[1]))
 
 summary("III4_multifield_derivative.jl")

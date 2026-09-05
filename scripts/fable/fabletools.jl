@@ -56,22 +56,33 @@ end
 ∂(a::TP{D}, j::Int) where {D} = clean!(TP{D}(Dict(k => (im * k[j]) * v for (k, v) in a.c)))
 
 constant(D, s) = TP{D}(Dict(ntuple(_ -> 0, D) => CQ(s)))
+# Accumulate rather than build the Dict from a literal: at k = 0 the two keys coincide, and a
+# literal keeps only the last entry -- which would make cosk(0) half of what it should be, real
+# and therefore silent.  Both consumers use non-zero wavevectors only; this keeps it true anyway.
 "amp * cos(k.z)"
 function cosk(k::NTuple{D, Int}, amp = 1) where {D}
-    clean!(TP{D}(Dict(k => CQ(Q(amp) // 2), (.-k) => CQ(Q(amp) // 2))))
+    c = Dict{NTuple{D, Int}, CQ}()
+    h = CQ(Q(amp) // 2)
+    c[k] = get(c, k, zero(CQ)) + h
+    c[.-k] = get(c, .-k, zero(CQ)) + h
+    clean!(TP{D}(c))
 end
 "amp * sin(k.z)"
 function sink(k::NTuple{D, Int}, amp = 1) where {D}
-    clean!(TP{D}(Dict(k => CQ(0, -Q(amp) // 2), (.-k) => CQ(0, Q(amp) // 2))))
+    c = Dict{NTuple{D, Int}, CQ}()
+    h = CQ(0, Q(amp) // 2)
+    c[k] = get(c, k, zero(CQ)) - h
+    c[.-k] = get(c, .-k, zero(CQ)) + h
+    clean!(TP{D}(c))
 end
 
 "The mean <p> over the torus: the zero-mode coefficient.  Exact."
 function mean(p::TP{D}) where {D}
     v = get(p.c, ntuple(_ -> 0, D), zero(CQ))
-    iszero(imag(v)) || error("mean of a real field has an imaginary part: $v")
+    iszero(imag(v)) || error("field is not real: its zero mode is $v")
     real(v)
 end
-"The mean of p^2 (Parseval), exact; zero iff p is identically zero."
+"The mean of |p|^2 (Parseval), exact; zero iff p is identically zero."
 meansq(p::TP) = sum(abs2, values(p.c); init = zero(Q))
 nterms(p::TP) = length(p.c)
 
@@ -85,7 +96,6 @@ function polyval(coef, f)
 end
 "Antiderivative coefficients, constant of integration zero."
 antiderivative(coef) = vcat(zero(eltype(coef)), [coef[i] // i for i in eachindex(coef)])
-polyderivative(coef) = [i * coef[i + 1] for i in 1:(length(coef) - 1)]
 
 # ---------------------------------------------------------------------------
 # first-order jets in epsilon, for the Gateaux derivative of a functional

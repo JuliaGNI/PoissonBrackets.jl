@@ -3,9 +3,12 @@
 #
 #     {A,B}_c[f] = < w(z) c(z,f) Pi(dA_f, dB_f) >          < . > the mean over T^D
 #
-# and its Jacobi identity.  Written by a session whose brief was to overturn III.1, independently
-# of III1_structure_function_4d.jl: it shares no code with that script and no code with
-# fabletools.jl, so that a defect in the shared machinery cannot hide in both.
+# and its Jacobi identity.  An adversarial re-check, independent of III1_structure_function_4d.jl:
+# it includes nothing, imports nothing from the package, and re-derives every construction it
+# needs, so that a defect in the shared machinery cannot hide in both a claim and its check.  The
+# one exception is `canonical_bivector`, which is `bivector` from fabletools.jl under another name
+# -- a five-line function whose failure mode is loud, kept identical deliberately rather than
+# varied for the sake of it.
 #
 # Everything is exact over Q(i) with BigInt numerators, so a claimed vanishing is a vanishing.
 #
@@ -27,7 +30,6 @@
 # Run:  julia --project=scripts scripts/fable/III1_refutation.jl
 #
 
-using LinearAlgebra
 using Test
 
 # ---------------------------------------------------------------------------
@@ -436,7 +438,7 @@ println("=" ^ 78)
             end
             println(
                 "  D = $D, rank Pi = $(2r):  S mu = a^b^g^d ^ Theta with Theta constant",
-                r == 1 ? "" : "", "  (Theta ", isempty(Θ) ? "= 0" : "!= 0", ")")
+                "  (Theta ", isempty(Θ) ? "= 0" : "!= 0", ")")
         end
     end
 
@@ -704,7 +706,10 @@ println("=" ^ 78)
         cu_on = harm(ntuple(j -> j == 1 ? 1 : 0, D), 1, :cos)          # cos(z_1)
         η1 = cu_on * der(ctilde, 1)                                     # cos^2(z_1)
         @test meanval(η1) == 1 // 2
-        @test meanval(der(ctilde, 1)) == 0          # the same functional kills any exact one-form
+        # The comparison the line above is making: `der` multiplies the k-th coefficient by i k_j,
+        # so it sends the zero mode to zero and every component of an exact one-form has zero mean.
+        # That is a property of the representation, not something to assert -- what carries content
+        # is that eta's mean is 1/2 and therefore eta is not exact.
         println("  c(z,u) = sin(u + z_1) on T^4 x R:  dc_u ^ dc = 0 exactly, c_u != 0,")
         println("      but eta = c_u dc~ has non-zero period (mean of its z_1 component = 1/2),")
         println("      so c is admissible and is NOT h(u + phi(z)) for any global phi.")

@@ -265,9 +265,11 @@ m = ρ * u
 # J(ρ,m) applied to (a, b) = (δF/δρ, δF/δm)
 Jρ_direct = ∂(ρ * b)
 Jm_direct = ρ * ∂(a) + m * ∂(b) + ∂(m * b)
-# the push-forward Dφ [0 ∂; ∂ 0] Dφᵀ (a, b):  Dφᵀ(a,b) = (a + u b, ρ b)
-Jρ_push = ∂(ρ * b)
-Jm_push = u * ∂(ρ * b) + ρ * ∂(a + u * b)
+# The push-forward Dφ [0 ∂; ∂ 0] Dφᵀ (a, b), built through the chain rather than restated: the row
+# written out is the row the check cannot then test.
+w1, w2 = a + u * b, ρ * b                       # Dφᵀ(a,b),  Dφ = [1 0; u ρ]
+k1, k2 = ∂(w2), ∂(w1)                           # [0 ∂; ∂ 0] (w1, w2)
+Jρ_push, Jm_push = k1, u * k1 + ρ * k2          # Dφ (k1, k2)
 check("push-forward of [0 ∂; ∂ 0] under (ρ,u) ↦ (ρ,ρu) is the (ρ,m) bracket: ρ row",
     simplify(Jρ_push - Jρ_direct) == 0)
 check("push-forward of [0 ∂; ∂ 0] under (ρ,u) ↦ (ρ,ρu) is the (ρ,m) bracket: m row",
@@ -319,7 +321,13 @@ let A = a, B = b, C = cf(x)
         "in (ρ,u,s) the entropy bracket is [0 ∂ 0; ∂ 0 -s_x/ρ; 0 s_x/ρ 0] -- not constant",
         simplify(Jρ - ∂(B)) == 0 && simplify(Ju - (∂(A) - ∂(s) / ρ * C)) == 0 &&
             simplify(Js - ∂(s) / ρ * B) == 0)
-    g3 = [Sym(0) ρ Sym(0); ρ 2m σ; Sym(0) σ Sym(0)]
+    # Read the symbol off J3 rather than typing it: the claim is about the bracket defined above,
+    # and a hand-entered matrix would make the rank statement one about the literal instead.
+    r3 = J3(A, B, C)
+    g3 = [expand(r3[i]).coeff(∂(z)) for i in 1:3, z in (A, B, C)]
+    check("the symbol of the entropy bracket is [0 ρ 0; ρ 2m σ; 0 σ 0]",
+        all(iszero, simplify.(g3 - [Sym(0) ρ Sym(0); ρ 2m σ; Sym(0) σ Sym(0)])),
+        "g = " * string(g3))
     check(
         "the symbol g = [0 ρ 0; ρ 2m σ; 0 σ 0] of the entropy bracket has rank 2: g (σ, 0, -ρ) = 0",
         all(==(0), simplify.(g3 * [σ, Sym(0), -ρ])) && simplify(g3[1, 2] * g3[2, 1]) != 0)
@@ -658,7 +666,7 @@ end
 
 header("4. The direct control under refinement, smooth fields: how the normalised Jacobiator scales")
 
-# Direct minus push-forward is E_ij = -K_ij (ρ_i - ρ_j)(u_i - u_j) in the mm block, which for smooth
+# Direct minus push-forward is E_ij = K_ij (ρ_i - ρ_j)(u_i - u_j) in the mm block, which for smooth
 # fields and a nearest-neighbour K is O(h) against the O(1/h) of J; its derivative ∂E ~ K (u_i - u_j)
 # is O(1) against ∂J ~ K ~ 1/h.  So the normalised Jacobiator of the direct bracket should decay
 # like h for smooth fields (and is O(1) for the rough, random data of section 1).  Measured here.
@@ -722,10 +730,12 @@ for (label, p, nes) in (("P1", 1, (6, 7)), ("P2", 2, (3, 4)))
         # (b) wall closure: K_ρm = M⁻¹(S - B)M⁻¹ (conservative, zero flux), K_mρ = M⁻¹SM⁻¹
         Ka = Minv * (S - B) * Minv
         Kb = Minv * S * Minv
-        check("$label, N = $N, wall closure: K2 = [0 Ka; Kb 0] is antisymmetric", Kb ==
-                                                                                  -transpose(Ka))
         P, dP = flat_bracket(Ka, Kb, ρq, mq)
-        check("$label, N = $N, wall closure: Jacobiator vanishes exactly", iszero(raw_residual(P, dP)))
+        # Kb = -Kaᵀ holds by construction here (B is returned as S + Sᵀ), so on its own it is not a
+        # test; it is stated alongside the Jacobiator, which is.
+        check(
+            "$label, N = $N, wall closure: K2 antisymmetric and Jacobiator vanishes exactly",
+            Kb == -transpose(Ka) && iszero(raw_residual(P, dP)))
         gC1 = [w; zeros(Q, N)]
         gC2 = [-w .* mq ./ ρq .^ 2; w ./ ρq]
         check("$label, N = $N, wall closure: mass Σ w_i ρ_i is an exact Casimir", all(iszero, P *
@@ -742,11 +752,11 @@ for (label, p, nes) in (("P1", 1, (6, 7)), ("P2", 2, (3, 4)))
             c = c / c[findfirst(!iszero, c)]
             println("   $label, N = $N, wall closure: u-block kernel vector M⁻¹n = ", join(fmt.(c), " "))
         end
-        # K_ρm = -K_mρᵀ forces dim ker K_ρm = dim ker K_mρ: the mass Casimir comes with a second,
-        # u-linear Casimir for EVERY N, which on an interval with walls has no physical counterpart
-        check(
-            "$label, N = $N, wall closure: dim ker K_ρm = dim ker K_mρ (a second Casimir is forced)",
-            size(ka, 2) == size(kb, 2))
+        # K_ρm = -K_mρᵀ forces dim ker K_ρm = dim ker K_mρ, so the mass Casimir comes with a second,
+        # u-linear Casimir for EVERY N -- one with no physical counterpart on an interval with
+        # walls.  That equality of dimensions is not asserted: dim ker A = dim ker Aᵀ holds for any
+        # square A, so it would pass whatever the assembly did.  The content is the dimension
+        # itself, checked above, and the kernel vector printed below.
         if p == 1
             saw = M * [Q((-1)^i) for i in 1:N]
             check(
@@ -767,11 +777,19 @@ end
 # term  [F_ρ G_u - G_ρ F_u]_0^L = f_ρᵀ B g_u - g_ρᵀ B f_u, which vanishes iff the u-gradients
 # vanish at the walls.
 for p in (1, 2)
-    _, M, S, B = lagrange_matrices(Q, p, 5; periodic = false, L = 1)
+    x, M, S, B = lagrange_matrices(Q, p, 5; periodic = false, L = 1)
     N = size(M, 1)
     Minv = inv(M)
     Ka, Kb, Ks = Minv * (S - B) * Minv, Minv * S * Minv, skew_derivative(M, S)
     fρ, fu, gρ, gu = (rnd_vec(rng, N) for _ in 1:4)
+    # The four checks below all reduce to S + Sᵀ = B, which holds by construction; what they are
+    # really about is that S is the Galerkin derivative in the first place.  Verify that against
+    # two integrands the space represents exactly, for which the answer is known in closed form:
+    # (f_h, g_h) = (1, x) gives ∫ 1 dx = L, and (x, x) gives ∫ x dx = L²/2, with L = 1 here.
+    check("P$p interval: S is the Galerkin derivative -- <1, x'> = L",
+        transpose(ones(Q, N)) * S * x == 1, fmt(transpose(ones(Q, N)) * S * x))
+    check("P$p interval: S is the Galerkin derivative -- <x, x'> = L^2/2",
+        transpose(x) * S * x == 1 // 2, fmt(transpose(x) * S * x))
     function bracket(Kρu, Kuρ)
         transpose(M * fρ) * Kρu * (M * gu) + transpose(M * fu) * Kuρ * (M * gρ)
     end
@@ -866,7 +884,7 @@ let
         else
             check(
                 "wall closure, $bl: wall rows carry the dropped boundary term, O(1/h) (weak m = 0 violated)",
-                rn[end] < -0.7, @sprintf("rate = %.2f", rn[end]))
+                -1.4 < rn[end] < -0.7, @sprintf("rate = %.2f", rn[end]))
         end
     end
 end

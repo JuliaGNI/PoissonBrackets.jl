@@ -47,6 +47,59 @@ Everything is computed from the structure constants alone — the Killing form a
 happens to use. No new exports and no new dependencies; the script uses `sine_algebra`,
 `lie_poisson_matrix`, `lie_poisson_derivative`, `jacobi_residual`, `so3` and `se3` as they stand.
 
+### Fixed — checks in the fable scripts that could not fail
+
+Review of the seven scripts turned up assertions that were true by construction rather than by
+computation, so a broken pipeline would have reported a pass.
+
+- `I1_vlasov_uN.jl` §4c asserted `tr((1/iℏ)[X,P] − I) = −N`. The trace of a commutator vanishes for
+  any pair of square matrices, so that held whatever `X` and `P` were. It now measures the inner
+  block `m,n ≤ N/2` instead: the CCR defect is non-zero there at every `N` and decays only as
+  `1/N` — 5.4e−2 to 1.4e−2 from `N = 8` to `32`, a ratio of 3.78 against the 4 that `1/N` predicts
+  — which is the algebraic tail a symbol that is not band-limited leaves behind. A defect
+  genuinely confined to the wall would be invisible at that depth. §4d printed two conclusions,
+  that a zero-field-compatible potential does not leak and that a kink does, and asserted neither;
+  both are now checks.
+- `III4_multifield_derivative.jl` computed the largest cyclic term as its non-vacuity witness,
+  printed it, and then left it out of the verdict — so every vanishing verdict in the file rested
+  on nothing. It now enters all of them. Six comparisons of the general obstruction against the
+  Jacobiator were skipped by an unexplained `continue`; they are re-enabled and pass. Three
+  Jacobiators were computed twice, once printed and once checked; they are computed once.
+- `III1_structure_function_4d.jl` §4b is the only code exercising the two-dimensional
+  floating-point path, and its one check passed on `0.0` whether or not a single term had been
+  formed. It gained the witness and a negative control — `c = f ∂_x f`, because `c = φ(z) f` is
+  Poisson in two dimensions and is a control only in four.
+- `II1_semidirect_flat.jl` compared the ρ-row of the push-forward against itself; it is now built
+  through the chart. The symbol of the entropy bracket is read off `J3` rather than retyped, and
+  `S` is verified to be the Galerkin derivative against two integrands the element space
+  represents exactly — the identity the four interval-form checks silently assumed.
+- `III2_refutation.jl`'s three-route agreement would have passed had all three routes returned
+  zero, and its log-mean bound was relative to a quantity of size 176, i.e. 1.8e−7 absolute
+  against a residual of 1.4e−12. `III2_matrix_structure_function.jl` printed the finite-difference
+  noise floor that calibrates its own threshold without ever asserting it.
+
+Also corrected: `θ_ctrl` in `III2_matrix_structure_function.jl` is `(a−b)(1 + a² + ab + b²)`, not
+the `(a−b)(a² + b²)` its label claimed in two result tables; the degree-3 Wigner coefficient in
+`I1_vlasov_uN.jl`'s header is `+(ℏ²/4)`, as the code has always computed; and `cosk`/`sink` in
+`fabletools.jl` built their `Dict` from a literal, so at `k = 0` the two keys coincided and `cosk`
+returned half its amplitude — real, and therefore silent. No current consumer uses a zero
+wavevector.
+
+Check counts move with the changes: I.1 89 → 91, II.1 147 → 144, III.1 58 → 61,
+III.1-refutation 99 → 98, III.2 114 → 115, III.2-refutation 118 → 121, III.4 77 → 87.
+
+### Added — a driver for the fable scripts
+
+`scripts/run_fable.sh` runs the seven `scripts/fable/` scripts, each in its own process, and exits
+nonzero if any check fails. They get a driver of their own rather than a place in `run_all.jl`
+because `fable/III4_multifield_derivative.jl` alone takes about eleven minutes, longer than all of
+`run_all.jl` together; folding them in would turn a two-minute driver into a fifteen-minute one and
+change what it is for. `run_all.jl` and `docs/src/scripts.md` both record the exclusion and its
+reason, and the seven have index rows in the latter.
+
+Without it the seven were registered nowhere, and `run_all.jl`'s own "Run every verification
+script" had quietly become false.
+
 ### Added — an adversarial re-check of the structure-function bracket
 
 `scripts/fable/III1_refutation.jl` attacks the same statement as
@@ -55,7 +108,7 @@ every smooth `c` — from an independent implementation that shares no code with
 `fabletools.jl`, so that a defect in the shared machinery cannot hide in both. It computes the
 Jacobiator by carrying each field's first variation as a linear differential operator and
 integrating that operator by parts, rather than by directional derivatives and cyclicity, and
-compares the result against a closed form derived separately. 99 checks, exact over `ℚ(i)`.
+compares the result against a closed form derived separately. 98 checks, exact over `ℚ(i)`.
 
 The statement survives, in dimensions 2, 4, 5, 6 and 8, for degenerate bivectors and on an
 odd-dimensional torus with no symplectic form at all. Two things it establishes that the earlier
@@ -70,7 +123,7 @@ integrand could have been non-zero, after three separate accidental zeros during
 `scripts/fable/III2_refutation.jl` attacks the same two statements as
 `scripts/fable/III2_matrix_structure_function.jl` — that `tr(c(W)[F_W,G_W])` on `gl(N)*`/`u(N)*` is
 Poisson iff `c` is affine, and the spectral-kernel classification behind the pushforward family —
-from an implementation that shares no code with it. 118 checks, exact over `ℚ`.
+from an implementation that shares no Jacobiator code with it. 121 checks, exact over `ℚ`.
 
 The point of the script is one step that no closed form can cross-check. A spectral-kernel bracket
 is defined through the eigendecomposition of `V`, so its Jacobiator needs the derivative of the
@@ -97,27 +150,77 @@ therefore exists on definite spectra only — which a Zeitlin truncation of 2-D 
 
 ### Added — shared verification machinery for the fable branch
 
-`scripts/fable/fabletools.jl` provides exact-arithmetic machinery for the fable verification suite: trigonometric polynomials over `ℚ(i)` on an arbitrary-dimensional torus T^D, first-order jets for computing Gateaux derivatives, and the canonical Poisson bracket on T^{2n}. Plain definitions in a shared include file, so scripts extending the machinery to their own field types (as III.1 does for floating-point spectral grids) do so without module boundaries. Used by `III1_structure_function_4d.jl` and `III4_multifield_derivative.jl`.
+`scripts/fable/fabletools.jl` provides exact-arithmetic machinery for the fable verification
+suite: trigonometric polynomials over `ℚ(i)` on an arbitrary-dimensional torus T^D, first-order
+jets for computing Gateaux derivatives, and the canonical Poisson bracket on T^{2n}. Plain
+definitions in a shared include file, so scripts extending the machinery to their own field types
+(as III.1 does for floating-point spectral grids) do so without module boundaries. Used by
+`III1_structure_function_4d.jl` and `III4_multifield_derivative.jl`.
 
 ### Added — Vlasov–Poisson on a bounded domain as Lie-Poisson on `u(N)*`
 
-`scripts/fable/I1_vlasov_uN.jl` quantises the Vlasov–Poisson system on a bounded spatial domain over the space of density matrices ρ on u(N)*, using compressed Weyl quantisation. The Lie-Poisson bracket `{F,G}(ρ) = (1/iℏ) tr(ρ [F_ρ, G_ρ])` is the underlying structure. The main theorem: for symbols of degree ≤ 1 in momentum on the inner block (away from boundaries), the homomorphism defect `D(a,b) = (1/iℏ)[T_N a, T_N b] − T_N{a,b}` vanishes exactly, and for degree 2 it equals the Wigner-equation correction with its exact coefficient `(ℏ²/24) φ''' ∂_p³`. 89 checks, including exact arithmetic on gl(N,ℚ) for N=3,4,5, Casimirs and continuity in dimensions and boundary conditions (periodic S¹ and Dirichlet [0,π]), and floating-point refinement studies showing convergence at order two. Not yet independently re-checked: the adversarial pass has covered III.1 and III.2 only.
+`scripts/fable/I1_vlasov_uN.jl` quantises the Vlasov–Poisson system on a bounded spatial domain
+over the space of density matrices ρ on u(N)*, using compressed Weyl quantisation. The Lie-Poisson
+bracket `{F,G}(ρ) = (1/iℏ) tr(ρ [F_ρ, G_ρ])` is the underlying structure. The main theorem: for
+symbols of degree ≤ 1 in momentum on the inner block (away from boundaries), the homomorphism
+defect `D(a,b) = (1/iℏ)[T_N a, T_N b] − T_N{a,b}` vanishes exactly, and for degree 2 it equals the
+Wigner-equation correction with its exact coefficient `(ℏ²/24) φ''' ∂_p³`. 91 checks, including
+exact arithmetic on gl(N,ℚ) for N=3,4,5, Casimirs and continuity in dimensions and boundary
+conditions (periodic S¹ and Dirichlet [0,π]), and floating-point refinement studies showing
+convergence at order two. Not yet independently re-checked: the adversarial pass has covered III.1
+and III.2 only.
 
 ### Added — semidirect-product brackets via pointwise flat coordinates
 
-`scripts/fable/II1_semidirect_flat.jl` verifies that the push-forward of the constant bracket K₂ = [0 K; K 0] under the pointwise chart Φ(ρ,u) = (ρ, ρu) produces a Poisson bracket on the semidirect product — the 1-D compressible Euler and shallow-water systems. The construction `J = DΦ K₂ DΦ^T` generalises to any antisymmetric K and is exactly Poisson by the Jacobi theorem for pushforwards. 147 checks verify: Jacobi over ℚ exactly for random antisymmetric K and rational data; Casimirs and rank; consistency of the three block structure against SymPy; refinement convergence; and boundary conditions on [0,L] with two antisymmetrisation conventions, both exactly Poisson.
+`scripts/fable/II1_semidirect_flat.jl` verifies that the push-forward of the constant bracket
+K₂ = [0 K; K 0] under the pointwise chart Φ(ρ,u) = (ρ, ρu) produces a Poisson bracket on the
+semidirect product — the 1-D compressible Euler and shallow-water systems. The construction
+`J = DΦ K₂ DΦ^T` generalises to any antisymmetric K and is exactly Poisson by the Jacobi theorem
+for pushforwards. 144 checks verify: Jacobi over ℚ exactly for random antisymmetric K and rational
+data; Casimirs and rank; consistency of the three block structure against SymPy; refinement
+convergence; and boundary conditions on [0,L] with two antisymmetrisation conventions, both exactly
+Poisson.
+
+This is the one fable script that needs SymPy; the other six are pure Julia.
 
 ### Added — the structure-function bracket on `T^{2n}`
 
-`scripts/fable/III1_structure_function_4d.jl` proves that the bracket `{A,B}_c = ∫_M c(f) {A_f, B_f} μ` satisfies the Jacobi identity for every smooth `c` and on any closed symplectic manifold (M, ω) of dimension 2n, ruling out the provisional hypothesis that the two-dimensional Plücker relation was essential. The reduction of the Jacobiator to the obstruction term survives dimension unchanged (cyclicity, skew-adjointness, chain rule); the integrand is not zero in 4-D and 6-D but is an exact divergence. 58 checks, exact over ℚ(i), verify: the obstruction on T², T⁴, T⁶ for polynomial `c`; the divergence identity term-by-term; the full Jacobiator by jets for positive cases and negative controls that must fail; and floating-point spectral refinement N = 12…32 for non-polynomial `c`.
+`scripts/fable/III1_structure_function_4d.jl` proves that the bracket
+`{A,B}_c = ∫_M c(f) {A_f, B_f} μ` satisfies the Jacobi identity for every smooth `c` and on any
+closed symplectic manifold (M, ω) of dimension 2n, ruling out the provisional hypothesis that the
+two-dimensional Plücker relation was essential. The reduction of the Jacobiator to the obstruction
+term survives dimension unchanged (cyclicity, skew-adjointness, chain rule); the integrand is not
+zero in 4-D and 6-D but is an exact divergence. 61 checks, exact over ℚ(i), verify: the obstruction
+on T², T⁴, T⁶ for polynomial `c`; the divergence identity term-by-term; the full Jacobiator by jets
+for positive cases and negative controls that must fail; and floating-point spectral refinement
+N = 12…32 for non-polynomial `c`.
 
 ### Added — the matrix structure-function bracket on `gl(N)`
 
-`scripts/fable/III2_matrix_structure_function.jl` establishes the finite-dimensional analogue of III.1: the bracket `tr(c(W)[F_W, G_W])` on gl(N) with matrix spectral functions `c`. The Jacobi identity holds exactly iff `c` is affine, or equivalently iff the antisymmetric edge weight `κ_ab (w_b − w_a)` in the eigenbasis Jacobiator forms a cocycle on the complete graph of eigenvalues. The spectral-kernel classification then says which brackets in that wider class *are* Poisson: exactly the pushforwards of Lie-Poisson under a monotone spectral `ψ`, with slope `ϖ = 1/ψ^{[1]}` — an infinite family, one member per `ψ`, of which the log-mean bracket (`ψ = ½ln v`) is the worked example. Restricted to symmetric polynomial slopes of degree at most two the survivors are only `ϖ = λ₁` and `ϖ = λ₂ ab`. 114 checks over ℚ; semiclassical scaling `N^{−2}` is measured on Zeitlin's su(N) for four spectral functions.
+`scripts/fable/III2_matrix_structure_function.jl` establishes the finite-dimensional analogue of
+III.1: the bracket `tr(c(W)[F_W, G_W])` on gl(N) with matrix spectral functions `c`. The Jacobi
+identity holds exactly iff `c` is affine, or equivalently iff the antisymmetric edge weight
+`κ_ab (w_b − w_a)` in the eigenbasis Jacobiator forms a cocycle on the complete graph of
+eigenvalues. The spectral-kernel classification then says which brackets in that wider class *are*
+Poisson: exactly the pushforwards of Lie-Poisson under a monotone spectral `ψ`, with slope
+`ϖ = 1/ψ^{[1]}` — an infinite family, one member per `ψ`, of which the log-mean bracket
+(`ψ = ½ln v`) is the worked example. Restricted to symmetric polynomial slopes of degree at most
+two the survivors are only `ϖ = λ₁` and `ϖ = λ₂ ab`. 115 checks over ℚ; semiclassical scaling
+`N^{−2}` is measured on Zeitlin's su(N) for four spectral functions.
 
 ### Added — multi-field structure functions, and derivative dependence
 
-`scripts/fable/III4_multifield_derivative.jl` settles the two remaining open questions from the four-bracket paper: (a) the bracket `{A,B} = ∫ c^{ij}(f){A_i, B_j} μ` for several fields f¹…f^m is Poisson iff the product `(ξ⋆η)_k = ∂_k c^{ij} ξ_i η_j` on T*ℝ^m is associative and (in dimensions 2n ≥ 4) the target one-forms close, and (b) structure functions depending on ∇f never produce Poisson brackets — the principal symbol forces all first-order derivatives to vanish pointwise. 77 checks prove both theorems exactly over ℚ(i) by jets, verify the necessity lemma (the three Jacobi functionals obey exactly one relation), test positive and negative cases of multi-field coupling, and rule out derivative dependence in 2-D and 4-D.
+`scripts/fable/III4_multifield_derivative.jl` settles the two remaining open questions from the
+four-bracket paper: (a) the bracket `{A,B} = ∫ c^{ij}(f){A_i, B_j} μ` for several fields f¹…f^m is
+Poisson iff the product `(ξ⋆η)_k = ∂_k c^{ij} ξ_i η_j` on T*ℝ^m is associative and (in dimensions
+2n ≥ 4) the target one-forms close, and (b) structure functions depending on ∇f never produce
+Poisson brackets — the principal symbol forces all first-order derivatives to vanish pointwise.
+87 checks prove both theorems exactly over ℚ(i) by jets, verify the necessity lemma (the three
+Jacobi functionals obey exactly one relation), test positive and negative cases of multi-field
+coupling, and rule out derivative dependence in 2-D and 4-D.
+
+At about eleven minutes it is the slowest script in `scripts/`, which is why the fable scripts
+have their own driver rather than a place in `run_all.jl`.
 
 ### Added — the four-bracket manuscript
 

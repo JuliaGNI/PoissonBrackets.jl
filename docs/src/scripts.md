@@ -20,6 +20,7 @@ why the entries here are one line long.
 julia --project=scripts scripts/run_all.jl          # all twenty-two; nonzero exit on failure
 julia --project=scripts scripts/verify_kdv_bea.jl   # or just one
 sh scripts/run_fable.sh                             # the seven fable scripts, about 13 minutes
+                                                    # (longer the first time: one of them needs SymPy)
 ```
 
 Each script runs in its own process, so a failure — or an `exit(1)` from the harness — is
@@ -122,10 +123,11 @@ rather than structure constants over ``\mathbb{Q}``.
 
 ## The fable investigation
 
-Seven scripts from an autonomous investigation into discrete Poisson brackets. Four establish
+Seven scripts from an autonomous investigation into discrete Poisson brackets. Five establish
 results; three of those are now backed in the manuscripts, and two further scripts are adversarial
 re-checks written to *overturn* an earlier one and sharing no code with it. Run by
-`scripts/run_fable.sh`, not by `run_all.jl`.
+`scripts/run_fable.sh`, not by `run_all.jl`. `fable/II1_semidirect_flat.jl` is the one symbolic
+script among them, so a first run also pays for the SymPy provisioning described above.
 
 | script | what it establishes | theory |
 |:--|:--|:--|

@@ -23,16 +23,16 @@
 #      spectral function, and tr ρ² under the perturbed bracket;
 #   3. dictionary on the circle (exact arithmetic): the defect D(a,b) vanishes EXACTLY on the
 #      inner block |k|,|l| ≤ K − B for symbols of degree ≤ 1 in p of x-band B, and for
-#      (a, h = p²/2 + φ) with deg_p a ≤ 2; for deg_p a = 3 it equals −(ℏ²/4) T(χ φ''') — the
+#      (a, h = p²/2 + φ) with deg_p a ≤ 2; for deg_p a = 3 it equals +(ℏ²/4) T(χ φ''') — the
 #      Wigner-equation correction (ℏ²/24) φ''' ∂_p³ with its exact coefficient; the edge block is
 #      O(1); control = standard (non-Weyl) ordering, whose defect is O(ℏ) and nonzero inside;
 #   4. Dirichlet box [0,π]: T^Dir(a) equals the odd block A_{mn} − A_{m,−n} of the doubled-circle
 #      quantisation for reflection-even symbols a(−x,−p) = a(x,p) (checked against direct
 #      sine-basis matrix elements by quadrature); the inner-block exactness is inherited; the
 #      canonical pair (x, p) is NOT reflection-compatible and its box commutator misses the CCR
-#      on the whole block (trace −N) — measured against N; the kink of the even extension of a
-#      grounded-wall potential x(π−x) gives an algebraic mode-tail leak, a zero-field-wall
-#      potential none;
+#      on the inner block m,n ≤ N/2, by an amount that does not decay as N grows (an edge effect
+#      would); the kink of the even extension of a grounded-wall potential x(π−x) gives a
+#      mode-tail leak at every N, a zero-field-wall potential none;
 #   5. dynamics (floating point, refinement in N at fixed v_max/σ): Weyl symbol of the
 #      von Neumann–Poisson field (1/iℏ)[T h_ρ, ρ] against the Vlasov field φ'∂_p f − p ∂_x f for
 #      a Gaussian-in-p, cosine-in-x state; the difference scales as ℏ² ∝ K⁻² and matches
@@ -104,8 +104,8 @@ for N in (3, 4, 5)
         P == sum(ρ[l] * dP[l, :, :] for l in 1:(N ^ 2)))
     res = jacobi_residual(P, dP)
     check_exact("N = $N: Jacobiator of the commutator bracket", res; atol = 0)
-    C = permutedims(dP, (1, 2, 3))   # C[m,i,j] = c_ij^m already
-    check_exact("N = $N: structure-constant condition of u(N)", structure_constant_residual(C); atol = 0)
+    # dP[m,i,j] = c_ij^m is already the index order structure_constant_residual wants
+    check_exact("N = $N: structure-constant condition of u(N)", structure_constant_residual(dP); atol = 0)
 end
 println("  control: [X,Y]_ε = XY − YX + ε(XYᵀ − YXᵀ), antisymmetric, bilinear, NOT a Lie bracket")
 for (N, ε) in ((3, Q(1)), (3, Q(1, 10)), (4, Q(1)))
@@ -132,7 +132,9 @@ lp_bracket(ρ, Fρ, Gρ) = tr(ρ * commutator(Fρ, Gρ))
 for N in (3, 4, 6)
     ρ = randq(N)
     Gρ = randq(N)
-    for k in 1:N
+    # From k = 2.  At k = 1 the gradient is the identity, which commutes with everything, so the
+    # bracket vanishes for any ρ, any G and any commutator-shaped bracket at all -- no test.
+    for k in 2:N
         Ck = k * ρ^(k - 1)          # gradient of tr ρ^k
         check_exact("N = $N: {tr ρ^$k, G} for random G", lp_bracket(ρ, Ck, Gρ); atol = 0)
     end
@@ -333,7 +335,8 @@ let ℏ = Q(2, 3), K = 6
     check_exact(
         "D(p² cos x, p² sin 2x) = −(ℏ²/2) T(p(χ'η'' − χ''η')) exactly on the inner block",
         inner_edge(D22 - weyl(corr, K, ℏ), K, xband(a22) + xband(b22))[1]; atol = 0)
-    # the ℏ-dependence of the degree-3 defect: ℏ → ℏ/2 divides it by 4 (matrix entries at fixed k)
+    # The same identity at ℏ/2, so that the ℏ² prefactor is pinned rather than absorbed: a defect
+    # of the wrong order in ℏ would match +(ℏ²/4) T(χφ''') at one ℏ and not at both.
     D3h = defect(weyl, a3, h, K, ℏ // 2)
     pred3h = weyl(sym_scale(sym_mul(cosx(2), φ3), (ℏ // 2)^2 // 4), K, ℏ // 2)
     check_exact("   the same at ℏ/2", inner_edge(D3h - pred3h, K, B3)[1]; atol = 0)
@@ -515,8 +518,8 @@ let ℏ = 2 / 3
     end
     Xblk = dirblock(weylf(absx, N, ℏ), N, N)
     check_exact(
-        "x on the box = odd block of Weyl(|x|) (band 4001, tail ~1e-7 in coefficients)",
-        maximum(abs, Xblk - xbox(N)); atol = 1e-6)
+        "x on the box = odd block of Weyl(|x|)",
+        maximum(abs, Xblk - xbox(N)); atol = 1e-12)
     # p·sign(x) is reflection-even; its odd block is the box momentum matrix
     signp = Dict{Tuple{Int, Int}, ComplexF64}()
     for j in 1:2:J          # sign(x) = (4/π) Σ_{j odd} sin(jx)/j
@@ -524,31 +527,51 @@ let ℏ = 2 / 3
         signp[(1, -j)] = im * 2 / (π * j)
     end
     Pblk = dirblock(weylf(signp, N, ℏ), N, N)
-    check_exact("−iℏ∂ on the box = odd block of Weyl(p·sign x) (band 4001)",
-        maximum(abs, Pblk - pbox(N, ℏ)); atol = 1e-3)
+    # Both identities are exact -- the Fourier tail beyond |k − l| = 2N never enters the N×N block,
+    # so the truncation at J does not loosen them.  Measured residuals are at machine epsilon;
+    # atol 1e-6 and 1e-3 admitted a 0.1 % error in every entry and were 10 to 13 orders too loose.
+    check_exact("−iℏ∂ on the box = odd block of Weyl(p·sign x)",
+        maximum(abs, Pblk - pbox(N, ℏ)); atol = 1e-12)
     # 4c. the CCR in a box: (1/iℏ)[X,P] − I.  {|x|, p sign x} = 1, but neither symbol is band-limited,
-    # so the defect is not confined to the edge; the trace is exactly −N.
+    # so the defect is not confined to the edge.
+    #
+    # tr((1/iℏ)[X,P] − I) = −N is NOT checked here: the trace of a commutator vanishes for any pair
+    # of square matrices, so that identity holds whatever X and P are and distinguishes nothing.
+    # What distinguishes is the inner block m,n ≤ N/2, which recedes from the edge as N grows.  The
+    # defect there is O(1/N) -- an algebraic tail, which is what a symbol that is not band-limited
+    # leaves behind; a defect genuinely confined to the boundary would fall off exponentially in
+    # the distance to it and be invisible at m,n ≤ N/2.  The rate is what is asserted below.
     println("  4c. CCR in the box: (1/iℏ)[X_N, P_N] − I, inner block m,n ≤ N/2")
     prev = NaN
+    inners = Float64[]
     for N in (8, 16, 32)
         C = commutator(xbox(N), pbox(N, ℏ)) / (im * ℏ) - I
         h = N ÷ 2
         inner = maximum(abs, C[1:h, 1:h])
         diag_inner = maximum(abs, [C[n, n] for n in 1:h])
-        check("N = $N: tr((1/iℏ)[X,P] − I) = −N", abs(tr(C) + N) < 1e-9, @sprintf("%.3e",
-            abs(tr(C) + N)))
+        push!(inners, inner)
+        check("N = $N: the CCR defect is O(1) on the inner block, not at roundoff",
+            inner > 1e-8,
+            @sprintf("max |C| inner = %.3e", inner))
         @printf("    N = %2d: max |C| inner = %.3e   max |C_nn| inner = %.3e   ratio to previous %.2f\n",
             N, inner, diag_inner, isnan(prev) ? NaN : prev / inner)
         prev = inner
     end
+    check(
+        "the inner-block defect decays only as 1/N: ratio over N = 8 -> 32 is 4, not exponential",
+        3.2 < inners[1] / inners[end] < 4.8,
+        @sprintf("%.3e -> %.3e, ratio %.2f (1/N predicts 4)", inners[1], inners[end],
+            inners[1] / inners[end]))
     # 4d. mode-tail leak of a potential: zero-field walls (smooth even extension) vs grounded walls (kink)
     println("  4d. leak Q_N φ P_N ρ of the potential term for a state on modes n ≤ N/2 (σ_p = 1, v_max = 6)")
-    for (name, φfun) in ((
-        "φ = cos 2x   (even extension smooth; zero-field-compatible)", x -> cos(2x)),
-        ("φ = x(π − x) (grounded walls: even extension has a kink)", x -> x * (π - x)),
+    for (name, φfun, noleak) in ((
+        "φ = cos 2x   (even extension smooth; zero-field-compatible)", x -> cos(2x), true),
+        ("φ = x(π − x) (grounded walls: even extension has a kink)",
+        x -> x * (π - x), false),
         ("φ = x(π − x) + cos x  (same kink, different smooth part)",
-        x -> x * (π - x) + cos(x)))
+        x -> x * (π - x) + cos(x), false))
         prevleak = NaN
+        leaks = Float64[]
         for N in (8, 16, 32)
             N2 = 2N
             xq, wq = gauss_legendre(600, 0.0, Float64(π))
@@ -567,13 +590,23 @@ let ℏ = 2 / 3
             trunc[(N + 1):N2, :] .= 0
             trunc[:, (N + 1):N2] .= 0
             leak = norm(full - trunc) / norm(full)
+            push!(leaks, leak)
             @printf("    %-64s N = %2d: relative leak %.3e   ratio %.2f\n", name, N, leak,
                 isnan(prevleak) ? NaN : prevleak / leak)
             prevleak = leak
         end
+        if noleak
+            check(
+                "a zero-field-compatible φ does not leak at any N (state on n ≤ N/2 stays inside)",
+                maximum(leaks) < 1e-12, @sprintf("max leak %.3e", maximum(leaks)))
+        else
+            check(
+                "the kink of $(strip(name)) leaks at every N (the sine tail of a non-compatible φ)",
+                minimum(leaks) > 1e-8, @sprintf("min leak %.3e", minimum(leaks)))
+        end
     end
-    println("    (the state occupies n ≤ N/2; cos 2x maps it to n ≤ N/2 + 2 < N: the leak is exactly zero;")
-    println("     the kink potential leaks algebraically — it is the sine-series tail of a non-compatible function)")
+    println("    (the state occupies n ≤ N/2; cos 2x maps it to n ≤ N/2 + 2 < N, so nothing leaves the")
+    println("     block; the kink potential leaks algebraically — the sine tail of a non-compatible φ)")
 end
 
 # ---------------------------------------------------------------------------------------------
@@ -590,11 +623,8 @@ end
 
 header("5. vector-field consistency: symbol of (1/iℏ)[T h_ρ, ρ] vs φ'∂_p f − p ∂_x f, refinement in K")
 let σ = 1.0, vmax = 6.0, ε = 0.5
-    g(x) = 1 + ε * cos(x)
-    dg(x) = -ε * sin(x)
-    ĝ = Dict(0 => 1.0 + 0im, 1 => ε / 2 + 0im, -1 => ε / 2 + 0im)
+    ĝ = Dict(0 => 1.0 + 0im, 1 => ε / 2 + 0im, -1 => ε / 2 + 0im)   # g(x) = 1 + ε cos x
     results = Float64[]
-    preds = Float64[]
     resid = Float64[]
     tr3 = Float64[]
     hs = Float64[]
@@ -652,7 +682,6 @@ let σ = 1.0, vmax = 6.0, ε = 0.5
             predmax = max(predmax, abs(W))
         end
         push!(results, err / scl)
-        push!(preds, predmax / scl)
         push!(resid, err2 / scl)
         push!(hs, ℏ)
         # Casimirs vs ∫∫ f^k:  ∫g^k dx = 2π(1, 1+ε²/2, 1+3ε²/2), ∫exp(−k p²/2σ²) dp = σ√(2π/k).
@@ -680,15 +709,14 @@ let σ = 1.0, vmax = 6.0, ε = 0.5
         check(
             "refinement step $(i - 1): error ratio ≈ (ℏ_coarse/ℏ_fine)² = $(round(expected, digits = 2))",
             abs(rate / expected - 1) < 0.25, @sprintf("ratio %.2f", rate))
+        # Both steps, not only the last: the first used to be printed with an excuse rather than
+        # checked, and it meets the same window.  Note the window is wide enough that it does not
+        # separate ℏ³ from ℏ⁴ -- the ℏ⁶ terms are still visible at these K.
         rate2 = resid[i - 1] / resid[i]
-        if i == length(results)
-            check(
-                "refinement step $(i - 1): residual after the ℏ² term ≈ (ℏ_coarse/ℏ_fine)⁴ = $(round(expected^2, digits = 2))",
-                abs(rate2 / expected^2 - 1) < 0.35, @sprintf("ratio %.2f", rate2))
-        else
-            @printf("    refinement step %d: residual after the ℏ² term: ratio %.2f (ℏ⁴ predicts %.2f; ℏ⁶ terms still visible)\n",
-                i - 1, rate2, expected^2)
-        end
+        check(
+            "refinement step $(i - 1): residual after the ℏ² term ≈ (ℏ_coarse/ℏ_fine)⁴ = $(round(expected^2, digits = 2))",
+            abs(rate2 / expected^2 - 1) < 0.35,
+            @sprintf("ratio %.2f  (ℏ³ would predict %.2f)", rate2, expected^1.5))
         rate3 = tr3[i - 1] / tr3[i]
         check("refinement step $(i - 1): tr ρ³ defect ratio ≈ (ℏ_coarse/ℏ_fine)²",
             abs(rate3 / expected - 1) < 0.25,

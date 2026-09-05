@@ -293,8 +293,11 @@ for N in (3, 4)
         ω = (a, b) -> divdiff(c, dc, a, b)                     # ω = c^[1]  (so ω^2 = κ)
         jeig = jacobiator_kernel(ω, w, X, Y, Z)
         jf = jacobiator_closed(c, W, X, Y, Z)
-        check(@sprintf("N=%d  c=%-4s eigenbasis Φ-formula == closed form", N, label),
-            jeig == jf,
+        # !iszero(jf) as in section 2: two implementations both returning zero would agree.
+        check(
+            @sprintf("N=%d  c=%-4s eigenbasis Φ-formula == closed form, and nonzero", N,
+                label),
+            jeig == jf && !iszero(jf),
             "value = " * fmt(jf))
     end
 
@@ -551,6 +554,11 @@ let V = V3
     r_cf = jacobi_residual(fd_tensors((V, X, Y) -> cform(sqrt(V), X, Y), V)...)
     @printf("   FD Jacobiator, N = 3:  Lie-Poisson %.1e   pushforward %.1e   (4/3)V^{3/2}-form %.1e\n",
         r_lp, r_pf, r_cf)
+    # r_lp is the exactly-Poisson control that calibrates the 1e-6 floor below.  Asserted, not just
+    # printed: if the finite-difference machinery were wrong, r_lp would be large and the floor
+    # would mean nothing.
+    check("Lie-Poisson: FD Jacobiator at the FD noise floor (calibrates the threshold)",
+        r_lp < 1e-6, @sprintf("%.1e", r_lp))
     check("pushforward bracket: FD Jacobiator at the FD noise floor", r_pf < 1e-6, @sprintf("%.1e",
         r_pf))
     check("(4/3) tr(V^{3/2}[X,Y]): FD Jacobiator far above the floor  (control)",
@@ -638,7 +646,7 @@ const θ_lin = Kernel(Q[0 -1; 1 0])                    # a − b                
 const θ_sq = Kernel(Q[0 0 -1; 0 0 0; 1 0 0])           # a² − b²                  c = W²
 const θ_cub = Kernel(Q[0 0 0; 0 0 -1; 0 1 0])          # a²b − ab² = ab(a−b)      pushforward, ψ = −1/v
 const θ_pencil = Kernel(Q[0 -1 0; 1 0 -1; 0 1 0])      # (a−b)(1 + ab)            linear + cubic
-const θ_ctrl = Kernel(Q[0 -1 0 -1; 1 0 0 0; 0 0 0 0; 1 0 0 0])   # (a−b)(a²+b²)  control
+const θ_ctrl = Kernel(Q[0 -1 0 -1; 1 0 0 0; 0 0 0 0; 1 0 0 0])   # a−b+a³−b³  control
 
 let N = 3, V = randq(N)
     P, _ = kernel_tensors(θ_lin, V)
@@ -655,7 +663,7 @@ for N in (3, 4)
         ("a² − b²  (c = W²)", θ_sq, false),
         ("ab(a − b)  (cubic; pushforward ψ = −1/v)", θ_cub, true),
         ("(a−b)(1 + ab)  (linear + cubic pencil)", θ_pencil, false),
-        ("(a−b)(a² + b²)  (control)", θ_ctrl, false))
+        ("(a−b)(1 + a² + ab + b²)  (control)", θ_ctrl, false))
         r = jacobi_residual(kernel_tensors(θ, V)...)
         check(
             @sprintf("N=%d  θ = %-42s Jacobiator %s", N, label,
@@ -673,7 +681,7 @@ for N in (3, 4)
     V = Matrix(Diagonal(v))
     X, Y, Z = randq(N), randq(N), randq(N)
     for (label, θ) in (("a² − b²", θ_sq), ("ab(a − b)", θ_cub),
-        ("(a−b)(1 + ab)", θ_pencil), ("(a−b)(a² + b²)", θ_ctrl))
+        ("(a−b)(1 + ab)", θ_pencil), ("(a−b)(1 + a² + ab + b²)", θ_ctrl))
         ω = (a, b) -> θ(a, b) / (a - b)
         jc = jacobiator_coord(kernel_tensors(θ, V)..., X, Y, Z)
         jk = jacobiator_kernel(ω, v, X, Y, Z)
@@ -716,6 +724,13 @@ end
 # Hermitian() would silently drop the lower-triangle perturbations and ruin the derivative.
 function kernel_bracket(θ, V, X, Y)
     F = eigen(V)
+    # A general eigenproblem may return a conjugate pair.  The spectra here are real and the
+    # perturbations are O(h), so the imaginary parts are round-off -- but say so loudly rather than
+    # dropping whatever turns up, which is how a broken perturbation would pass unnoticed.
+    scaleV = maximum(abs, F.values)
+    maximum(abs, imag.(F.values)) <= 1e-8 * max(scaleV, 1) ||
+        error("kernel_bracket: eigenvalues are not real, max |imag| = " *
+              string(maximum(abs, imag.(F.values))))
     v = real.(F.values)
     U = F.vectors
     Ui = inv(U)
@@ -728,6 +743,8 @@ function kernel_bracket(θ, V, X, Y)
         i == j && continue
         s += θ(v[i], v[j]) * Xe[i, j] * Ye[j, i]
     end
+    abs(imag(s)) <= 1e-8 * max(abs(real(s)), 1) ||
+        error("kernel_bracket: the bracket is not real, imag = " * string(imag(s)))
     return real(s)
 end
 θ_arith(a, b) = (a - b) * (a + b)                                             # c = v²: 2·(a−b)·A(a,b)

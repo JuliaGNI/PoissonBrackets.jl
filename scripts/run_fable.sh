@@ -15,28 +15,30 @@
 # by III1 and III4, not a driver, and so is not listed.
 #
 # Each script runs in its own process, so a failure is contained and reported rather than taking
-# the runner down.  All seven are pure Julia; none needs SymPy.
+# the runner down.  Six are pure Julia; `fable/II1_semidirect_flat.jl` also needs SymPy, which
+# CondaPkg provisions through SymPyPythonCall on first use, so a cold first run is much longer
+# than the thirteen minutes the seven take once that environment exists.
 
 set -u
 
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+# CDPATH= so a user's CDPATH cannot redirect the cd.  No `--`: POSIX gives `dirname` no options at
+# all, and $0 is a path to this script, so there is nothing for an option parser to mistake.
+root=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 
-if [ "$#" -gt 0 ]; then
-    scripts="$*"
-else
-    scripts="fable/I1_vlasov_uN.jl
-fable/II1_semidirect_flat.jl
-fable/III1_structure_function_4d.jl
-fable/III1_refutation.jl
-fable/III2_matrix_structure_function.jl
-fable/III2_refutation.jl
-fable/III4_multifield_derivative.jl"
+if [ "$#" -eq 0 ]; then
+    set -- fable/I1_vlasov_uN.jl \
+        fable/II1_semidirect_flat.jl \
+        fable/III1_structure_function_4d.jl \
+        fable/III1_refutation.jl \
+        fable/III2_matrix_structure_function.jl \
+        fable/III2_refutation.jl \
+        fable/III4_multifield_derivative.jl
 fi
 
 rule="==================================================================="
 failed=""
 
-for s in $scripts; do
+for s in "$@"; do
     path="$root/scripts/$s"
     if [ ! -f "$path" ]; then
         printf '%s\n%s\n' "$rule" "$s -- no such script"

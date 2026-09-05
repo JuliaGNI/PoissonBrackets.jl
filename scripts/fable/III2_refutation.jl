@@ -7,8 +7,16 @@
 #                   is Poisson iff rho_pq = (v_p-v_q)/varpi_pq is a coboundary, iff it is a
 #                   pushforward of Lie-Poisson under a spectral psi with varpi = 1/psi^[1].
 #
-# Written by a session briefed to overturn III.2, independently of
-# III2_matrix_structure_function.jl: no shared code, and a different route to the Jacobiator.
+# An adversarial re-check, independent of III2_matrix_structure_function.jl: it includes nothing
+# and imports nothing beyond LinearAlgebra and Test.  What is genuinely independent is
+# `bracket_gradient`, the perturbation-theory route below -- that is where the weight sits.  Three
+# closed forms are re-derived here rather than borrowed and are deliberately the same mathematics
+# as their counterparts there: `psi_prediction` against `jacobiator_kernel`, `dpoly_mat` against
+# `fderiv(::Poly)`, `closed_form_jacobiator` against `jacobiator_closed`.  They are predictions to
+# be falsified against `bracket_gradient`, not corroborations of it.
+#
+# Scope: the matrix c-bracket is evaluated at a DIAGONAL W only, and sections 5, 6b and 7d of
+# III2_matrix_structure_function.jl -- the semiclassical N -> infinity claims -- are not re-checked.
 #
 # Everything is exact over Q, so a claimed vanishing is a vanishing.
 #
@@ -64,8 +72,10 @@ function bracket_gradient(v, θ, ∂1θ, ∂2θ, X, Y)
         end
         # eigenbasis rotation: Xt -> X + eps [X, Gamma]
         # U^{-1}(V + eps E)U diagonal to first order needs E_pq + (v_p - v_q) Gamma_pq = 0,
-        # i.e. Gamma_pq = E_pq/(v_q - v_p) -- the opposite sign to the one that first suggests
-        # itself, and the sign the answer depends on.  Checked against a 2x2 case in the tests.
+        # i.e. Gamma_pq = E_pq/(v_q - v_p).  The sign is easy to get the wrong way round and the
+        # answer depends on it.  The formula and its sign are checked on an explicit 2x2 in the
+        # first testset; that this function uses them is pinned downstream, by route A agreeing
+        # with route B, which never mentions an eigenvector at all.
         Γ = zeros(T, N, N)
         for p in 1:N, q in 1:N
 
@@ -83,18 +93,6 @@ function bracket_gradient(v, θ, ∂1θ, ∂2θ, X, Y)
         M[j, i] = d
     end
     M
-end
-
-"The bracket itself at the diagonal V, for constant gradients X and Y."
-function kernel_bracket(v, θ, X, Y)
-    N = length(v)
-    s = zero(promote_type(eltype(X), eltype(Y)))
-    for p in 1:N, q in 1:N
-
-        p == q && continue
-        s += θ(v[p], v[q]) * X[p, q] * Y[q, p]
-    end
-    s
 end
 
 """
@@ -221,7 +219,7 @@ struct Dual{T <: Number} <: Number
 end
 Dual(a::T) where {T} = Dual{T}(a, zero(a))
 Base.convert(::Type{Dual{T}}, x::Number) where {T} = Dual{T}(convert(T, x), zero(T))
-# and again: without this, the rule above matches a Dual and tries to convert it to T
+# without this, the rule above matches a Dual and tries to convert it to T
 Base.convert(::Type{Dual{T}}, x::Dual) where {T} = Dual{T}(convert(T, x.a), convert(T, x.b))
 function Base.promote_rule(::Type{Dual{T}}, ::Type{S}) where {T, S <: Number}
     Dual{promote_type(T, S)}
@@ -253,8 +251,10 @@ println("=" ^ 78)
 @testset "III.2 refutation attempt" begin
 
     # -----------------------------------------------------------------------
-    @testset "machinery: eigenvector perturbation is right" begin
-        # The sign of Gamma, against an explicitly diagonalised 2x2.
+    @testset "machinery: the eigenvector-perturbation formula and its sign" begin
+        # The formula Gamma_pq = E_pq/(v_q - v_p) and its sign, against an explicitly diagonalised
+        # 2x2.  That `bracket_gradient` uses this formula is not tested here -- it is pinned by the
+        # route A / route B agreement in the next testset, route B having no eigenvectors in it.
         v2 = Q[1, 2]
         E = Q[0 1; 0 0]
         Γ = Q[0 (E[1, 2]//(v2[2] - v2[1])); (E[2, 1]//(v2[1] - v2[2])) 0]
@@ -285,6 +285,9 @@ println("=" ^ 78)
             jC = closed_form_jacobiator(a, v, X, Y, Z)
             @test jA == jB
             @test jB == jC
+            # Three routes agreeing on zero would agree for nothing.  Every `a` here is non-affine
+            # and every N is at least 3, so the Jacobiator must not vanish.
+            @test !iszero(jA)
             println("  N = $N, c = $(a):  kernel route = matrix route = closed form = ", jA)
         end
     end
@@ -322,7 +325,6 @@ println("=" ^ 78)
         # anti-Hermitian data over Q(i), with V Hermitian (the standard u(N)* identification).
         N = 3
         v = Q[1, 2, 4]
-        W = Matrix{Complex{Q}}(Diagonal(Complex{Q}.(v)))
         function antiherm(seed)
             A = Complex{Q}.(testmat(N, seed)) + im * Complex{Q}.(testmat(N, seed + 10))
             A - adjoint(A)
@@ -395,7 +397,9 @@ println("=" ^ 78)
         jlog = kernel_jacobiator(vf, θlog, ∂1(θlog), ∂2(θlog), Xf, Yf, Zf)
         jsq = kernel_jacobiator(vf, θsq, ∂1(θsq), ∂2(θsq), Xf, Yf, Zf)
         @test abs(jsq - 176) < 1e-9                       # the float path reproduces the exact 176
-        @test abs(jlog) < 1e-9 * abs(jsq)                 # the log-mean bracket is Poisson
+        # Absolute, not relative to jsq: |jsq| is 176, so the old 1e-9*|jsq| admitted 1.8e-7 on a
+        # quantity whose round-off is ~1e-13.  "Poisson" means this is zero.
+        @test abs(jlog) < 1e-9                            # the log-mean bracket is Poisson
         println(
             "  N = 3:  c = v^2 Jacobiator = ", jsq, " (exact 176);  log-mean Jacobiator = ",
             jlog)
@@ -472,8 +476,6 @@ println("=" ^ 78)
             @test lhs == rhs
             @test !iszero(lhs)          # each h in turn, not only the linear one below
         end
-        # the check is not vacuous
-        @test !iszero(mean0(mul(mul(polyv([R(0), R(1)], f), A), pb(f, B))))
         println("  < h(f) A_f {f,B_f} > = - < H(f) {A_f,B_f} > exactly, h up to cubic, on T^2")
         println("  -> the reduction that yields c' = 1/Psi' holds; the flat-coordinate claim is not")
         println("     an approximation.")
