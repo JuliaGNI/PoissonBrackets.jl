@@ -46,7 +46,9 @@ const SCRIPTS = [
     "verify_fourbracket_metriplectic.jl",
     "verify_fourbracket_identities.jl",
     "verify_fourbracket_convergence.jl",
-    "verify_fourbracket_log_entropy.jl"
+    "verify_fourbracket_log_entropy.jl",
+    # the metric half: the collision-like bracket's O(N_q) moment collapse
+    "verify_metric_collapse.jl"
 ]
 
 const RULE = "="^67

@@ -10,6 +10,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Added — `verify_metric_collapse.jl`
+
+Whether the collision-like metric bracket of §5.2 can be evaluated in `O(N_q)` instead of the
+`O(N_q²)` its definition asks for. It can, exactly, and the script settles the count: **14 global
+moments**, 6 for `𝔻_s` (`m₀`, `p₁`, symmetric `M₂`) and 8 for `𝔽_s` (`n₀`, `B`, `T`). This decides
+whether the bracket is affordable inside Newton at all — naively it is ~3·10¹¹ flops per residual
+at 64² cells — so it is verified before anything is built on it, and it uses only the standard
+library, no grid and no basis.
+
+The mechanism is that `Q₂(z) = |z|²I − z⊗z` equals `z^⊥ ⊗ z^⊥` exactly in 2D, so the inner
+integrand is a quadratic in `∇φ(x')^⊥` and integrates to moments. Sufficiency and minimality are
+both measured rather than argued: every moment is a *linear* functional of the node weights, so
+perturbing the node data along the null space of the moment map must move neither coefficient —
+it moves them by `2.5 × 10⁻¹⁵` — while the `(moments → 𝔻_s, 𝔽_s)` Jacobian has full rank 14,
+`σ₁₄/σ₁ = 0.165`. The two apparent extra accumulators are redundant: `m₂ = tr M₂` and `c₁ = tr B`,
+and expanding `Q₂` from its definition rather than through the perp identity produces ten `𝔽_s`
+accumulators of which `n₂` and `T` enter only as `n₂ − T`.
+
+**Recentring on the `M`-weighted mean is a correctness requirement, not a refinement**, and the
+script measures the failure it prevents. Where `∇ψ` has a large mean and small spread — a plausible
+relaxed Grad–Shafranov state — the raw moment form computes `𝔻_s` as a difference of large terms.
+Over 200 draws per spread its relative error passes 1 at a spread of `10⁻⁷` and reaches `6 × 10⁶`
+at `10⁻¹⁰`, and it returns a `𝔻_s` that is **not positive semi-definite** in 45/200 draws at `10⁻⁷`,
+rising to 180/200. That flips the sign of the entropy production: a structure violation, not an
+accuracy loss. The centred form is a sum of two Gram terms, hence PSD by construction — 0 failures
+in 1800 draws — and its error degrades to `6 × 10⁻⁵` rather than catastrophically.
+
+Three controls, because a check that cannot fail proves nothing:
+
+- **The index convention.** `(b⊗w)_ij = b_i w_j` is load-bearing. Swapping `B` for its transpose
+  in the one term that distinguishes them gives a median relative error of `0.19`, above `0.1` at
+  97.5 % of outer points. It is reported as a spread and not a worst case on purpose: the
+  difference is exactly `(B − Bᵀ)δ`, so it *shrinks with* `δ` and is genuinely small at an outer
+  point near `β̄` — a control keyed to the minimum would fail for a reason unrelated to the
+  convention.
+- **The polynomial hypothesis.** The same null-space perturbation that leaves the quadratic kernel
+  invariant to `2 × 10⁻¹⁵` moves the true Landau kernel `|z|⁻³Q₂(z)` by `0.24`. The hypothesis is
+  real, not decorative, which is the sense in which §6's cost claim holds for Landau and not for
+  §5.2's own choice.
+- **The measure.** Grad–Shafranov's `dμ = dr dz / r` is `x`-independent, so it folds into the
+  quadrature weights and the collapse stays exact to `6 × 10⁻¹⁵` on `[1,7] × [−9.5,9.5]`. An
+  `x`-*dependent* measure breaks it by `0.99`, which is what "`dμ(x')` must not depend on `x`"
+  actually forbids.
+
+Registered in `scripts/run_all.jl`. No source changes and no new dependencies.
+
 ### Tracks the reshaped SimpleSplines
 
 The package is now built and tested against SimpleSplines `c74e37d`, which replaced the
