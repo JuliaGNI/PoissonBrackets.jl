@@ -58,6 +58,10 @@ export metric_matrix, metric_apply, metric_derivative, metric_operator,
 
 include("metricbrackets.jl")
 
+export CollisionBracket
+
+include("collisionbrackets.jl")
+
 export lie_poisson_matrix, lie_poisson_derivative,
        so3, se3, so_n, random_antisymmetric_c, sine_algebra, sine_coefficient,
        witt_truncation, poly_truncation, torus_truncation, graded_witt,

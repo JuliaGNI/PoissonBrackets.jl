@@ -52,6 +52,16 @@ Modules = [PoissonBrackets]
 Pages = ["metricbrackets.jl"]
 ```
 
+## The collision-like bracket — `collisionbrackets.jl`
+
+No qualification is needed here: no other source file's path ends in `collisionbrackets.jl`,
+and the filter of the section above does not match it either.
+
+```@autodocs
+Modules = [PoissonBrackets]
+Pages = ["collisionbrackets.jl"]
+```
+
 ## Hamiltonians — `hamiltonians.jl`
 
 ```@autodocs

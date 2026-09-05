@@ -10,6 +10,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Added — `CollisionBracket`, the §5.2 collision-like bracket, collapsed
+
+`CollisionBracket(space, φ̂ | Λ; mobility, mobility_derivative, density)` is the third
+`MetricBracket`, and the only one that is nonlocal:
+
+```
+(F,G) = ½ ∬ M(x,u) M(x',u') (∇f − ∇f')ᵀ Q₂(∇φ − ∇φ') (∇g − ∇g') dμ' dμ
+```
+
+Written that way one assembly costs `O(N_q²)` — some 10¹⁰ pair evaluations at 64² cells, which
+is not affordable inside Newton. It collapses. In 2D `Q₂(z) = z^⊥ ⊗ z^⊥` exactly and perping is
+linear, so with `β = (∇φ)^⊥` the kernel is quadratic in the inner point and the inner integral
+is a fixed set of global moments, evaluated once. Because one fixed global quadrature rule
+serves the inner sum at every outer point, the collapse is exact **at the quadrature level**,
+so no discrete conservation property is perturbed — and that is measured rather than asserted:
+the collapsed operator agrees with the `O(N_q²)` double sum to **7.0e-15** relative on the
+periodic torus with `M = 1`, and to **2.6e-15** on the homogeneous-Dirichlet square with
+`M(x,u) = ½ + u²` and the non-Lebesgue measure `dμ = dx/(1+x₁)`. The reference builds `Q₂` from
+its definition `|z|²I − z ⊗ z`, so this tests the perp identity and the moment expansion
+together rather than one rearrangement against another.
+
+The bracket is symmetric to **4.7e-17**, has `min λ / max λ = −3.7e-17` — semi-definite and
+genuinely singular, never definite — and `degeneracy_residual` is **3.3e-16**: `Q₂(z) z = 0`
+holds at every *pair* of quadrature points, so `𝔾 ∂H/∂û = 0` is exact discretely.
+
+**The moment count is 14 in `metric_apply` and eight `N`-vectors in the assembled operator**,
+and the difference is worth stating because the plan predicted only the first. Fourteen scalars
+— `m₀`(1), `q₁`(2), `Σ`(3), `n₀`(2), `B̃`(4), `T̃`(2) — suffice for the *pointwise* coefficients
+`𝔻_s` and `𝔽_s`, which is what `metric_apply` evaluates in `O(N_q)`. An assembled matrix is not
+a pointwise coefficient: the cross term `∬ κ ∇Φ_K(x)ᵀ Q₂ ∇Φ_L(x')` needs one `N`-vector per
+separable factor, of which there are nine, from eight accumulators (`ℝ`, `𝕊`, `𝕋`, with `a`
+derived as `tr 𝕋`). So the assembled operator is the local tensor-coefficient stiffness matrix
+minus a **rank-nine** correction, independent of the mesh. The two routes are independent
+implementations of the same operator, and they agree to **8.0e-16**.
+
+**Recentring is a correctness requirement, not a refinement**, and the test asserts the
+negative half. `Σ` is accumulated as `∫(β−β̄)⊗(β−β̄) M dμ'` directly; formed instead as
+`M₂ − m₀ β̄⊗β̄` it is the same algebra and it fails — at a gradient spread of `1e-8` about a mean
+of 3 its relative error is **0.21** and `𝔻_s` is **indefinite at 41 of 400** quadrature nodes,
+which flips the sign of the entropy production, while the centred form is at **1.2e-15** and
+positive semi-definite at 400/400. At a spread of `1e-10` the uncentred error reaches `1.8e+04`.
+The `q₁` terms are kept even though `q₁` vanishes at the centre: the bracket depends only on
+differences `β(x) − β(x')`, so the origin is free, and it is that freedom which makes
+`metric_derivative` analytic — the centre is frozen while `û` moves and `∂β̄/∂û` never appears.
+Against a central difference at `ε = 1e-5` the analytic derivative is right to **2.9e-11**
+relative, with both dependences live (`𝔾` is quadratic in `φ̂ = Λû` and bilinear in `M(x,u_h)`);
+a prescribed `φ` with a state-independent mobility short-circuits to zeros without assembling.
+
+Three controls that must fail, and do. Dropping the `⊥` and using `z ⊗ z` leaves a bracket that
+is still symmetric and still positive semi-definite — a Gram matrix is a Gram matrix — and only
+the degeneracy notices: residual **1.4**, against `1.1e-15`. The local half alone fails it the
+same way, because `𝔻_s ∇φ(x) ≠ 0` — only the *difference* of gradients is annihilated — so it
+is the nonlocal cross term that carries the degeneracy. And an `x`-**dependent** measure breaks
+the collapse by **45%**, which is what "`dμ(x')` must not depend on `x`" actually forbids; the
+Grad-Shafranov weight `dμ = dr dz / r` is harmless because it is absorbed into the quadrature
+weights and never sees the outer point, which is why `density` is a field of the type rather
+than an assumption.
+
+The entropy enters only through `M`, fixed by `eq:M-condition` `M ∂²_y s = 1`: `s = ω²/2` gives
+`M = 1`, `s = ω log ω` gives `M = ω`, and `s = y²/2(Cr²+D)` gives `M = Cr² + D`. The other half,
+`∂_x∂_y s`, is the `G = S` case of `metric_apply` and belongs to the flow, not the bracket. For
+§5.5 `M` is independent of `u` and `∂S/∂û` is linear, so the dissipative residual is an exact
+**cubic** polynomial in the degrees of freedom — checked, not asserted: on the `(r,z)` rectangle
+with `dμ = dr dz/r` the fourth difference is **1.5e-13** of the third and the third is constant
+to **8.9e-14**, while the control that makes `M` depend on `u` gives 0.52. So the Jacobian there
+is analytic and cheap and finite differences have no business being used for it.
+
+A `mobility` given as a function must bring its derivative (`0` where `M` depends on `x` alone);
+it is not differenced silently, for the same reason a general nonlinear generating field is
+refused. It lives in `src/collisionbrackets.jl` rather than in `metricbrackets.jl`, which stays
+about the hierarchy and the two local brackets.
+
 ### Added — `MetricBracket`, the symmetric half of a metriplectic structure
 
 `DiscreteBracket` had no counterpart: the package could write down an antisymmetric bracket and
