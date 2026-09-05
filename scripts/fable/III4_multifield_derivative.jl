@@ -175,8 +175,8 @@ header("2. Several fields: full Jacobiator by jets, m = 2, exact  (A) associativ
 
 # Third trap (met here): if every mean <phiC f1>, <psiC f2>, <chiC f1> vanishes, C_l(f) = 0 at the
 # base point, and then the obstruction is zero for EVERY bracket -- each cyclic term carries a
-# factor C_l -- while the individual Jacobiator terms need not be.  All four 4-D negatives below
-# returned an exact zero for this reason before phiC, psiC, chiC were given a mode of f.
+# factor C_l -- while the individual Jacobiator terms need not be.  Unless phiC, psiC and chiC each
+# carry a mode of f, all four 4-D negatives below give an exact zero for this reason.
 let Cf = mf4[3](f4)
     check(
         "4-D: the nonlocal functional derivative C_l(f) is not identically zero at the base point",
@@ -235,7 +235,7 @@ let z = 0 * la4, A = F -> [la4 + 0 * F[1], z + 0 * F[1]],
     B = F -> [lb4 + 0 * F[1], z + 0 * F[1]], C = F -> [z + 0 * F[1], lc4 + 0 * F[1]],
     f = [2 + 0 * lg4, 3 + lg4]
 
-    s, scale = mjacobiator(F -> sym2(F[2], F[1], 0 * F[1]), A, B, C, f)
+    s, _ = mjacobiator(F -> sym2(F[2], F[1], 0 * F[1]), A, B, C, f)
     J1 = mean(pb(la4, lb4) * pb(lc4, lg4))
     check("Hess, linear functionals: Jacobiator == -J1 != 0", s == -J1 && !iszero(J1),
         "Jacobiator " * fmt(s) * ", -J1 = " * fmt(-J1))

@@ -42,7 +42,7 @@ using Printf
 using PoissonBrackets: jacobi_residual, exact_rank
 
 include(joinpath(@__DIR__, "..", "check.jl"))
-using .Checks: header, check, check_exact, summary, fmt
+using .Checks: header, check, summary, fmt
 
 const Q = Rational{BigInt}
 const rng = MersenneTwister(2026_09_03)

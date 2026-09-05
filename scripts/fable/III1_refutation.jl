@@ -24,7 +24,7 @@
 # with D the total differential on M of z |-> (w c_u)(z, f(z)).  The tests below check this against
 # brute force in cases where it is nonzero, and only then use it where it vanishes.
 #
-# Run:  julia --project=. scripts/fable/III1_refutation.jl
+# Run:  julia --project=scripts scripts/fable/III1_refutation.jl
 #
 
 using LinearAlgebra
@@ -543,8 +543,8 @@ println("=" ^ 78)
         """
         Fields for T^D.  The wavevectors must touch EVERY coordinate: with Pi canonical on T^6 and
         fields supported on z_1..z_4 only, the (2,5) and (3,6) planes drop out, Pi acts at rank 2,
-        and S vanishes identically -- an accidental zero that makes the test vacuous.  This script
-        hit exactly that on the first run, so `run` now asserts non-vacuity.
+        and S vanishes identically -- an accidental zero that makes the test vacuous.  That is why
+        `run` asserts non-vacuity.
         """
         function setup(D)
             # Nine wavevectors: the D coordinate directions first, then skew pairs.  Two things
@@ -572,7 +572,6 @@ println("=" ^ 78)
             jac = jacobiator(M, f0, fds...)
             pred = jac_predicted(M, f0, fds...)
             A, B, Cc = (fd(seed(f0)).v for fd in fds)
-            wcu = M.w * horner(cu_coef(M), f0)
             snz = !isz(Sfour(M.Π, A, B, Cc, f0))
             @test jac == pred                       # brute force vs the master formula
             if expect === :nonzero
@@ -622,7 +621,7 @@ println("=" ^ 78)
             f0, fds = setup(D)
             cc = [konst(D, 0), konst(D, 3), konst(D, -2), konst(D, 5)]
             w = konst(D, 5) + harm((1, 0, 0, 0), 2, :cos) + harm((0, 0, 1, 0), 3, :sin)
-            j = run("CONTROL T^4, non-constant weight w(z)",
+            run("CONTROL T^4, non-constant weight w(z)",
                 Model{D}(canonical_bivector(2), w, cc),
                 f0, fds, :nonzero)
             # and the two candidate densities are genuinely different functions here
@@ -644,8 +643,8 @@ println("=" ^ 78)
         let D = 4
             f0, fds = setup(D)
             # The z-dependence must be rich enough for a wavevector pentagon to close: with one
-            # harmonic per coefficient this control returned an exact zero, i.e. it failed to be a
-            # control at all -- the trap III.1 documents, hit here in the other negative.
+            # harmonic per coefficient this control gives an exact zero, i.e. it is no control at
+            # all -- the trap III.1 documents, in the other negative.
             γ0 = konst(D, 1) + harm((1, 0, 0, 0), 2, :cos) + harm((1, 1, 0, 0), 1, :sin)
             γ1 = konst(D, 2) + harm((0, 1, 0, 0), 3, :sin) + harm((0, 1, 1, 0), 1, :cos) +
                  harm((1, 0, 1, 0), 1, :sin)

@@ -4,7 +4,7 @@ CurrentModule = PoissonBrackets
 
 # The verification scripts
 
-`scripts/` holds twenty-three scripts that machine-verify the claims of the three manuscripts,
+`scripts/` holds thirty scripts that machine-verify the claims of the three manuscripts,
 plus two that draw their figures. Eighteen of them are the converted Python prototypes that used
 to live in the manuscripts' `Scripts/` directories; [Verification](@ref) records the agreement
 claim by claim and the errata the comparison turned up. The four `verify_fourbracket_*` scripts
@@ -19,11 +19,17 @@ why the entries here are one line long.
 ```sh
 julia --project=scripts scripts/run_all.jl          # all twenty-two; nonzero exit on failure
 julia --project=scripts scripts/verify_kdv_bea.jl   # or just one
+sh scripts/run_fable.sh                             # the seven fable scripts, about 13 minutes
 ```
 
 Each script runs in its own process, so a failure — or an `exit(1)` from the harness — is
 contained and reported rather than taking the runner down. `search_dirac_variants.jl` is
 exploratory and slow and is deliberately excluded; run it by hand.
+
+The seven `fable/` scripts have a driver of their own rather than a place in `run_all.jl`. They
+are verification scripts on the same terms as the rest — not exploratory — but
+`fable/III4_multifield_derivative.jl` takes about eleven minutes by itself, which is longer than
+all of `run_all.jl` together, so folding them in would change what that driver is for.
 
 The symbolic scripts need SymPy, which `CondaPkg` provisions on first use through
 `SymPyPythonCall`. **That dependency is confined to `scripts/Project.toml`**: the package, its
@@ -59,6 +65,14 @@ grids: which resolutions a refinement uses is the calling manuscript's business.
 `scripts/torustools.jl` holds that business for the four-bracket manuscript — the fixed test
 fields, and the two- and four-grid refinement drivers. The fields were carried in three copies
 before it existed, and one of them in a fourth as a local variable.
+
+`scripts/fable/fabletools.jl` is the equivalent for the fable scripts: trigonometric polynomials
+over ``\mathbb{Q}(i)`` on ``T^D``, first-order jets for Gateaux derivatives, and the canonical
+bracket on ``T^{2n}``. Plain definitions rather than a module, so a script can extend `∂`, `mean`
+and `phasedim` to its own field type — which `III1_structure_function_4d.jl` does for its
+floating-point grids. The two `*_refutation.jl` scripts deliberately use **none** of it, and
+nothing from the package either: they import `LinearAlgebra` and `Test` and `include` nothing, so
+that a defect in the shared machinery cannot hide in both the claim and its check.
 
 `scripts/kdvtools.jl` is the shared KdV assembly. The Python carried `nq_for` in four files, a
 `Sys` class in three and the ``\mathbb{K}^2`` blocks in two; [Verification](@ref) records what
@@ -105,6 +119,23 @@ rather than structure constants over ``\mathbb{Q}``.
 | `verify_fourbracket_identities.jl` | every displayed identity of Sections 3 to 6: the Gardner auxiliary identities, both reductions to ``\int u[A_u,B_u]`` and the factor of two between them, the Plücker relation, Theorem 4.5 for five unrelated structure functions, the Casimirs, the weighted brackets, Section 6's vanishing bracket, and Lemma 3.1 — that each family satisfies exactly **one** of the two antisymmetry conditions | [Poisson brackets from four-brackets](@ref) |
 | `verify_fourbracket_convergence.jl` | that the six identities involving non-band-limited fields converge at the design order of the stencil, so their residuals are discretisation error and not a defect of the identity; observed orders 7.2 to 8.1 | [Poisson brackets from four-brackets](@ref) |
 | `verify_fourbracket_log_entropy.jl` | the log-entropy weight: the pole at ``u = e^{-1}`` cancels in the two-bracket and diverges in the four-bracket, no regular weight can replace it, and the Casimir shift moves it out of range | [Poisson brackets from four-brackets](@ref) |
+
+## The fable investigation
+
+Seven scripts from an autonomous investigation into discrete Poisson brackets. Four establish
+results; three of those are now backed in the manuscripts, and two further scripts are adversarial
+re-checks written to *overturn* an earlier one and sharing no code with it. Run by
+`scripts/run_fable.sh`, not by `run_all.jl`.
+
+| script | what it establishes | theory |
+|:--|:--|:--|
+| `fable/I1_vlasov_uN.jl` | finite-mode Vlasov–Poisson on a bounded domain is exactly Lie-Poisson on ``\mathfrak{u}(N)^*``; the homomorphism defect vanishes on the inner block for symbols of degree ``\le 1``, and at degree 2 is the Wigner correction | [Discrete Lie-Poisson brackets](@ref) |
+| `fable/II1_semidirect_flat.jl` | semidirect-product brackets (1-D Euler, shallow water) as pushforwards of a constant bracket under a pointwise chart; entropy-carrying systems are **not** in the class | [Discrete Lie-Poisson brackets](@ref) |
+| `fable/III1_structure_function_4d.jl` | ``\int c(u)\{A_u,B_u\}\mu`` is Poisson for every smooth ``c`` in every dimension, the obstruction being exact rather than pointwise zero | [Poisson brackets from four-brackets](@ref) |
+| `fable/III1_refutation.jl` | an independent re-derivation of the same statement that fails to overturn it, and finds the sign of the top-form lemma to be Liouville-specific; the non-Liouville control is non-zero | [Poisson brackets from four-brackets](@ref) |
+| `fable/III2_matrix_structure_function.jl` | the matrix analogue ``\operatorname{tr} c(W)[F_W,G_W]`` is Poisson **iff** ``c`` is affine for ``N \ge 3``; the spectral-kernel classification and the log-mean pushforward | [Poisson brackets from four-brackets](@ref) |
+| `fable/III2_refutation.jl` | the same, re-checked by brute-force eigenvector perturbation — the one step no closed form reaches; and that the pushforward family needs a definite spectrum | [Poisson brackets from four-brackets](@ref) |
+| `fable/III4_multifield_derivative.jl` | several fields: Poisson iff the induced product is associative; and structure functions may never depend on ``\nabla f``. **About eleven minutes** | [Poisson brackets from four-brackets](@ref) |
 
 ## The figures
 

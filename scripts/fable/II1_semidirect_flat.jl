@@ -584,7 +584,7 @@ dbx(x) = cos(x) - 1.5 * sin(3x)
 "Exact continuum J (a, b) at the nodes: (∂(ρ b), ρ a' + 2 m b' + m' b)."
 function exact_rows(x)
     ρ, dρ, u, du = ρx.(x), dρx.(x), ux.(x), dux.(x)
-    a, da, b, db = ax.(x), dax.(x), bx.(x), dbx.(x)
+    da, b, db = dax.(x), bx.(x), dbx.(x)
     m, dm = ρ .* u, dρ .* u .+ ρ .* du
     return dρ .* b .+ ρ .* db, ρ .* da .+ 2 .* m .* db .+ dm .* b
 end
@@ -646,7 +646,7 @@ end
 # sanity: the hand-assembled P2 matrices agree with the package's LagrangeSpace
 let ne = 12
     s = LagrangeSpace(2, ne)
-    x, M, S, _ = lagrange_matrices(Float64, 2, ne; periodic = true, L = 2π)
+    _, M, S, _ = lagrange_matrices(Float64, 2, ne; periodic = true, L = 2π)
     dM = maximum(abs, M - Matrix(mass_matrix(s)))
     dS = maximum(abs, S - Matrix(derivative_matrix(s)))
     check("hand-assembled P2 matrices agree with LagrangeSpace(2, $ne)",

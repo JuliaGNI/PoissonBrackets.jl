@@ -49,7 +49,7 @@ using Printf
 using PoissonBrackets: jacobi_residual, structure_constant_residual
 
 include(joinpath(@__DIR__, "..", "check.jl"))
-using .Checks: header, check, check_exact, check_refined, summary, fmt
+using .Checks: header, check, check_exact, summary, fmt
 
 const Q = Rational{BigInt}
 const CQ = Complex{Q}

@@ -6,7 +6,7 @@
 #
 #     include(joinpath(@__DIR__, "fabletools.jl"))
 #
-# Written for III1_structure_function_4d.jl and factored out for III4_multifield_derivative.jl.
+# Used by III1_structure_function_4d.jl and III4_multifield_derivative.jl.
 
 # ---------------------------------------------------------------------------
 # exact trigonometric polynomials over Q(i)

@@ -23,7 +23,7 @@
 # which is rational in the entries of E.  No closed form is assumed anywhere; Psi is a prediction
 # that is compared against the result, on kernels that are neither c-brackets nor pushforwards.
 #
-# Run:  julia --project=. scripts/fable/III2_refutation.jl
+# Run:  julia --project=scripts scripts/fable/III2_refutation.jl
 #
 
 using LinearAlgebra
@@ -470,7 +470,7 @@ println("=" ^ 78)
             lhs = mean0(mul(mul(polyv(h, f), A), pb(f, B)))
             rhs = -mean0(mul(polyv(H, f), pb(A, B)))
             @test lhs == rhs
-            @test !iszero(lhs) || iszero(rhs)
+            @test !iszero(lhs)          # each h in turn, not only the linear one below
         end
         # the check is not vacuous
         @test !iszero(mean0(mul(mul(polyv([R(0), R(1)], f), A), pb(f, B))))
@@ -485,16 +485,22 @@ println("=" ^ 78)
         # psi' = 1/c' = 1/(2v) blows up at v = 0 and the log-mean kernel is not real across it.
         # The theorem is consistent; what this bounds is the *application* claim, since a Zeitlin
         # truncation of 2-D Euler vorticity has eigenvalues of both signs.
-        @test (1 / 2) / 1.0e-3 > 400          # psi' = 1/(2v) is unbounded as v -> 0
-        @test (1 / 2) / 1.0e-6 > 400000
+        ϖlog(a, b) = 2 * (a - b) / log(a / b)
+        # Across zero the kernel is not a real number at all -- log of a negative ratio.
         for (a, b) in ((1.0, -2.0), (3.0, -0.5), (-1.0, 4.0))
-            @test a / b < 0                    # log(a/b) is not real, so varpi_psi is undefined
+            @test_throws DomainError ϖlog(a, b)
         end
-        # within one sign the kernel is fine, which is what makes the restriction a restriction
-        # rather than an outright failure
-        for (a, b) in ((1.0, 2.0), (0.5, 4.0))
-            @test isfinite(2 * (a - b) / log(a / b))
+        # Within one sign it is finite, which is what makes this a restriction rather than an
+        # outright failure.
+        for (a, b) in ((1.0, 2.0), (0.5, 4.0), (-2.0, -3.0))
+            @test isfinite(ϖlog(a, b))
         end
+        # And the agreement with the c-bracket kernel a + b, which is what "same continuum limit"
+        # rests on, degrades as the spectrum approaches zero: 2L -> 0 while a + b -> a.
+        gap(a, b) = abs(ϖlog(a, b) - (a + b)) / (a + b)
+        @test gap(1.0, 0.9) < 0.01             # comparable eigenvalues: the two kernels agree
+        @test gap(1.0, 1.0e-6) > 0.8           # one eigenvalue near zero: they do not
+        @test gap(1.0, 1.0e-12) > gap(1.0, 1.0e-6)
         println("  c = v^2 has c' > 0 only on v > 0: the log-mean kernel 2(a-b)/log(a/b) is real")
         println("  only when a and b share a sign, so the pushforward representative of the")
         println("  enstrophy bracket exists on definite spectra only.")
