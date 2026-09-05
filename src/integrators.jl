@@ -2,7 +2,7 @@
 @doc raw"""
     IntegratorMethod
 
-A one-step method for a [`HamiltonianFlow`](@ref).
+A one-step method for an [`AbstractFlow`](@ref).
 
 The methods here are chosen to expose a trade-off rather than to cover the space of
 integrators. Three properties are in play — whether the map is Poisson, whether it conserves
@@ -319,7 +319,7 @@ So the crossover is near `N = 125`, and `:dense` stays the default.
     same matrices to the accuracy their condition number allows, so `SparspakLU` is the default
     for this formulation. Do not override it without checking the residual.
 """
-struct Integrator{T, FT <: HamiltonianFlow{T}, MT <: IntegratorMethod, ST, CT, BT, BCT}
+struct Integrator{T, FT <: AbstractFlow{T}, MT <: IntegratorMethod, ST, CT, BT, BCT}
     flow::FT
     method::MT
     Δt::T
@@ -334,7 +334,7 @@ struct Integrator{T, FT <: HamiltonianFlow{T}, MT <: IntegratorMethod, ST, CT, B
     formulation::Symbol         # :dense (the state alone) or :mixed (state + auxiliary)
 end
 
-function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
+function Integrator(f::AbstractFlow{T}, method::IntegratorMethod, Δt::Real;
         refactorize::Integer = 5,
         û₀ = nothing,
         f_abstol = default_f_abstol(T, nbasis(f.space), û₀),
@@ -424,12 +424,12 @@ timestep(integ::Integrator) = integ.Δt
 # ∂r/∂y = I - Δt ∂Φ/∂y. Writing the Jacobians out rather than differencing them is what
 # lets the Poisson-map test below measure the method instead of its own truncation error.
 
-function residual!(r, ::ImplicitMidpoint, f::HamiltonianFlow, un, y, Δt)
+function residual!(r, ::ImplicitMidpoint, f::AbstractFlow, un, y, Δt)
     ū = (un .+ y) ./ 2
     r .= y .- un .- Δt .* vectorfield(f, ū)
 end
 
-function residual_jacobian!(j, ::ImplicitMidpoint, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian!(j, ::ImplicitMidpoint, f::AbstractFlow, un, y, Δt)
     ū = (un .+ y) ./ 2
     j .= -(Δt / 2) .* jacobian(f, ū)
     @inbounds for i in axes(j, 1)
@@ -438,7 +438,7 @@ function residual_jacobian!(j, ::ImplicitMidpoint, f::HamiltonianFlow, un, y, Δ
     return j
 end
 
-function residual!(r, ::AverageVectorField, f::HamiltonianFlow, un, y, Δt)
+function residual!(r, ::AverageVectorField, f::AbstractFlow, un, y, Δt)
     r .= y .- un
     for τ in AVF_NODES
         r .-= (Δt / 2) .* vectorfield(f, un .+ τ .* (y .- un))
@@ -446,7 +446,7 @@ function residual!(r, ::AverageVectorField, f::HamiltonianFlow, un, y, Δt)
     return r
 end
 
-function residual_jacobian!(j, ::AverageVectorField, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian!(j, ::AverageVectorField, f::AbstractFlow, un, y, Δt)
     fill!(j, 0)
     for τ in AVF_NODES
         j .-= (Δt * τ / 2) .* jacobian(f, un .+ τ .* (y .- un))
@@ -657,11 +657,11 @@ function _solve_or_explain!(û, solver, state, params)
     return û
 end
 
-function residual!(r, m::ProjectionMethod, f::HamiltonianFlow, un, y, Δt)
+function residual!(r, m::ProjectionMethod, f::AbstractFlow, un, y, Δt)
     residual!(r, m.base, f, un, y, Δt)
 end
 
-function residual_jacobian!(j, m::ProjectionMethod, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian!(j, m::ProjectionMethod, f::AbstractFlow, un, y, Δt)
     residual_jacobian!(j, m.base, f, un, y, Δt)
 end
 
@@ -745,13 +745,13 @@ end
 The derivative of the step's residual with respect to the *initial* state ``\\hat{u}^n``,
 the second half of what [`tangent_map`](@ref) needs.
 """
-function residual_jacobian_initial(::ImplicitMidpoint, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian_initial(::ImplicitMidpoint, f::AbstractFlow, un, y, Δt)
     ū = (un .+ y) ./ 2
     J = -(Δt / 2) .* jacobian(f, ū)
     J - I
 end
 
-function residual_jacobian_initial(::AverageVectorField, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian_initial(::AverageVectorField, f::AbstractFlow, un, y, Δt)
     N = length(un)
     J = zeros(eltype(un), N, N)
     for τ in AVF_NODES
@@ -815,8 +815,8 @@ Both fields here have essentially imaginary spectra, so the imaginary-axis limit
 relevant one. ``\rho`` grows like ``h^{-3}`` through the third derivative, which is why an
 explicit method needs so many more steps than an implicit one at the same resolution.
 """
-stability_limit(f::HamiltonianFlow, û::AbstractVector) = 2 * sqrt(2) /
-                                                         maximum(abs, eigvals(jacobian(f, û)))
+stability_limit(f::AbstractFlow, û::AbstractVector) = 2 * sqrt(2) /
+                                                      maximum(abs, eigvals(jacobian(f, û)))
 
 @doc raw"""
     project_invariants!(û, space, invariants, targets; maxiter = 20, tol = 1e-14)

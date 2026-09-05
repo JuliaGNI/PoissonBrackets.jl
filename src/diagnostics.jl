@@ -206,6 +206,38 @@ function drift(traj::Trajectory{T}, name::Symbol; atol = sqrt(eps(T))) where {T}
     d / ref
 end
 
+@doc raw"""
+    entropy_production(flow, û)
+
+The rate at which the metric half of a [`MetriplecticFlow`](@ref) dissipates the entropy,
+
+```math
+(S, S)_d = \left( \frac{\partial S}{\partial \hat{u}} \right)^T \mathbb{G} (\hat{u})
+           \left( \frac{\partial S}{\partial \hat{u}} \right) \ge 0 ,
+```
+
+non-negative for the same reason [`ispositive_semidefinite`](@ref) is true, and equal to
+``- \dot{S}`` when the Poisson half is absent.
+
+# Why this and not the drift in `S`
+
+Because they fail differently, and only one of the two failures shows up as a drift. A metric
+bracket assembled with a sign error still dissipates *something*: it produces entropy of the
+wrong sign, and ``S`` then grows, which is a backward heat equation and not a small error. A
+bracket that has lost its degeneracy instead leaks ``H``. Measuring only ``|S - S_0|`` — which
+is what [`deviation`](@ref) records — reports both as "the quantity moved", and by the same
+amount whichever way it moved.
+
+So this is the quantity to assert a **sign** on, and the ``S`` series the one to assert
+**monotonicity** on. Neither is implied by the other: the Poisson half contributes
+``\{S, H\}`` to ``\dot{S}``, which is not sign-definite, so a flow with a bracket can produce
+entropy at every step and still have ``S`` rise.
+"""
+function entropy_production(f::MetriplecticFlow, û::AbstractVector)
+    g = entropy_gradient(f, û)
+    dot(g, metric_apply(f.metric, û, g))
+end
+
 """
     absolute_drift(traj, name)
 

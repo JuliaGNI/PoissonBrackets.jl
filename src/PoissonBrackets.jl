@@ -106,9 +106,13 @@ export MassCasimir, QuadraticHamiltonian
 
 include("hamiltonians.jl")
 
-export HamiltonianFlow, vectorfield, vectorfield!, jacobian
+export AbstractFlow, HamiltonianFlow, vectorfield, vectorfield!, jacobian
 
 include("flows.jl")
+
+export MetriplecticFlow, entropy, entropy_gradient, entropy_hessian
+
+include("metriplecticflows.jl")
 
 export IntegratorMethod, ExplicitEuler, RungeKutta4, ImplicitMidpoint,
        AverageVectorField, DiscreteGradient, Gonzalez, GonzalezMass,
@@ -139,7 +143,7 @@ export CamassaHolmSystem, camassa_holm_bracket_1, camassa_holm_bracket_2,
 include("equations/camassaholm.jl")
 
 export invariants, invariant_names, integrate, Trajectory, deviation,
-       drift, absolute_drift, growth, poisson_defect
+       drift, absolute_drift, growth, poisson_defect, entropy_production
 export energyplot, stateplot, sweepplot, convergenceplot,
        INTEGRATOR_COLORS, FLOW_STYLES, ERROR_FLOOR
 

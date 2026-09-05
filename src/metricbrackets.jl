@@ -71,6 +71,42 @@ alongside, exactly as for [`poisson_derivative`](@ref).
 """
 function metric_derivative end
 
+@doc raw"""
+    metric_directional(bracket, û, v)
+
+The matrix ``D_{im} = \partial \left( \mathbb{G}(\hat{u}) \, v \right)_i /
+\partial \hat{u}_m`` at fixed `v`, i.e. the derivative tensor of
+[`metric_derivative`](@ref) already contracted against one direction.
+
+This is the symmetric-half counterpart of [`bracket_directional`](@ref) and exists for the
+same reason. Differentiating ``\mathbb{G}(\hat{u}) \, \partial S/\partial \hat{u}`` produces
+one term from the entropy and one from the bracket, and this is the second — the only part of
+``\partial \mathbb{G}/\partial \hat{u}`` a Newton iteration ever needs. The full tensor is
+``O(N^3)`` in storage and costs ``N`` sandwiches to build, which is not affordable inside a
+time loop; contracting first replaces each sandwich by a single mass solve against the one
+direction that is actually wanted.
+
+The generic method here does form the tensor, so a bracket that defines only the three
+interface methods still has a correct Jacobian. Every bracket in the package overrides it: a
+prescribed generating field makes it identically zero, and the ``\Lambda``-generated forms are
+closed or matrix-free.
+"""
+function metric_directional(b::MetricBracket{T}, û::AbstractVector,
+        v::AbstractVector) where {T}
+    dG = metric_derivative(b, û)
+    N = length(û)
+    D = zeros(T, N, N)
+    @inbounds for m in 1:N, i in 1:N
+
+        s = zero(T)
+        for j in 1:N
+            s += dG[m, i, j] * v[j]
+        end
+        D[i, m] = s
+    end
+    return D
+end
+
 """
     issymmetric(bracket, û; atol = 1e-12)
 
@@ -357,6 +393,40 @@ function metric_derivative(b::DoubleBracket{T, ST, <:AbstractMatrix}, û::Abstra
     return dG
 end
 
+function metric_directional(b::DoubleBracket{T, ST, <:AbstractVector}, û::AbstractVector,
+        v::AbstractVector) where {T, ST}
+    zeros(T, length(û), length(û))
+end
+
+@doc raw"""
+    metric_directional(b::DoubleBracket, û, v)
+
+The same ``N`` perturbed assemblies as [`metric_derivative`](@ref), but each one contracted
+against ``\mathbb{M}^{-1} v`` and solved once rather than sandwiched.
+
+That is the whole saving, and it is an order rather than a constant: the perturbed operator
+``\dot{\mathbb{A}}^m`` is sparse, so ``\dot{\mathbb{A}}^m w`` costs ``O(N)`` where
+``\mathbb{M}^{-1} \dot{\mathbb{A}}^m \mathbb{M}^{-1}`` costs ``O(N^3)``. What is left is
+``N`` assemblies and ``N + 1`` mass solves, against the ``O(N^4)`` of building the tensor and
+contracting it afterwards.
+"""
+function metric_directional(b::DoubleBracket{T, ST, <:AbstractMatrix}, û::AbstractVector,
+        v::AbstractVector) where {T, ST}
+    s = b.space
+    N = nbasis(s)
+    F = mass_factorization(s)
+    X = hamiltonian_field(s, _generator(b, û))
+    w = F \ Vector(v)                      # the inner M⁻¹ of the sandwich, formed once
+
+    D = zeros(T, N, N)
+    for m in 1:N
+        Ẋ = hamiltonian_field(s, Vector(b.h[:, m]))
+        Ȧ = tensor_weighted_matrix(s, _outer(Ẋ, X) .+ _outer(X, Ẋ))
+        D[:, m] = F \ Vector(Ȧ * w)
+    end
+    return D
+end
+
 ## Projector bracket
 
 @doc raw"""
@@ -492,4 +562,39 @@ function metric_derivative(b::ProjectorBracket{T, ST, <:AbstractMatrix}, û::Abs
                       2 * φ[i] * φ[j] * q[m] / n^2
     end
     return dG
+end
+
+function metric_directional(
+        b::ProjectorBracket{T, ST, <:AbstractVector}, û::AbstractVector,
+        v::AbstractVector) where {T, ST}
+    zeros(T, length(û), length(û))
+end
+
+@doc raw"""
+    metric_directional(b::ProjectorBracket, û, v)
+
+Closed form, ``O(N^2)``: contracting the tensor of [`metric_derivative`](@ref) with `v`
+collapses every index sum into an inner product,
+
+```math
+D_{im} = - \frac{(\hat{\phi} \cdot v) \, \Lambda_{im}
+              + \hat{\phi}_i \, (\Lambda^T v)_m}{n}
+         + \frac{2 \, (\hat{\phi} \cdot v) \, \hat{\phi}_i \,
+                 (\Lambda^T \mathbb{M} \hat{\phi})_m}{n^2} ,
+\qquad n = \hat{\phi}^T \mathbb{M} \hat{\phi} .
+```
+
+Nothing of size ``N^3`` is formed, and no quadrature is touched — this is two matrix-vector
+products and two dot products.
+"""
+function metric_directional(
+        b::ProjectorBracket{T, ST, <:AbstractMatrix}, û::AbstractVector,
+        v::AbstractVector) where {T, ST}
+    Λ = b.h
+    φ = _generator(b, û)
+    Mφ = mass_matrix(b.space) * φ
+    n = dot(Mφ, φ)
+    φv = dot(φ, v)
+    (-φv / n) .* Matrix(Λ) .- (φ / n) * (Λ' * v)' .+
+    ((2 * φv / n^2) .* φ) * (Λ' * Mφ)'
 end

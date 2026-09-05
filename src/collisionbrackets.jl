@@ -470,3 +470,43 @@ function metric_derivative(b::CollisionBracket{T}, û::AbstractVector) where {T}
     end
     return dG
 end
+
+@doc raw"""
+    metric_directional(b::CollisionBracket, û, v)
+
+The perturbed assemblies of [`metric_derivative`](@ref), each contracted against
+``\mathbb{M}^{-1} v`` and solved once instead of sandwiched.
+
+The operator derivative is dense here — the cross term is nonlocal — so this is ``N``
+assemblies of size ``N^2`` and ``N + 1`` mass solves, against the ``O(N^4)`` of ``N``
+sandwiches. The state enters through ``\hat{\phi} = \Lambda \hat{u}`` and through
+``M(x, u_h)``, and the same short-circuit applies: a prescribed ``\phi`` with a
+state-independent mobility makes the bracket constant, and the derivative is zero without any
+assembly at all.
+"""
+function metric_directional(b::CollisionBracket{T}, û::AbstractVector,
+        v::AbstractVector) where {T}
+    s = b.space
+    N = nbasis(s)
+    st = _collision_state(b, û)
+
+    D = zeros(T, N, N)
+    (b.h isa AbstractVector && all(iszero, st.Mu)) && return D
+
+    F = mass_factorization(s)
+    w = F \ Vector(v)
+    Φ = basis_values(s, (0, 0))
+    zero_samples = zeros(T, length(st.μ))
+    for m in 1:N
+        δM = st.Mu .* Vector(Φ[m, :])
+        δc = st.μ .* δM
+        δγ = if b.h isa AbstractMatrix
+            δφ̂ = Vector(b.h[:, m])
+            (-field(s, δφ̂, (0, 1)), field(s, δφ̂, (1, 0)))
+        else
+            (zero_samples, zero_samples)
+        end
+        D[:, m] = F \ (_collision_operator_derivative(b, st, δγ, δc, δM) * w)
+    end
+    return D
+end
