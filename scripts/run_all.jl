@@ -16,6 +16,10 @@
 #
 # `search_dirac_variants.jl` is exploratory and slow, and is deliberately excluded, exactly
 # as it is from the `run_all.sh` it replaces.  Run it by hand.
+#
+# The seven scripts under `fable/` are also excluded, and for a different reason: they are
+# verification scripts on the same footing as these, but `fable/III4_multifield_derivative.jl`
+# alone takes about eleven minutes.  They have their own driver, `scripts/run_fable.sh`.
 
 const SCRIPTS = [
     # the KdV bracket pair: P1 constant and Poisson, P2 antisymmetric but not Jacobi
