@@ -10,6 +10,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Requires SimpleSplines with boundary conditions and tensor products
+
+The package is now built and tested against SimpleSplines `c74e37d`, which replaced the
+periodic-only package with three bases, arbitrary homogeneous boundary conditions, and tensor
+products of any number of them. **Nothing here changes.** The suite passes unaltered — 1171
+assertions, 16 testsets — and no number moved.
+
+That is worth recording rather than assuming, because the dependency's own notes list three
+breaking changes, and none of the three is reachable from here:
+
+| the change there | why it is invisible here |
+|:--|:--|
+| `Mesh` partitions a closed interval, not a periodic one | `SplineSpace` hands the mesh straight to `PeriodicBSplineBasis`, whose dimension is still `N = n` |
+| `breakpoints` returns `n+1` points instead of `n` | called nowhere in this package; `SplineQuadrature` absorbs it |
+| `cellbounds` is gone | called nowhere in this package |
+
+`UniformMesh(n, L)`, `GradedMesh(n, L)` and `RandomMesh(n, L)` still accept a bare `L` meaning
+``[0, L]`` and still produce the same breakpoints, so every call site in `src/`, `test/` and
+`scripts/` stands unedited — including the non-2π `UniformMesh(64, 40.0)` of the soliton tests.
+
+One thing did change, and correcting it touched a comment, a docstring and the discretisation
+page: `mass_operator` now dispatches on the **basis** rather than on the mesh. A uniform mesh is
+necessary for circulance but not sufficient, since a clamped basis has `p` boundary functions at
+each end that are not translates of anything. `LagrangeSpace` still builds its `FactorizedMass`
+by hand, and now for a second reason as well — there is no SimpleSplines basis to dispatch on.
+
+The two reasons it *documented* for not using the alternatives were stale, and are now measured
+rather than asserted. `CirculantMass` does not require one degree of freedom per cell:
+`CirculantMass(M, n)` takes `n` as a free argument, and the `ncells` constraint lived in the
+`mass_operator(M, ::UniformMesh)` that `c74e37d` deleted. What actually rules it out is that a
+nodal mass matrix is block-circulant in `p × p` blocks for `p > 1`, the nodes within an element
+not being translates of one another. And `BandedMass` does not refuse the periodic seam — it
+reads its half-bandwidth off the stored entries, finds `N - 1` because of the wrap's corner
+entries, and factorises a dense matrix while calling it banded. The conclusion both texts drew,
+that the Fourier path is available only at `p == 1`, was correct throughout; only the reasons
+were wrong.
+
+`[compat]` is unchanged at `SimpleSplines = "1"`. The package is still unregistered and still
+`1.0.0-DEV`, so the `[sources]` entries and the comments explaining them stay as they are.
+
 ### Added — `verify_zeitlin_three_bracket.jl`
 
 Whether the Bialynicki-Birula--Morrison three-bracket `[A, B, S] = {A, B}` reproduces the Zeitlin
