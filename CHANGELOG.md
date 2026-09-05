@@ -46,6 +46,36 @@ Everything is computed from the structure constants alone — the Killing form a
 `κ_mn = Σ_ij c_mi^j c_nj^i` — so nothing depends on the matrix realisation `sine_algebra`
 happens to use. No new exports and no new dependencies; the script uses `sine_algebra`,
 `lie_poisson_matrix`, `lie_poisson_derivative`, `jacobi_residual`, `so3` and `se3` as they stand.
+### Added — an adversarial re-check of the matrix structure-function bracket
+
+`scripts/fable/III2_refutation.jl` attacks the same two statements as
+`scripts/fable/III2_matrix_structure_function.jl` — that `tr(c(W)[F_W,G_W])` on `gl(N)*`/`u(N)*` is
+Poisson iff `c` is affine, and the spectral-kernel classification behind the pushforward family —
+from an implementation that shares no code with it. 116 checks, exact over `ℚ`.
+
+The point of the script is one step that no closed form can cross-check. A spectral-kernel bracket
+is defined through the eigendecomposition of `V`, so its Jacobiator needs the derivative of the
+**eigenvectors**; the classification theorem rests entirely on that step. Here the gradient is
+instead built by brute force from first-order perturbation theory at a diagonal `V` with distinct
+rational eigenvalues, which is rational in the entries, and the theorem's closed form is then a
+prediction compared against it. The perturbation machinery is itself validated first against a route
+that never mentions an eigenvector — the polynomial Fréchet derivative
+`Dc_W(E) = Σ_k a_k Σ_{i+j=k−1} W^i E W^j` — which agrees with it exactly.
+
+Both statements survive. The closed form matches brute force on all twenty kernel/dimension pairs
+tried, including three kernels that are neither `c`-brackets nor pushforwards, where the two special
+families give no cross-check at all; five pushforwards give exactly zero and five non-pushforwards
+exactly non-zero. `N = 2` is confirmed to vanish for every `c`, and the script's own derivation shows
+why without Cayley–Hamilton: the obstruction needs three *distinct* eigenvalue indices, so `N = 2` is
+not a weak control but no control. The log-mean bracket is Poisson to `8e-15` relative through the
+same code path that returns an exact `176` for `c = v²`, and the two kernels are shown to separate at
+`O(gap²)`, which is the reported `N⁻²` rate.
+
+One thing the script records that the earlier one does not: `c' > 0` restricts `c = v²` to `v > 0`,
+the flat coordinate `ψ = ½ln v` does not cross zero, and the log-mean kernel `2(a−b)/log(a/b)` is
+real only when `a` and `b` share a sign. The pushforward representative of the enstrophy bracket
+therefore exists on definite spectra only — which a Zeitlin truncation of 2-D Euler vorticity is not.
+
 ### Added — an adversarial re-check of the structure-function bracket
 
 `scripts/fable/III1_refutation.jl` attacks the same statement as
