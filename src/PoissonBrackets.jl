@@ -35,6 +35,10 @@ export basis, nbasis, degree, order, nodes, ncells, domainlength,
 
 include("spaces.jl")
 
+export TensorSplineSpace, tensor_weighted_matrix, domainvolume
+
+include("tensorspaces.jl")
+
 export rref, exact_rank, kernel
 
 include("exact.jl")

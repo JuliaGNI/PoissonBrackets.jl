@@ -10,6 +10,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Added — `TensorSplineSpace`, a tensor-product `DiscreteSpace`
+
+`DiscreteSpace` had two concrete spaces and both were one-dimensional and periodic, so every
+equation in the package was one-dimensional too. `TensorSplineSpace{T,D}` is the box
+`Ω₁ × … × Ω_D`, a thin wrapper over SimpleSplines' `TensorProductBasis` and
+`TensorProductQuadrature` reached through the one dispatching constructor
+`BSplineBasis(mesh, p, bc)` — so a periodic torus and a homogeneous-Dirichlet square differ by
+one argument, and degree, mesh, domain and boundary condition are each per axis. Two and three
+dimensions are the same code: `D` is a type parameter and nothing is written twice.
+
+The abstract interface's promise that everything downstream is "a weighted contraction of those
+tables … written once, generically" holds. `project`, `project!`, `basis_integrals` and `field`
+are the generic implementations of `spaces.jl` running unchanged, because the tabulation is kept
+as **one flat sparse `N × Q` Kronecker product** and the flattening — first axis fastest — is the
+same convention as `LinearIndices` of the basis and as `kron(M_D, …, M_1)`. Coefficients stay
+flat vectors, which is what the brackets, flows and integrators already take. The price is
+storage: 26 MB per derivative multi-index at `64²` cubic cells, which buys a
+`∫ f · Dᵃφ_k · Dᵇφ_l` with a **non-separable** `f` — something no sequence of one-dimensional
+contractions gives.
+
+What does not generalise is said so rather than papered over. `basis_values(space, d)` takes a
+per-axis multi-index: `(1,0)` is `∂₁`, `(0,1)` is `∂₂`. A scalar `d ≥ 1` is **rejected**, with a
+message naming the tuple — silently choosing an axis, or reading the scalar as a total order
+that `(2,0)` and `(1,1)` both satisfy, would answer a question that was not asked. `d = 0` stays
+meaningful, and that is what keeps the generic assemblies above working. `derivative_matrix`
+takes the axis it differentiates along, `stiffness_matrix` is `∫ ∇Φ_K · ∇Φ_L`, and
+`domainlength` returns the **per-axis tuple**; the scalar that does exist is the new
+`domainvolume`.
+
+`tensor_weighted_matrix(space, 𝔻)` is what the metric brackets need: `∫ ∂ₖΦ_K 𝔻ₖₗ(x) ∂ₗΦ_L dx`
+summed over `k, l`, assembled as `D²` scalar-weighted matrices. `𝔻` may be a constant matrix,
+per-component sample vectors, one matrix per quadrature point, or a function of the point. It is
+symmetric exactly when `𝔻` is, and positive semi-definite when `𝔻` is pointwise so; neither is
+imposed, both are checked.
+
+The mass solve goes through SimpleSplines' `KroneckerMass` — `D` one-dimensional solves along
+each axis, no `N × N` factorisation. `inverse_mass_matrix` exists because the generic assemblies
+name it, but it is **rebuilt on every call and not stored**: the Kronecker identity makes the
+arithmetic cheap and the `N²` storage is not (161 MB at `N = 67²`, growing as the fourth power of
+the resolution), so the docstring says outright that it is the wrong thing to call in a loop.
+`SplineSpace` forms it eagerly because at `N = 384` that is free; here it is not.
+
+Measured, in `test/tensorspaces_tests.jl`:
+
+- the mass matrix sums to `|Ω|` on the periodic torus **exactly** at `8 × 12` cells, and the
+  flattened `Φ diag(w) Φᵀ` and the Kronecker mass agree to `7 × 10⁻¹⁷` — which is the
+  first-axis-fastest convention being right rather than nearly right;
+- `L²` projection reproduces `x³y³` on a clamped cubic basis to `1.6 × 10⁻¹⁶`, and `x⁴` not at
+  all (`2.3 × 10⁻⁵`), so the first number measures exactness and not a fortunate mesh;
+- projection of `sin x₁ cos 2x₂` on the torus converges at order **3.82** between 16 and 32
+  cells — `O(h^{p+1})`, not spectral, which is the deliberate deviation from the paper's Fourier
+  method showing up where it should;
+- the generalised eigenvalues of stiffness against mass on the `12 × 12` cubic torus match
+  `k₁² + k₂²` to `7.1 × 10⁻⁵` over the lowest 25 modes and to `0.60` at the top of the spectrum
+  — the second number is what makes the first a statement about the *resolved* modes;
+- the lowest Dirichlet eigenvalue on the unit square is `2π²` to `1.3 × 10⁻⁷`, i.e. `19.739211`
+  against `19.739209` — the §5.4 reference `λ₁,₁ = 2π²`, reached here by the space alone;
+- `tensor_weighted_matrix` with `𝔻 = I` is the stiffness matrix bit for bit (`0.0`), and with
+  `diag(1,0)` the `∂₁` block bit for bit, through all four coefficient forms.
+
+Three controls that can fail, and one that would have been vacuous:
+
+- an anisotropic `𝔻 = diag(2,1)` moves the matrix by 50 % of its scale, and by *exactly* the
+  extra `∂₁` block;
+- a pointwise-indefinite `𝔻` breaks positivity — lowest eigenvalue `−1.27` against `−2.3 × 10⁻¹⁵`
+  for the PSD one;
+- the asymmetry control has to use a **variable** coefficient. With a constant off-diagonal `𝔻`
+  the two antisymmetries of `∫φ φ'` on a periodic axis cancel and `∫∂₁Φ_K ∂₂Φ_L` comes out
+  symmetric to `2 × 10⁻¹⁶` by accident; the variable coefficient gives 27 % asymmetry. Written
+  the obvious way this check proves nothing.
+
+Three dimensions are exercised too, at `4³`: same accessors, same assembly, `𝔻 = I` reproducing
+the stiffness matrix bit for bit.
+
 ### Added — `verify_metric_collapse.jl`
 
 Whether the collision-like metric bracket of §5.2 can be evaluated in `O(N_q)` instead of the

@@ -17,9 +17,20 @@ The index below is complete regardless.
 
 ## Spaces — `spaces.jl`
 
+`Pages` is matched against the *end* of each source path, so this filter has to be qualified
+too: a bare `"spaces.jl"` also matches `tensorspaces.jl`, whose docstrings belong to the
+section below and would otherwise be emitted twice.
+
 ```@autodocs
 Modules = [PoissonBrackets]
-Pages = ["spaces.jl"]
+Pages = ["src/spaces.jl"]
+```
+
+## Tensor-product spaces — `tensorspaces.jl`
+
+```@autodocs
+Modules = [PoissonBrackets]
+Pages = ["tensorspaces.jl"]
 ```
 
 ## Brackets — `brackets.jl`
