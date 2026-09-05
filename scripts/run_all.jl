@@ -35,6 +35,7 @@ const SCRIPTS = [
     "verify_burgers_discretisation.jl",
     "verify_liepoisson_structure_constants.jl",
     "verify_liepoisson_4bracket.jl",
+    "verify_zeitlin_three_bracket.jl",
     "verify_gardner_4bracket.jl",
     "verify_dirac_reduction.jl",
     # the continuum four-brackets, and which of them reduce to a Lie-Poisson bracket

@@ -11,10 +11,17 @@
 #
 # and the construction needs two hypotheses, both load-bearing:
 #
-#   (S) the algebra is SEMI-SIMPLE, so that the Killing form kappa is non-degenerate and the
-#       lowered structure constants c_ijk = sum_m c_ij^m kappa_mk are totally antisymmetric;
+#   (S) the algebra is SEMI-SIMPLE, so that the Killing form kappa is NON-DEGENERATE;
 #   (Q) the Casimir in the third slot is the QUADRATIC one built from that form,
-#       S = 1/2 sum kappa^mn w_m w_n.
+#       S = 1/2 sum kappa^mn w_m w_n, whose gradient is then kappa^-1 w.
+#
+# Note what (S) does NOT buy, because the obvious reading is wrong and this script asserted it
+# in an earlier revision. The lowered structure constants c_ijk = sum_m c_ij^m kappa_mk are
+# totally antisymmetric for EVERY Lie algebra, semi-simple or not: that is ad-invariance of the
+# Killing form, kappa([x,y],z) + kappa(y,[x,z]) = 0, which holds unconditionally. Measured
+# below, se(3) and so(3) with abelian directions both have a singular kappa and both give a
+# (j,k) antisymmetry defect of exactly zero. Semi-simplicity is needed for kappa^-1 to exist,
+# so that (Q)'s Casimir exists at all -- step 1, not step 2.
 #
 # Salmon (2005) section 5 reports that the method "fails even to capture the Nambu bracket
 # (1.9)" -- the two-dimensional vorticity bracket -- because the continuum algebra of
@@ -26,22 +33,31 @@
 # I_2 = sum_k w_k w_{-k} is its Killing-form Casimir. Both hypotheses then hold on their
 # face, so the mechanism ought to go through after truncation even though it does not before.
 #
-# This script decides that. What is actually at stake is (S) and (Q): once the lowered
-# constants are totally antisymmetric and S is the Killing quadratic form, the identity
-# [A, B, S] = {A, B} is kappa kappa^-1 = I and carries no information. So the checks are
+# This script decides that. Once kappa is invertible and S is its quadratic form, the identity
+# [A, B, S] = {A, B} is kappa kappa^-1 = I and carries no information by itself -- so what the
+# checks have to establish is that the hypotheses hold here and bite elsewhere:
 #
-#   1. kappa is non-degenerate for the sine algebra    -- hypothesis (S)
-#   2. the lowered c_ijk is totally antisymmetric      -- hypothesis (S), the real content
+#   1. kappa is non-degenerate for the sine algebra     -- hypothesis (S), and the real content
+#   2. the lowered c_ijk is totally antisymmetric       -- an implementation check, NOT evidence
+#      for (S); see the note above
 #   3. kappa^mn is proportional to delta_{m+n,0}, i.e. Zeitlin's I_2 IS the Killing Casimir
 #                                                       -- hypothesis (Q), the link to the paper
 #   4. the three-bracket with S = I_2 reproduces the Zeitlin bracket exactly
 #   5. NEGATIVE CONTROL for (Q): Zeitlin's cubic invariant I_3 in the third slot does not
-#   6. NEGATIVE CONTROL for (S): so(3) padded with abelian directions has a degenerate
-#      Killing form, and step 2 fails there
+#   6. NEGATIVE CONTROL for (S): se(3), where kappa is singular AND its degenerate directions
+#      are non-central, so not even a pseudo-inverse recovers the bracket
 #
 # Steps 5 and 6 are the point of the script as much as steps 1-4. A positive result whose
 # hypotheses were never shown to bite is not evidence that the hypotheses are what did the
 # work.
+#
+# Step 6 is se(3) and not so(3) padded with abelian directions, which is the control this
+# script first used and which does not bite: there kappa is singular, but the degenerate
+# directions are central, so the bracket vanishes on them anyway and pinv(kappa) recovers J
+# exactly (measured: max|B3 - J| = 0). se(3) has a rotation-translation bracket living on its
+# degenerate directions, and there pinv recovers nothing at all. This is the same trap
+# `Projects/CLAUDE.md` records for so(3) as a Jacobi control, in a second guise: a control that
+# fails for a reason that does not generalise is no better than one that cannot fail.
 
 using PoissonBrackets
 using LinearAlgebra
@@ -123,10 +139,13 @@ for N in NS
         ratio > 1e-8, @sprintf("sigma_min/sigma_max = %.2e", ratio))
 end
 
-header("2. The lowered structure constants are totally antisymmetric")
+header("2. The lowered structure constants are totally antisymmetric (implementation check)")
 
-println("   This is the content of hypothesis (S). c_ijk = sum_m c_ij^m kappa_mk is already")
-println("   antisymmetric in (i,j); what semi-simplicity buys is antisymmetry in (j,k) too.")
+println("   c_ijk = sum_m c_ij^m kappa_mk is antisymmetric in (i,j) because the commutator is,")
+println("   and in (j,k) by ad-invariance of the Killing form -- which holds for EVERY Lie")
+println("   algebra, so this is not evidence for (S). Step 6 measures the same defect on two")
+println("   algebras with a singular kappa and gets zero there too. What this does check is")
+println("   that the index conventions and the lowering are right.")
 println()
 for N in NS
     _, C = sine_algebra(N)
@@ -137,7 +156,7 @@ for N in NS
     d12 = maximum(abs, c .+ permutedims(c, (2, 1, 3))) / scale
     @printf("     N = %2d:  rel. defect in (i,j) = %.2e,  in (j,k) = %.2e\n", N, d12, d23)
     check("N = $N: c_ijk is antisymmetric in i,j", d12 < 1e-10)
-    check("N = $N: c_ijk is antisymmetric in j,k -- so it is TOTALLY antisymmetric",
+    check("N = $N: c_ijk is antisymmetric in j,k too, by ad-invariance",
         d23 < 1e-10, @sprintf("relative defect = %.2e", d23))
 end
 
@@ -177,7 +196,7 @@ for N in NS
     # The Killing quadratic form S = 1/2 kappa^mn w_m w_n has gradient dS = kappa^-1 w, and
     # taking it in that form leaves NO free scale to get right: c_ijk (kappa^-1 w)_k
     # = c_ij^m kappa_mk kappa^kl w_l = c_ij^m w_m identically. Any rescaling here would be a
-    # place for an error to hide, which is exactly what happened on the first attempt.
+    # place for an error to hide.
     κinv = inv(κ)
     B3 = three_bracket_matrix(c, κinv * w)
     err = rel(B3, J)
@@ -187,9 +206,11 @@ for N in NS
     # ...and step 3 says that S is Zeitlin's I_2 up to a constant, so the same holds for I_2
     # with the bracket rescaled by that constant, and by nothing else.
     λ, shape = killing_pairing_scale(κinv, reflection_matrix(N, modes, pos))
-    dI2 = [w[pos[(mod(-m[1], N), mod(-m[2], N))]] for m in modes]
-    errI2 = rel(λ .* three_bracket_matrix(c, dI2), J)
-    check("N = $N: [., ., I_2] equals it too, rescaled by the step-3 constant alone",
+    # I_2 = sum_k w_k w_{-k}, so dI_2/dw_m = 2 w_{-m} -- the factor 2 written out, since the
+    # rescaling below is then lambda/2 and not lambda.
+    dI2 = [2 * w[pos[(mod(-m[1], N), mod(-m[2], N))]] for m in modes]
+    errI2 = rel((λ / 2) .* three_bracket_matrix(c, dI2), J)
+    check("N = $N: [., ., I_2] equals it too, rescaled by lambda/2 and nothing else",
         shape < 1e-10 && errI2 < 1e-10,
         @sprintf("relative deviation = %.2e at lambda = %.6g", errI2, abs(λ)))
     # and the resulting two-bracket is Poisson, which it must be if it is that bracket
@@ -239,32 +260,51 @@ let N = 3
         rel(Jt, t .* J) < 1e-10 && rel(B3t, t^2 .* B3) < 1e-10)
 end
 
-header("6. Negative control (S): a degenerate Killing form breaks step 2")
+header("6. Negative control (S): se(3), where a singular Killing form actually bites")
 
-println("   so(3) padded with abelian directions is not semi-simple, so kappa is singular and")
-println("   the third index cannot be lowered to a totally antisymmetric tensor. This is what")
-println("   Salmon's continuum obstruction looks like in finite dimensions.")
+println("   kappa is singular for both algebras below, so (Q)'s Casimir does not exist and the")
+println("   construction has no canonical S to use. The pseudo-inverse is the most generous")
+println("   repair available, and it separates them: for so(3) + abelian it recovers the")
+println("   bracket exactly, because the degenerate directions are central and J vanishes on")
+println("   them anyway; for se(3) it recovers nothing, the rotation-translation bracket")
+println("   living on exactly the directions kappa cannot see.")
 println()
-for n in (4, 5)
-    C = Array{Float64, 3}(so3(Float64, n))
+println("     algebra          sigma_min/sigma_max   (j,k) defect   max|B3 - J| (pinv)   max|J|")
+for (label, C) in (("so(3) + 1 abelian", so3(Float64, 4)),
+    ("so(3) + 2 abelian", so3(Float64, 5)),
+    ("se(3)", se3(Float64)))
+    d = size(C, 2)
     κ = killing_form(C)
     sv = svdvals(κ)
     ratio = sv[end] / sv[1]
-    check("so(3) + $(n - 3) abelian: kappa IS degenerate", ratio < 1e-10,
-        @sprintf("sigma_min/sigma_max = %.2e", ratio))
     c = lower_third(C, κ)
-    # the lowered tensor still exists; what fails is that it no longer sees the abelian
-    # directions at all, so it cannot reproduce a bracket that does
-    J = lie_poisson_matrix(C, ones(n))
-    check("so(3) + $(n - 3) abelian: the lowered c_ijk annihilates the abelian directions",
-        all(abs(c[i, j, k]) < 1e-12 for i in 1:n, j in 1:n, k in 4:n),
-        "so no choice of S in the third slot can recover a bracket involving them")
-    check(
-        "so(3) + $(n - 3) abelian: kappa is not invertible, so (Q)'s Casimir does not exist",
-        !isfinite(cond(κ)) || cond(κ) > 1e12,
-        @sprintf("cond(kappa) = %.3e", cond(κ)))
-    @printf("     n = %d:  sigma_min/sigma_max = %.2e,  nonzero J entries = %d\n",
-        n, ratio, count(!iszero, J))
+    d23 = antisym_defect_23(c) / maximum(abs, c)
+    rng = MersenneTwister(20260905)
+    w = randn(rng, d)
+    J = lie_poisson_matrix(C, w)
+    B3 = three_bracket_matrix(c, pinv(κ) * w)
+    gap = maximum(abs, B3 .- J)
+    @printf("     %-16s %.2e              %.2e       %.3e            %.3e\n",
+        label, ratio, d23, gap, maximum(abs, J))
+
+    check("$label: kappa IS degenerate, so (Q)'s Casimir does not exist",
+        ratio < 1e-10, @sprintf("sigma_min/sigma_max = %.2e", ratio))
+    # the point of the earlier revision's mistake, asserted rather than left implicit
+    check("$label: yet c_ijk is STILL totally antisymmetric -- (S) is not what buys that",
+        d23 < 1e-10, @sprintf("relative (j,k) defect = %.2e", d23))
+end
+
+let C = se3(Float64)
+    d = size(C, 2)
+    κ = killing_form(C)
+    c = lower_third(C, κ)
+    rng = MersenneTwister(20260905)
+    w = randn(rng, d)
+    J = lie_poisson_matrix(C, w)
+    gap = maximum(abs, three_bracket_matrix(c, pinv(κ) * w) .- J)
+    check("se(3): the pseudo-inverse recovers NOTHING -- the mechanism genuinely fails",
+        gap > 0.99 * maximum(abs, J),
+        @sprintf("max|B3 - J| = %.3e against max|J| = %.3e", gap, maximum(abs, J)))
 end
 
 summary("verify_zeitlin_three_bracket.jl")

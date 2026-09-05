@@ -17,21 +17,30 @@ bracket on `su(N)`. It does, at `N = 3, 5`, to `2 × 10⁻¹⁵`.
 
 The question is not routine, which is why the script exists rather than a remark. Salmon (2005)
 §5 reports that this mechanism fails for the two-dimensional vorticity bracket, the continuum
-algebra being neither semi-simple nor carrying a quadratic Killing Casimir. **The sine-bracket
-truncation supplies both hypotheses**: the Killing form of `sine_algebra(N)` is non-degenerate,
-the lowered structure constants `c_ijk = c_ij^m κ_mk` are totally antisymmetric to `6 × 10⁻¹⁶`,
-and `κ^{mn} ∝ δ_{m+n,0}`, so Zeitlin's `I₂ = Σ_k ω_k ω_{-k}` *is* that Casimir. The mechanism
-fails before truncation and works after it.
+algebra carrying no non-degenerate invariant form and hence no quadratic Killing Casimir.
+**The sine-bracket truncation supplies exactly that**: the Killing form of `sine_algebra(N)` is
+non-degenerate, and `κ^{mn} ∝ δ_{m+n,0}` to `2 × 10⁻¹⁵`, so Zeitlin's `I₂ = Σ_k ω_k ω_{-k}` *is*
+the Killing Casimir rather than merely something of the same shape. The mechanism fails before
+truncation and works after it.
+
+**What semi-simplicity buys is non-degeneracy of `κ`, and nothing else here.** The lowered
+structure constants `c_ijk = c_ij^m κ_mk` are totally antisymmetric for *every* Lie algebra, by
+ad-invariance of the Killing form; the script measures a `(j,k)` defect of exactly zero on
+`se(3)` and on `so(3)` with abelian directions, both of which have a singular `κ`. That check is
+kept as a verification of the index conventions, not as evidence for the hypothesis.
 
 Two negative controls, and they are half the point of the script:
 
 - `I₃`, the cubic invariant, in the third slot gives `1.038` relative deviation after optimal
   rescaling — the quadratic hypothesis is load-bearing, and the reason is checked directly as a
   homogeneity mismatch, degree 1 against degree 2 in `ω`.
-- `so3(Float64, n)` for `n > 3` has a singular Killing form, and the lowered `c_ijk` annihilates
-  the abelian directions — semi-simplicity is load-bearing. This is the algebra whose docstring
-  already warns against using it as a Jacobi control; here its degeneracy is the property under
-  test.
+- **`se(3)`**, where `κ` is singular *and* its degenerate directions are non-central, so even
+  `pinv(κ)` — the most generous repair available — recovers nothing: `max|B3 - J| = 2.175`
+  against `max|J| = 2.175`. `so3(Float64, n)` for `n > 3` is run alongside it and is a **false**
+  control: `κ` is singular there too, but the degenerate directions are central, `J` vanishes on
+  them anyway, and `pinv` recovers the bracket exactly. Same trap the `so3` docstring already
+  warns about for Jacobi checks, in a second guise — a control that fails for a reason that does
+  not generalise is no better than one that cannot fail.
 
 Everything is computed from the structure constants alone — the Killing form as
 `κ_mn = Σ_ij c_mi^j c_nj^i` — so nothing depends on the matrix realisation `sine_algebra`
