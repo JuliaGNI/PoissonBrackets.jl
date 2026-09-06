@@ -750,8 +750,10 @@ let K = 3, B = real_basis(K), ks = (-K):K
     check(
         "(3) so every term surviving the contraction in the Casimir column has sigma = 0",
         worst == 0.0, @sprintf("%d triples, max |sigma| = %.1e", length(cas), worst))
+    # steps (1) and (2) pin b and c but leave a free, so a = 0 belongs to this set as much as
+    # any other a, and it is where the floor sits: e2(0,1,-1) = -1 and e3(0,1,-1) = 0.
     off = minimum(e2(a, b, c)^2 + e3(a, b, c)^2
-    for a in ks, b in ks, c in ks if b + c == 0 && c != 0 && a != 0)
+    for a in ks, b in ks, c in ks if b + c == 0 && c != 0)
     check("while off that column the same denominator is bounded away from zero",
         off > 0, @sprintf("min |e2^2 + e3^2| = %.1f", off))
 

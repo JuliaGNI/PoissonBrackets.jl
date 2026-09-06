@@ -10,6 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Fixed — section 7 measured its denominator bound on too small a set
+
+`verify_kdv_nambu.jl`'s step (3) pins the second and third slot modes — `b + c = 0`, then `c = 0` —
+but nothing pins the first: step (1) forces `p = −a` for every `a` in range, `a = 0` included. The
+check that the symbol's denominator stays away from zero *off* the Casimir column filtered `a ≠ 0`
+all the same, and so reported a floor of `2.0` over a strictly smaller set than the contraction
+reaches. Over the right set the floor is `1.0`, attained at `(a,b,c) = (0,1,−1)`, where `e₂ = −1`
+and `e₃ = 0`. The statement of that bound in the section below is corrected with it.
+
+Nothing the section establishes moves. The assertion is `off > 0` and it was never in doubt either
+way — off the Casimir column the denominator is bounded away from zero, which is the whole content
+of the check. What was wrong was the number printed beside it, which claimed a margin twice what
+the argument supports. The generator now carries the reason `a` is unconstrained, so the filter is
+not reinstated as a tidy-up.
+
 ### Tracks the reshaped SimpleSplines
 
 The package is now built and tested against SimpleSplines `c74e37d`, which replaced the
@@ -94,7 +109,7 @@ solution, and the zero-mode anomaly has nothing to do with it.
 2. the mode constraint `p + a + b + c = 0` then leaves `b + c = 0`;
 3. the Casimir column is `c = 0`, hence `b = 0`: the surviving triples are `(a,0,0)`, with the
    second and third slot modes **coincident**. All seven are zero, while off that column the
-   symbol's denominator is bounded below by `2.0`.
+   symbol's denominator is bounded below by `1.0`.
 
 That last step kills them three independent times, which is what makes the result robust rather
 than a consequence of a convention: total antisymmetry gives `S_{i11} = 0` outright, the constant
