@@ -40,18 +40,6 @@ until a step is taken.
 """
 abstract type AbstractFlow{T} end
 
-"""
-    space(flow)
-
-The [`DiscreteSpace`](@ref) the flow's degrees of freedom live in.
-
-One of the three methods of the [`AbstractFlow`](@ref) interface, and the one an integrator
-reaches for before the first residual evaluation: `nbasis(space(flow))` sizes the Newton work
-vectors and sets the default tolerance. A flow that defines only [`vectorfield`](@ref) and
-[`jacobian`](@ref) cannot be integrated.
-"""
-function space end
-
 @doc raw"""
     HamiltonianFlow(space, bracket, hamiltonian)
 

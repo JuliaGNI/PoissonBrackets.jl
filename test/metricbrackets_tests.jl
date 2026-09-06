@@ -45,6 +45,12 @@ end
         # and it is not degenerate on anything, which is what makes the residual meaningful
         @test degeneracy_residual(b, û, c) > 1e-3
 
+        # the TWO-argument form is the documented exception to "three methods and the rest is
+        # generic": it needs `space` and the generator hook as well. A bracket supplying
+        # neither is refused by name, not with a FieldError about a field the interface never
+        # asked it to have
+        @test_throws MethodError degeneracy_residual(b, û)
+
         # the negative half: an indefinite matrix is rejected, a non-symmetric one too
         shifted = G - 2 * maximum(eigvals(G)) * Matrix(I, N, N)
         @test !ispositive_semidefinite(MinimalMetricBracket(shifted), û)
@@ -63,6 +69,7 @@ end
 
         @test b isa MetricBracket{Float64}
         @test size(b) == (N, N)
+        @test space(b) === s
         G = metric_matrix(b, û)
         @test maximum(abs, G - G') < 1e-14 * maximum(abs, G)
         @test issymmetric(b, û)

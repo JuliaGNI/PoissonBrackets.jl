@@ -816,8 +816,12 @@ end
     _poisson_bracket(flow)
 
 The bracket [`poisson_defect`](@ref) measures against, or an error naming why there is none.
+
+Routed through the `bracket` accessor rather than `f.bracket`, so that a flow carrying no
+Poisson half reports the accessor it is missing instead of a `FieldError` about a field the
+[`AbstractFlow`](@ref) interface never asked it to have.
 """
-_poisson_bracket(f::AbstractFlow) = f.bracket
+_poisson_bracket(f::AbstractFlow) = bracket(f)
 
 function _poisson_bracket(f::MetriplecticFlow)
     throw(ArgumentError(

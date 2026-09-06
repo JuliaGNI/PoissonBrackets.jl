@@ -153,6 +153,7 @@ function CollisionBracket(s::TensorSplineSpace{T, 2}, h::AbstractVecOrMat{T};
 end
 
 Base.size(b::CollisionBracket) = (nbasis(b.space), nbasis(b.space))
+space(b::CollisionBracket) = b.space
 
 # A number stands for the constant function of that value, which is the whole of §5.4's
 # `M = 1` and of `∂M/∂u = 0` wherever `M` depends on `x` alone, as it does in §5.5.

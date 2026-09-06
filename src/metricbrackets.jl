@@ -12,8 +12,14 @@ which the symmetric bracket of two functions of the degrees of freedom is
 
 This is the symmetric half of a metriplectic structure and the mirror image of
 [`DiscreteBracket`](@ref). The interface is [`metric_matrix`](@ref), [`metric_apply`](@ref)
-and [`metric_derivative`](@ref); everything else — symmetry, positive semi-definiteness and
-the degeneracy — follows from those and is written once.
+and [`metric_derivative`](@ref); [`issymmetric`](@ref), [`ispositive_semidefinite`](@ref) and
+the three-argument [`degeneracy_residual`](@ref) follow from those and are written once.
+
+The *two*-argument `degeneracy_residual` is the one exception, and it needs two hooks more:
+[`space`](@ref), and the internal `_generator(b, û)` below. It has to, because supplying the
+gradient from the bracket means knowing where the bracket keeps it. A bracket that implements
+only the three interface methods is not defective — it simply passes its gradient explicitly
+and uses the three-argument form.
 
 # What is and is not guaranteed
 
@@ -137,11 +143,11 @@ positive, and `isposdef` is the wrong question to ask of them.
 """
 function ispositive_semidefinite(b::MetricBracket, û::AbstractVector; atol = 1e-10)
     λ = eigvals(Symmetric(Matrix(metric_matrix(b, û))))
-    λmax = maximum(λ)
-    # no positive eigenvalue at all: semi-definite only if the matrix is zero. Returning the
-    # relative test here would divide the tolerance by a non-positive scale and pass.
-    λmax > 0 || return all(iszero, λ)
-    minimum(λ) ≥ -atol * λmax
+    # a matrix with no positive eigenvalue needs no case of its own, because the tolerance is
+    # *multiplied* by the scale rather than divided by it: at `maximum(λ) == 0` the test reads
+    # `minimum(λ) ≥ 0`, which holds exactly when every eigenvalue is zero, and at
+    # `maximum(λ) < 0` it demands a positive lower bound that nothing below it can meet.
+    minimum(λ) ≥ -atol * maximum(λ)
 end
 
 @doc raw"""
@@ -176,7 +182,7 @@ function degeneracy_residual(b::MetricBracket, û::AbstractVector, g::AbstractVe
 end
 
 function degeneracy_residual(b::MetricBracket, û::AbstractVector)
-    degeneracy_residual(b, û, _mass_apply(b.space, _generator(b, û)))
+    degeneracy_residual(b, û, _mass_apply(space(b), _generator(b, û)))
 end
 
 @doc raw"""
@@ -191,6 +197,10 @@ map ``\hat{h} = \Lambda \hat{u}``. Those are the two cases the manuscript's two-
 examples need — a prescribed ``h`` for the parallel-diffusion case, and
 ``\hat{\psi} = \mathbb{K}^{-1} \mathbb{M} \hat{\omega}`` for reduced Euler — and they are
 also exactly the two for which [`metric_derivative`](@ref) is analytic.
+
+The fallback below reads that field from `b.h`, which is the one assumption about layout the
+three brackets here share. A bracket that keeps its generator elsewhere overrides this method
+rather than renaming its field.
 """
 _generator(b::MetricBracket, û::AbstractVector) = _apply_generator(b.h, û)
 
@@ -315,6 +325,7 @@ struct DoubleBracket{T, ST <: TensorSplineSpace{T, 2}, HT <: AbstractVecOrMat{T}
 end
 
 Base.size(b::DoubleBracket) = (nbasis(b.space), nbasis(b.space))
+space(b::DoubleBracket) = b.space
 
 @doc raw"""
     hamiltonian_field(space, ĥ)
@@ -539,6 +550,7 @@ struct ProjectorBracket{T, ST <: DiscreteSpace{T}, HT <: AbstractVecOrMat{T}} <:
 end
 
 Base.size(b::ProjectorBracket) = (nbasis(b.space), nbasis(b.space))
+space(b::ProjectorBracket) = b.space
 
 @doc raw"""
     project_orthogonal(b::ProjectorBracket, û, v̂)

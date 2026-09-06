@@ -27,6 +27,7 @@ using SimpleSolvers: LapackLU
 export LapackLU
 
 export DiscreteSpace, SplineSpace, LagrangeSpace
+export space
 export basis, nbasis, degree, order, nodes, ncells, domainlength,
        mass_matrix, mass_factorization, inverse_mass_matrix,
        basis_values, basis_integrals,

@@ -37,6 +37,25 @@ abstract type DiscreteSpace{T} end
 Base.eltype(::DiscreteSpace{T}) where {T} = T
 Base.length(s::DiscreteSpace) = nbasis(s)
 
+"""
+    space(x)
+
+The [`DiscreteSpace`](@ref) the degrees of freedom of `x` live in.
+
+Two interfaces share the accessor, which is why it is declared here rather than with either
+of them. It is one of the three methods of the [`AbstractFlow`](@ref) interface, and the one
+an integrator reaches for before the first residual evaluation: `nbasis(space(flow))` sizes
+the Newton work vectors and sets the default tolerance, so a flow defining only
+[`vectorfield`](@ref) and [`jacobian`](@ref) cannot be integrated. It is also what the
+two-argument [`degeneracy_residual`](@ref) needs of a [`MetricBracket`](@ref).
+
+Both are written against `space(x)` rather than `x.space`, so that a type outside this package
+can answer the interface without being obliged to store a field of that name, and so that one
+which answers it nowhere fails with a `MethodError` naming the method rather than a
+`FieldError` naming a field it was never asked for.
+"""
+function space end
+
 @doc raw"""
     inverse_mass_matrix(space)
 

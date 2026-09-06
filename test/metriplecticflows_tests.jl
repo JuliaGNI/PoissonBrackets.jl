@@ -308,9 +308,10 @@ end
         û = project(s, x -> sin(x) + 0.3cos(2x)^2)
 
         # `space` is the third method of the interface: `Integrator` needs it before any
-        # vector field is evaluated
-        @test PoissonBrackets.space(f) === s
-        @test nbasis(PoissonBrackets.space(f)) == length(f)
+        # vector field is evaluated. Unqualified, because a method a downstream flow is
+        # required to define has to be reachable through `using PoissonBrackets`
+        @test space(f) === s
+        @test nbasis(space(f)) == length(f)
 
         # `:mixed` refuses at CONSTRUCTION, the discrete gradients only at the first step
         @test_throws MethodError Integrator(f, ImplicitMidpoint(), 1e-3; formulation = :mixed)

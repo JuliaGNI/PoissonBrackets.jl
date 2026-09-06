@@ -10,6 +10,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Fixed — the metric-bracket half, second review round
+
+Four points from the review of the round below. Two change what a type outside this package
+has to write to satisfy an interface; none changes a computed result.
+
+**`space` is exported.** The round below made it one of the three methods of the
+`AbstractFlow` interface — "a flow that defines only `vectorfield` and `jacobian` cannot be
+integrated" — and then left it unexported, so the one thing a downstream flow is *obliged* to
+define could not be defined without qualifying the name. The package's own test had to write
+`PoissonBrackets.space(f)`, which is the symptom worth noticing. Its declaration also moves
+from `flows.jl` to `spaces.jl`: two interfaces now share the accessor, and that is the file
+included before either of them, so the declaration once again precedes its methods.
+
+**`MetricBracket` advertised three methods and needed five.** The docstring said the interface
+is `metric_matrix`, `metric_apply` and `metric_derivative` and that everything else follows
+from those. The two-argument `degeneracy_residual` does not follow from those: it reached
+`b.space`, and through `_generator` it reached `b.h`, so a bracket implementing exactly the
+documented interface got `FieldError: type … has no field 'space'`. The two extra hooks are
+now named in the docstring as what that one convenience costs, the reach goes through
+`space(b)` so a bracket missing it is refused by method name rather than by field name, and
+`DoubleBracket`, `ProjectorBracket` and `CollisionBracket` answer it. This is the fix the
+round below made for `AbstractFlow`, applied to the type it was not applied to.
+
+**`poisson_defect` on a flow from elsewhere.** `_poisson_bracket(f::AbstractFlow) = f.bracket`
+reinstated, for any flow that is not one of the two defined here, exactly the bare `FieldError`
+that the new `MetriplecticFlow` method exists to replace — and `bracket` is a field the
+`AbstractFlow` interface never asks anyone to store. It goes through the `bracket` accessor.
+
+**A guard that could not fire.** The `λmax > 0 || return all(iszero, λ)` line added to
+`ispositive_semidefinite` below is dead code. The relative test *multiplies* the tolerance by
+the scale rather than dividing by it, so at `λmax == 0` it already reads `minimum(λ) ≥ 0`,
+true exactly when every eigenvalue is zero, and at `λmax < 0` it already demands a positive
+lower bound that nothing below `λmax` can meet. The two forms agree on every input. The
+comment justifying the guard said "divide", which is what made it look load-bearing; guard and
+comment are both gone, and the replacement comment states the multiplication. The behaviour
+described below is unchanged, because it was already the behaviour without the guard.
+
 ### Fixed — the metric-bracket half, after review
 
 Ten points from the review of the metric-bracket work below. Four of them change behaviour.
