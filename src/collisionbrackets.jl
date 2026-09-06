@@ -250,7 +250,7 @@ end
 # centre is frozen: D_s depends on β only through differences β(x) - β(x'), so the origin is
 # free and δβ̄ is not part of the derivative.
 function _diffusion_tensor_derivative(st, δγ, δc)
-    γ, m₀, q₁, Σ = st.γ, st.m₀, st.q₁, st.Σ
+    γ, m₀, q₁ = st.γ, st.m₀, st.q₁
     δm₀, δq₁, δΣ = _kernel_moments_derivative(st.c, γ, δc, δγ)
     δ𝔻 = Matrix{typeof(γ[1])}(undef, 2, 2)
     for l in 1:2, k in 1:2

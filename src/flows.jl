@@ -16,6 +16,11 @@ contracted with ``\mathbb{P}(\bar{u})`` is what makes them conserve the generati
 Hamiltonian, so they reach past `vectorfield` into the bracket and the Hamiltonian
 separately. There is no such construction for a dissipative half, and a silent fallback that
 integrated only the Poisson part would be worse than a `MethodError`.
+
+The `:mixed` formulation of [`Integrator`](@ref) is excluded in the same way and for the same
+reason: its residual is assembled from `kernel_operator` and the Hamiltonian gradient rather
+than from `vectorfield`, so it too would drop a symmetric half without saying so. Both raise
+on any flow that is not a [`HamiltonianFlow`](@ref).
 """
 abstract type AbstractFlow{T} end
 

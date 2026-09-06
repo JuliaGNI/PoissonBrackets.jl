@@ -110,6 +110,13 @@ function TensorSplineSpace(n::NTuple{D, Integer}, p, bc = Periodic(); L = 2π,
     TensorSplineSpace(ntuple(k -> UniformMesh(n[k], Ls[k]), D), p, bc; kwargs...)
 end
 
+# `NTuple{0, X}` is `Tuple{}` whatever `X` is, so the two constructors above overlap there and
+# dispatch on `()` is ambiguous. A space with no axes is a mistake rather than a case to
+# resolve between them.
+function TensorSplineSpace(::Tuple{}, p, bc = Periodic(); kwargs...)
+    throw(ArgumentError("a tensor-product space needs at least one axis"))
+end
+
 # A per-axis argument given once, or once per axis. Anything that is not a `Tuple` is
 # broadcast; a `Tuple` of the wrong length is a mistake rather than something to recycle.
 _per_axis(v, D::Integer, what::AbstractString) = ntuple(_ -> v, D)

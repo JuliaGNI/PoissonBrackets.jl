@@ -23,9 +23,15 @@ both hold for any quadrature and any mesh.
 
 The degeneracy is the one that has content. A metric bracket is required to satisfy
 ``(A, H)_d = 0`` for every ``A``, i.e. ``\mathbb{G} \, \partial H / \partial \hat{u} = 0``,
-and it is *that* which makes energy conservation a property of the bracket rather than of the
-integrator: any method whose increment lies in the range of ``\mathbb{G}`` conserves ``H``,
-including explicit ones. [`degeneracy_residual`](@ref) measures it.
+and it is *that* which makes ``\dot{H} = 0`` a property of the bracket rather than of the
+quadrature or the mesh. [`degeneracy_residual`](@ref) measures it.
+
+It is not a property of the *integrator*, and does not become one. Whether a one-step method
+holds ``H`` exactly is a separate question about the method: the midpoint rule does, because a
+quadratic ``H`` satisfies ``H(y) - H(x) = \nabla H(\bar{u}) \cdot (y - x)`` exactly and the
+increment lies in the range of ``\mathbb{G}(\bar{u})``. Explicit Euler's increment lies in the
+range of ``\mathbb{G}(\hat{u}^n)`` just as squarely and still moves ``H`` by
+``O(\Delta t^2)``. See [`MetriplecticFlow`](@ref).
 
 | bracket | symmetric | positive semi-definite | degenerate on ``H`` |
 |:--|:--|:--|:--|
