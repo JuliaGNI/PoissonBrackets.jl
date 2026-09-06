@@ -12,18 +12,32 @@ because the KdV sign convention below changes what every number in the package m
 
 ### Fixed — section 7 measured its denominator bound on too small a set
 
-`verify_kdv_nambu.jl`'s step (3) pins the second and third slot modes — `b + c = 0`, then `c = 0` —
-but nothing pins the first: step (1) forces `p = −a` for every `a` in range, `a = 0` included. The
-check that the symbol's denominator stays away from zero *off* the Casimir column filtered `a ≠ 0`
-all the same, and so reported a floor of `2.0` over a strictly smaller set than the contraction
-reaches. Over the right set the floor is `1.0`, attained at `(a,b,c) = (0,1,−1)`, where `e₂ = −1`
-and `e₃ = 0`. The statement of that bound in the section below is corrected with it.
+`verify_kdv_nambu.jl`'s steps (2) and (3) pin the second and third slot modes — `b + c = 0`, then
+`c = 0` — but nothing pins the first: step (1) forces `p = −a` for every `a` in range, `a = 0`
+included. The check that the symbol's denominator stays away from zero *off* the Casimir column
+filtered `a ≠ 0` all the same, and so reported a floor of `2.0` over a strictly smaller set than
+the contraction reaches. Over the right set the floor is `1.0`, attained at `(a,b,c) = (0,1,−1)`,
+where `e₂ = −1` and `e₃ = 0`. The statement of that bound in the section below is corrected with it.
 
-Nothing the section establishes moves. The assertion is `off > 0` and it was never in doubt either
-way — off the Casimir column the denominator is bounded away from zero, which is the whole content
-of the check. What was wrong was the number printed beside it, which claimed a margin twice what
-the argument supports. The generator now carries the reason `a` is unconstrained, so the filter is
-not reinstated as a tidy-up.
+Nothing the section establishes moves — off the Casimir column the denominator is bounded away from
+zero, which is the whole content of the check, and that was never in doubt either way. What was
+wrong was the number printed beside it, which claimed a margin twice what the argument supports.
+The check now *asserts* that floor instead of printing it beside a weaker `off > 0`, so a bound
+that drifts from the set it was measured on fails loudly rather than silently; on `b = −c` the
+denominator is `c⁴(1 + a²)`, so `1.0` is the floor for every `K ≥ 1` and not an artefact of the
+script's `K = 3`. The generator carries the reason `a` is unconstrained, so the filter is not
+reinstated as a tidy-up.
+
+### Fixed — the Julia/Python agreement table read as a live claim
+
+`verification.md`'s row for `verify_kdv_nambu` recorded `48 PASS / 0 FAIL both` while the script
+had already grown to 76, so the documentation contradicted the entry above that reports the growth.
+The count was never wrong — every row in that table is frozen at the moment of conversion, which is
+the only moment at which a Python original existed to compare against — but nothing in the row said
+so, and a reader running the script today gets a different number. The row now marks the count as
+*at conversion* and names section 7 as postdating the retirement of the prototypes. Only the row
+that contradicted this file was corrected; the other seventeen were not re-audited against their
+scripts' current counts, so the same drift may be present in them.
 
 ### Tracks the reshaped SimpleSplines
 
