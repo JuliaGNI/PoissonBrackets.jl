@@ -25,7 +25,8 @@
 #       functions, which covers the wedge tensor and nothing more. For {u,H2,C0}, where S
 #       really does depend on u, the flow is divergence-free all the same -- and not for
 #       that reason: the trace sum_i dS_ijk/duhat_i is a nonzero matrix whose CASIMIR
-#       column alone vanishes.
+#       column alone vanishes, because contracting the field index against the first slot
+#       is a Fourier trace and the Casimir column sends make_sigma's denominator to zero.
 #
 # Needs SymPy.
 
@@ -503,7 +504,15 @@ header("7. Nambu's own criterion: is the flow divergence-free in coefficient spa
 # symmetric, and anti-symmetric in (i,k) while G_ik is symmetric.  So the whole question is
 # the first term, and for a CONSTANT S there is nothing left.
 
-"sum_i d(udot_i)/d(uhat_i) by central differences on the flow itself"
+"""
+sum_i d(udot_i)/d(uhat_i) by central differences on the flow itself.
+
+Every flow in this section is a polynomial of degree at most two in `x`, so the central
+difference carries no truncation error and `h` trades against cancellation alone: the residual
+is one ULP of `|flow|` divided by `2h`, and a *larger* `h` is strictly better.  That is why
+`1e-6` sits three orders of magnitude below the tightest threshold used here.  A genuinely
+nonlinear flow reinstates the usual `h^2` term and the default stops being generous.
+"""
 function divergence_fd(flow, x; h = 1e-6)
     n = length(x)
     s = 0.0
@@ -533,9 +542,13 @@ let rng = MersenneTwister(7), n = 6
     fv, gv, x = randn(rng, n), randn(rng, n), randn(rng, n)
     grF(y) = Fh * y + fv
     grG(y) = Gh * y + gv
-    flow(y) = [sum(S[i, j, k] * grF(y)[j] * grG(y)[k] for j in 1:n, k in 1:n) for i in 1:n]
+    function flow(y)
+        a, b = grF(y), grG(y)
+        [sum(S[i, j, k] * a[j] * b[k] for j in 1:n, k in 1:n) for i in 1:n]
+    end
 
-    hess = sum(S[i, j, k] * (Fh[i, j] * grG(x)[k] + grF(x)[j] * Gh[i, k])
+    ax, bx = grF(x), grG(x)
+    hess = sum(S[i, j, k] * (Fh[i, j] * bx[k] + ax[j] * Gh[i, k])
     for i in 1:n, j in 1:n, k in 1:n)
     check("the two Hessian terms cancel against anti-symmetry, identically",
         abs(hess) < 1e-10, @sprintf("|sum S (F_ij b_k + a_j G_ik)| = %.2e", abs(hess)))
@@ -552,11 +565,13 @@ let rng = MersenneTwister(8), n = 6
     S(y) = [sum(T[m, i, j, k] * y[m] for m in 1:n) for i in 1:n, j in 1:n, k in 1:n]
     a, b = randn(rng, n), randn(rng, n)
     x = randn(rng, n)
-    flow(y) = [sum(S(y)[i, j, k] * a[j] * b[k] for j in 1:n, k in 1:n) for i in 1:n]
-    d = divergence_fd(flow, x)
+    function flow(y)
+        Sy = S(y)
+        [sum(Sy[i, j, k] * a[j] * b[k] for j in 1:n, k in 1:n) for i in 1:n]
+    end
+    d, sc = divergence_fd(flow, x), maximum(abs, flow(x))
     check("negative control: a FIELD-DEPENDENT anti-symmetric S is not divergence-free",
-        abs(d) / maximum(abs, flow(x)) > 1e-3,
-        @sprintf("div = %.3f against |flow| = %.3f", d, maximum(abs, flow(x))))
+        abs(d) / sc > 1e-3, @sprintf("div = %.3f against |flow| = %.3f", d, sc))
 
     # the trap, in the spirit of the dimension-four warning in section 6
     T4 = zeros(n, n, n, n)
@@ -634,23 +649,28 @@ let K = 3, B = real_basis(K), rng = MersenneTwister(9)
     uhat = randn(rng, n)
     S(y) = S0 .+ [sum(dS[m, i, j, k] * y[m] for m in 1:n) for i in 1:n, j in 1:n, k in 1:n]
     gC0 = [i == 1 ? sqrt(2π) : 0.0 for i in 1:n]    # dC0/duhat: the constant mode only
-    flow(y) = [sum(S(y)[i, j, k] * y[j] * gC0[k] for j in 1:n, k in 1:n) for i in 1:n]
+    function flow(y)
+        Sy = S(y)
+        [sum(Sy[i, j, k] * y[j] * gC0[k] for j in 1:n, k in 1:n) for i in 1:n]
+    end
 
     # the construction is validated by reproducing what section 5 already established
-    e = maximum(abs, flow(uhat) - tohat(kdv_rhs(tofield(uhat, B)), B))
+    fu, rhs = flow(uhat), tohat(kdv_rhs(tofield(uhat, B)), B)
+    e = maximum(abs, fu - rhs)
     check("the tensor in the real basis reproduces the KdV right-hand side",
-        e < 1e-9, @sprintf("max error %.2e against |rhs| = %.2f", e,
-            maximum(abs, tohat(kdv_rhs(tofield(uhat, B)), B))))
-    dd = maximum([maximum(abs, S(uhat) + permutedims(S(uhat), (2, 1, 3))),
-        maximum(abs, S(uhat) + permutedims(S(uhat), (1, 3, 2))),
-        maximum(abs, S(uhat) + permutedims(S(uhat), (3, 2, 1)))])
-    check("and is totally anti-symmetric there", dd < 1e-10,
-        @sprintf("max defect %.2e at scale %.2f", dd, maximum(abs, S(uhat))))
+        e < 1e-9, @sprintf("max error %.2e against |rhs| = %.2f", e, maximum(abs, rhs)))
+    Su = S(uhat)
+    dd = maximum([maximum(abs, Su + permutedims(Su, (2, 1, 3))),
+        maximum(abs, Su + permutedims(Su, (1, 3, 2))),
+        maximum(abs, Su + permutedims(Su, (3, 2, 1)))])
+    sc = maximum(abs, Su)
+    check("and is totally anti-symmetric there", dd < 1e-10 && sc > 1.0,
+        @sprintf("max defect %.2e at scale %.2f", dd, sc))
 
     d = divergence_fd(flow, uhat)
     check("{u,H2,C0} is divergence-free: Nambu's criterion holds for the new bracket too",
-        abs(d) / maximum(abs, flow(uhat)) < 1e-8,
-        @sprintf("div = %.2e against |flow| = %.2f", d, maximum(abs, flow(uhat))))
+        abs(d) / maximum(abs, fu) < 1e-8,
+        @sprintf("div = %.2e against |flow| = %.2f", d, maximum(abs, fu)))
 
     # and it is NOT 7a: here S really does depend on the field
     tr = [sum(dS[i, i, j, k] for i in 1:n) for j in 1:n, k in 1:n]
@@ -678,6 +698,8 @@ for K in (2, 4, 5)
         @sprintf("Casimir column %.2e, others up to %.2f", maximum(abs, tr[:, 1]),
             maximum(abs, tr[:, 2:end])))
 end
+# the weight sweep.  Its second conjunct is a real check; its first cannot fail, and 7e says
+# why -- the weight is not among the quantities the vanishing depends on.
 let B = real_basis(3), n = length(B)
     for (a, b, why) in ((2im, 2im, "uniform 2i"), (3im, 3im, "uniform 3i"))
         _, dS = h2_tensors(B, a, b)
@@ -685,12 +707,81 @@ let B = real_basis(3), n = length(B)
         check(
             "and it does not depend on the zero-mode anomaly ($why is inconsistent " *
             "with KdV, and still gives a vanishing Casimir column)",
-            maximum(abs, tr[:, 1]) < 1e-10,
-            @sprintf("Casimir column %.2e", maximum(abs, tr[:, 1])))
+            maximum(abs, tr[:, 1]) < 1e-10 && maximum(abs, tr[:, 2:end]) > 1.0,
+            @sprintf("Casimir column %.2e, others up to %.2f", maximum(abs, tr[:, 1]),
+                maximum(abs, tr[:, 2:end])))
     end
+end
+
+# 7e. the mechanism, which IS identifiable, and is a Fourier trace meeting make_sigma's own
+#     zero-denominator guard.  Writing dS[m,i,j,k] out over modes,
+#
+#         dS[m,i,j,k] = 2 pi sum_{p+a+b+c = 0} sigma(p,a,b,c) (B_m)_p (B_i)_a (B_j)_b (B_k)_c ,
+#
+#   (1)  the real basis is closed under conjugation, so sum_i (B_i)_p (B_i)_a = delta_{p,-a}/2pi
+#        and contracting the field index against the FIRST SLOT forces p = -a;
+#   (2)  the mode constraint p + a + b + c = 0 then leaves b + c = 0;
+#   (3)  the Casimir column is c = 0, hence b = 0, hence e2(a,0,0) = e3(a,0,0) = 0 -- and
+#        make_sigma returns 0.0im on a vanishing denominator.  Every surviving term is zero.
+#
+# The weight g appears in none of the three steps, which is why the sweep above could not have
+# failed either, and which predicts something stronger than the sweep tests.
+let K = 3, B = real_basis(K), ks = (-K):K
+    d = maximum(abs(sum(get(ψ, p, 0.0im) * get(ψ, a, 0.0im) for ψ in B) -
+                    (p == -a ? 1 / (2π) : 0.0)) for p in ks, a in ks)
+    check(
+        "(1) the real basis is closed under conjugation: sum_i (B_i)_p (B_i)_a = " *
+        "delta_{p,-a} / 2pi",
+        d < 1e-14,
+        @sprintf("max defect %.2e", d))
+
+    sg = make_sigma(3im, 2im)
+    cas = [(a, b, c) for a in ks, b in ks, c in ks if b + c == 0 && c == 0]
+    worst = maximum(abs(sg(-a, a, b, c)) for (a, b, c) in cas)
+    check(
+        "(3) so every term surviving the contraction in the Casimir column has sigma = 0, " *
+        "make_sigma's vanishing denominator being what kills it",
+        worst == 0.0, @sprintf("%d triples, max |sigma| = %.1e", length(cas), worst))
+    off = minimum(e2(a, b, c)^2 + e3(a, b, c)^2
+    for a in ks, b in ks, c in ks if b + c == 0 && c != 0 && a != 0)
+    check("while off that column the same denominator is bounded away from zero",
+        off > 0, @sprintf("min |e2^2 + e3^2| = %.1f", off))
+end
+
+# the prediction: ANY weight gives a vanishing Casimir column, not merely the two uniform ones.
+# The weights here are imaginary because a purely real g sends the whole trace to zero -- the
+# quantity behind `real` is imaginary -- which would test nothing at all.
+let B = real_basis(3), n = length(B)
+    for (g0, gn, why) in ((0.0im, 1.0im, "0 / i"), (2.5im, -7.3im, "2.5i / -7.3i"),
+        (-7.3 + 0.5im, 11.1 - 4im, "-7.3+0.5i / 11.1-4i"))
+        _, dS = h2_tensors(B, g0, gn)
+        tr = [sum(dS[i, i, j, k] for i in 1:n) for j in 1:n, k in 1:n]
+        check("the prediction: weight $why solves nothing, and the column vanishes anyway",
+            maximum(abs, tr[:, 1]) < 1e-12 && maximum(abs, tr[:, 2:end]) > 1.0,
+            @sprintf("Casimir column %.2e, others up to %.2f", maximum(abs, tr[:, 1]),
+                maximum(abs, tr[:, 2:end])))
+    end
+end
+
+# the control for step (1).  Complex exponentials are orthonormal but NOT closed under
+# conjugation: there (B_i)_p (B_i)_a is supported on p = a rather than p = -a, so the step
+# fails -- and with it the conclusion.  This is a different contraction over complex
+# coordinates, not a claim that a divergence depends on the basis; it does not.
+let K = 3, Bc = [Dict(k => complex(1 / sqrt(2π))) for k in (-K):K], n = 2K + 1
+    sg = make_sigma(3im, 2im)
+    dS = [spectral(sg, Bc[i], Bc[j], Bc[k]; u = Bc[m])
+          for m in 1:n, i in 1:n, j in 1:n, k in 1:n]
+    tr = [abs(sum(dS[i, i, j, k] for i in 1:n)) for j in 1:n, k in 1:n]
+    check(
+        "control: where (1) fails the constant-mode column does NOT vanish, so the " *
+        "closure of the real basis under conjugation is load-bearing",
+        maximum(abs, tr[:, K + 1]) > 1e-6,
+        @sprintf("column %.3e against a matrix maximum of %.3e",
+            maximum(abs, tr[:, K + 1]), maximum(abs, tr)))
 end
 println("      so Liouville is a property of the PAIR of slot functions here, not of the")
 println("      bracket: it is the whole one-function family of section 5 that has a")
-println("      vanishing Casimir column, and the mechanism is not identified by this script")
+println("      vanishing Casimir column -- and the mechanism is a Fourier trace meeting a")
+println("      vanishing denominator, neither of which ever looks at the weight")
 
 summary("verify_kdv_nambu.jl")

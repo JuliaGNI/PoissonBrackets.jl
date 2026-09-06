@@ -56,7 +56,7 @@ Nambu's guiding principle in 1973 was neither the Jacobi identity nor the fundam
 of 1994 but **Liouville's theorem**: his eq. (3) is `div(∇H × ∇G) = 0`, and both slot functions
 being conserved is a *consequence* of antisymmetry rather than the design goal. The script
 reported a Jacobi residual and a Poisson-map residual and never asked his question. It does now,
-in nineteen checks, taking the script from 48 to 67.
+in twenty-six checks, taking the script from 48 to 74.
 
 **The structural half is a two-line cancellation.** For `u̇_i = Σ_jk S_ijk a_j b_k`,
 
@@ -83,8 +83,28 @@ instead and the divergence is `−0.50`, `+1.17`, `+0.67`. So Liouville here is 
 It survives every variation tried: truncations `K = 2, 3, 4, 5`, and both of the uniform weights
 `g ≡ 2i` and `g ≡ 3i` that section 5 shows are *inconsistent* with KdV. So it is the whole
 one-function family of section 5 that has a vanishing Casimir column, not the particular
-solution, and the zero-mode anomaly has nothing to do with it. **The mechanism is not identified
-here**, and the script says so rather than guessing.
+solution, and the zero-mode anomaly has nothing to do with it.
+
+**And the mechanism is identified, in three steps that never look at the weight.** Writing
+`∂S_ijk/∂û_m` out over modes as `2π Σ_{p+a+b+c=0} σ(p,a,b,c) (B_m)_p (B_i)_a (B_j)_b (B_k)_c`:
+
+1. the real basis is closed under conjugation, so `Σ_i (B_i)_p (B_i)_a = δ_{p,−a}/2π` — measured
+   at a defect of `2.8 × 10⁻¹⁷` — and contracting the field index against the first slot forces
+   `p = −a`;
+2. the mode constraint `p + a + b + c = 0` then leaves `b + c = 0`;
+3. the Casimir column is `c = 0`, hence `b = 0`, hence `e₂(a,0,0) = e₃(a,0,0) = 0` — and
+   `make_sigma` returns `0` on a vanishing denominator. All seven surviving triples are zero,
+   while off that column the same denominator is bounded below by `2.0`.
+
+That has a consequence for how the earlier evidence should be read: **the weight sweep could not
+have failed.** `g` enters none of the three steps, so the two uniform weights are closer to the
+labelled trap than to a control, and the section now says so where it previously claimed the
+mechanism was unidentified. The prediction the argument makes is stronger than the sweep tested,
+and it holds — weights `0 / i`, `2.5i / −7.3i` and `−7.3+0.5i / 11.1−4i`, none of which solves
+anything, all give a Casimir column of exactly zero against other columns reaching `1.06`, `7.30`
+and `3.77`. Step 1 is load-bearing: repeat the contraction in the complex-exponential basis,
+which is orthonormal but *not* closed under conjugation, and the constant-mode column is `0.95`
+against a matrix maximum of `2.87`.
 
 Two things make the checks non-vacuous, in the spirit of the `se(3)` control above.
 
@@ -101,7 +121,11 @@ identity and `∂F/∂û_j` is the coefficient vector of `δF/δu` with no mass 
 construction is validated rather than assumed: it reproduces the KdV right-hand side to
 `7.1 × 10⁻¹⁵` against `|rhs| = 38.9`, which is section 5's result recomputed through the new
 representation. Divergences are measured by central differences on the flow itself, and the
-closed form agrees with them.
+closed form agrees with them. Every flow in the section is a polynomial of degree at most two,
+so that difference has no truncation error at all and `h` trades against cancellation alone —
+the measured `2.2 × 10⁻¹⁰` is one ULP of `|flow|` over `2h`, a factor of 1750 below the
+threshold, and a *larger* `h` would be better. `divergence_fd` now says so, because the
+generosity of its default does not survive being copied to a nonlinear flow.
 
 No new exports and no new dependencies.
 
