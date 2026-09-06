@@ -26,7 +26,9 @@
 #       really does depend on u, the flow is divergence-free all the same -- and not for
 #       that reason: the trace sum_i dS_ijk/duhat_i is a nonzero matrix whose CASIMIR
 #       column alone vanishes, because contracting the field index against the first slot
-#       is a Fourier trace and the Casimir column sends make_sigma's denominator to zero.
+#       is a Fourier trace, and it lands on triples where two slot modes coincide -- where
+#       the Vandermonde vanishes, the symbol's denominator vanishes, and slot anti-symmetry
+#       gives zero, all three independently of the weight.
 #
 # Needs SymPy.
 
@@ -713,16 +715,23 @@ let B = real_basis(3), n = length(B)
     end
 end
 
-# 7e. the mechanism, which IS identifiable, and is a Fourier trace meeting make_sigma's own
-#     zero-denominator guard.  Writing dS[m,i,j,k] out over modes,
+# 7e. the mechanism, which IS identifiable, and is a Fourier trace landing on the degenerate
+#     set where two slot modes coincide.  Writing dS[m,i,j,k] out over modes,
 #
 #         dS[m,i,j,k] = 2 pi sum_{p+a+b+c = 0} sigma(p,a,b,c) (B_m)_p (B_i)_a (B_j)_b (B_k)_c ,
 #
 #   (1)  the real basis is closed under conjugation, so sum_i (B_i)_p (B_i)_a = delta_{p,-a}/2pi
 #        and contracting the field index against the FIRST SLOT forces p = -a;
 #   (2)  the mode constraint p + a + b + c = 0 then leaves b + c = 0;
-#   (3)  the Casimir column is c = 0, hence b = 0, hence e2(a,0,0) = e3(a,0,0) = 0 -- and
-#        make_sigma returns 0.0im on a vanishing denominator.  Every surviving term is zero.
+#   (3)  the Casimir column is c = 0, hence b = 0.  The surviving triples are (a,0,0), with the
+#        second and third slot modes coincident -- and there the VANDERMONDE NUMERATOR vanishes,
+#        V(a,0,0) = 0, at the same time as e2 = e3 = 0.  sigma is 0/0 and make_sigma's guard
+#        resolves it to zero.
+#
+# So the vanishing does not rest on that guard being the right convention.  b = c = 0 also puts
+# the constant basis function in BOTH remaining slots, and total anti-symmetry in the slots kills
+# S_{i,1,1} on its own; three independent reasons agree, which is why no regularisation of the
+# symbol off the e3 = 0 slice can disturb the result.
 #
 # The weight g appears in none of the three steps, which is why the sweep above could not have
 # failed either, and which predicts something stronger than the sweep tests.
@@ -739,13 +748,27 @@ let K = 3, B = real_basis(K), ks = (-K):K
     cas = [(a, b, c) for a in ks, b in ks, c in ks if b + c == 0 && c == 0]
     worst = maximum(abs(sg(-a, a, b, c)) for (a, b, c) in cas)
     check(
-        "(3) so every term surviving the contraction in the Casimir column has sigma = 0, " *
-        "make_sigma's vanishing denominator being what kills it",
+        "(3) so every term surviving the contraction in the Casimir column has sigma = 0",
         worst == 0.0, @sprintf("%d triples, max |sigma| = %.1e", length(cas), worst))
     off = minimum(e2(a, b, c)^2 + e3(a, b, c)^2
     for a in ks, b in ks, c in ks if b + c == 0 && c != 0 && a != 0)
     check("while off that column the same denominator is bounded away from zero",
         off > 0, @sprintf("min |e2^2 + e3^2| = %.1f", off))
+
+    # and it is not the guard's convention that does it: two further reasons agree
+    vdm = maximum(abs(V(a, b, c)) for (a, b, c) in cas)
+    check(
+        "the Vandermonde NUMERATOR vanishes on every one of those triples too, two slot " *
+        "modes being coincident, so sigma is 0/0 and any regularisation gives zero",
+        vdm == 0.0,
+        @sprintf("max |V(a,b,c)| = %.1e over the same %d triples", vdm, length(cas)))
+    _, dS = h2_tensors(B, 3im, 2im)
+    check(
+        "and total anti-symmetry in the slots gives the same zero independently: b = c = 0 " *
+        "puts the constant basis function in BOTH remaining slots",
+        maximum(abs, dS[:, :, 1, 1]) < 1e-14,
+        @sprintf("max |dS[:,:,1,1]| = %.1e at a tensor scale of %.2f",
+            maximum(abs, dS[:, :, 1, 1]), maximum(abs, dS)))
 end
 
 # the prediction: ANY weight gives a vanishing Casimir column, not merely the two uniform ones.
