@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Fixed — `scripts/` resolves `SimpleSolvers` from the registry
+
+The local `SimpleSolvers = {path = "../../SimpleSolvers"}` source is gone from
+`scripts/Project.toml`. It was added when 0.13 was unreleased and the only way to reach the
+version the package requires was a sibling checkout; 0.13.2 is now in General, so the source
+has nothing left to do and the package's own `Project.toml` already resolves it that way.
+
+**A relative `path` source cannot work outside the main checkout**, which is what made this
+worth removing rather than leaving inert. The path is resolved against the active project, so
+from a worktree `../../SimpleSolvers` points beside the worktree rather than into `Packages/`,
+and `scripts/` could not resolve at all — no manifest, so `run_all.jl` could not sweep. The
+same arithmetic fails in CI, where the checkout has no sibling either. `scripts/Manifest.toml`
+now resolves to `SimpleSolvers v0.13.2` from `registries = "General"`.
+
 ### Added — `MetriplecticFlow`, and `AbstractFlow` under both kinds of flow
 
 The package could assemble a metric bracket and could not integrate one. `Integrator` and
