@@ -225,7 +225,7 @@ end
     weighted_matrix(space::TensorSplineSpace, f, a::NTuple{D,Int}, b::NTuple{D,Int})
 
 The matrix ``\int_\Omega f(x) \, D^a \Phi_K \, D^b \Phi_L \, dx``, with `f` either a function
-of a `D`-tuple of coordinates or a vector already sampled at [`quadrature_nodes`](@ref).
+of a `D`-tuple of coordinates or a vector already sampled at `quadrature_nodes`.
 
 Not memoised, unlike [`mixed_matrix`](@ref): the coefficient of a metric bracket depends on
 the state and changes every Newton iteration.
@@ -293,7 +293,7 @@ The coefficient may be given as
 
   - a constant `D×D` matrix of numbers, in which case the ``D^2`` constant
     [`mixed_matrix`](@ref) blocks are reused and only the nonzero components are touched;
-  - a `D×D` matrix whose `[k,l]` entry is a vector of samples at [`quadrature_nodes`](@ref) —
+  - a `D×D` matrix whose `[k,l]` entry is a vector of samples at `quadrature_nodes` —
     the canonical form, and the one a moment expansion produces component by component;
   - a vector of `D×D` matrices, one per quadrature point;
   - a function of a `D`-tuple of coordinates returning a `D×D` matrix.
@@ -360,7 +360,7 @@ it is free; here it is not, and a space that built it eagerly could not be const
 resolutions these runs reach.
 
 So it exists, because the generic assemblies of `spaces.jl` name it, and it is the wrong
-thing to call in a loop. [`mass_factorization`](@ref) returns the `KroneckerMass`, whose
+thing to call in a loop. `mass_factorization` returns the `KroneckerMass`, whose
 solve is ``D`` one-dimensional solves along each axis; `\\`, `mass_solve!`, [`project`](@ref)
 and [`project!`](@ref) all go through it and none of them form this matrix.
 """
@@ -380,7 +380,7 @@ coefficient vector `û` at the point `x`, or at each point of a vector of points
 which need lie on the quadrature grid.
 
 `x` is any indexable `D`-vector — a tuple, an `SVector`, a length-`D` `Vector`. `û` is the
-flat vector of length [`nbasis`](@ref); it is reshaped here, and only here, into the
+flat vector of length `nbasis`; it is reshaped here, and only here, into the
 `size(space)` coefficient array SimpleSplines evaluates against.
 """
 function evaluate(s::TensorSplineSpace{T, D}, û::AbstractVector, x,
