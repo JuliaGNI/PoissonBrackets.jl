@@ -25,7 +25,9 @@ Pkg.add(url = "https://github.com/JuliaGNI/PoissonBrackets.jl")
 | [`DiscreteSpace`](@ref) | [`SplineSpace`](@ref) or [`LagrangeSpace`](@ref), with its quadrature |
 | [`DiscreteBracket`](@ref) | ``\mathbb{P}(\hat{u})``, the discrete structure matrix |
 | [`DiscreteHamiltonian`](@ref) | a functional evaluated on the discrete field, with analytic gradient |
+| [`MetricBracket`](@ref) | ``\mathbb{G}(\hat{u})``, the symmetric half: positive semi-definite and degenerate on ``H`` |
 | [`HamiltonianFlow`](@ref) | the two contracted: ``\dot{\hat{u}} = \mathbb{P}(\hat{u}) \, \partial H/\partial \hat{u}`` |
+| [`MetriplecticFlow`](@ref) | with a dissipative half as well: ``- \mathbb{G}(\hat{u}) \, \partial S/\partial \hat{u}`` |
 | [`Integrator`](@ref) | a one-step method with its nonlinear solver built once |
 
 ## A first run

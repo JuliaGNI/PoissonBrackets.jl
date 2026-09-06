@@ -17,20 +17,49 @@ The index below is complete regardless.
 
 ## Spaces — `spaces.jl`
 
+`Pages` is matched against the *end* of each source path, so this filter has to be qualified
+too: a bare `"spaces.jl"` also matches `tensorspaces.jl`, whose docstrings belong to the
+section below and would otherwise be emitted twice.
+
 ```@autodocs
 Modules = [PoissonBrackets]
-Pages = ["spaces.jl"]
+Pages = ["src/spaces.jl"]
+```
+
+## Tensor-product spaces — `tensorspaces.jl`
+
+```@autodocs
+Modules = [PoissonBrackets]
+Pages = ["tensorspaces.jl"]
 ```
 
 ## Brackets — `brackets.jl`
 
 `Pages` is matched against the *end* of each source path, so this filter has to be qualified:
 a bare `"brackets.jl"` also matches `fourbrackets.jl`, whose docstrings belong to
-[Poisson brackets from four-brackets](@ref) and would otherwise be emitted twice.
+[Poisson brackets from four-brackets](@ref), and `metricbrackets.jl`, whose belong to the
+section below; both would otherwise be emitted twice.
 
 ```@autodocs
 Modules = [PoissonBrackets]
 Pages = ["src/brackets.jl"]
+```
+
+## Metric brackets — `metricbrackets.jl`
+
+```@autodocs
+Modules = [PoissonBrackets]
+Pages = ["metricbrackets.jl"]
+```
+
+## The collision-like bracket — `collisionbrackets.jl`
+
+No qualification is needed here: no other source file's path ends in `collisionbrackets.jl`,
+and the filter of the section above does not match it either.
+
+```@autodocs
+Modules = [PoissonBrackets]
+Pages = ["collisionbrackets.jl"]
 ```
 
 ## Hamiltonians — `hamiltonians.jl`
@@ -44,7 +73,18 @@ Pages = ["hamiltonians.jl"]
 
 ```@autodocs
 Modules = [PoissonBrackets]
-Pages = ["flows.jl"]
+Pages = ["src/flows.jl"]
+```
+
+## Metriplectic flows — `metriplecticflows.jl`
+
+`Pages` is matched against the *end* of each source path, so the section above has to be
+qualified against this one: a bare `"flows.jl"` matches `metriplecticflows.jl` as well, and
+every docstring here would be emitted twice.
+
+```@autodocs
+Modules = [PoissonBrackets]
+Pages = ["metriplecticflows.jl"]
 ```
 
 ## Integrators — `integrators.jl`

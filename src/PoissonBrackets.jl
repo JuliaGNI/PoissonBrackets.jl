@@ -14,6 +14,7 @@ import Sparspak
 # extended rather than defined here, so that the packages of the ecosystem share one
 # generic function per accessor
 import GeometricBase: integrate, value
+import LinearAlgebra: issymmetric
 import SimpleSplines: basis, basis_integrals, basis_values, degree, domainlength,
                       evaluate, l2_projection, mass_factorization, mass_matrix,
                       mass_operator, mass_solve!, mixed_matrix, nbasis,
@@ -26,6 +27,7 @@ using SimpleSolvers: LapackLU
 export LapackLU
 
 export DiscreteSpace, SplineSpace, LagrangeSpace
+export space
 export basis, nbasis, degree, order, nodes, ncells, domainlength,
        mass_matrix, mass_factorization, inverse_mass_matrix,
        basis_values, basis_integrals,
@@ -34,6 +36,10 @@ export basis, nbasis, degree, order, nodes, ncells, domainlength,
        mass_operator, mass_solve!, nodal_derivative_matrix
 
 include("spaces.jl")
+
+export TensorSplineSpace, tensor_weighted_matrix, domainvolume
+
+include("tensorspaces.jl")
 
 export rref, exact_rank, kernel
 
@@ -45,6 +51,17 @@ export poisson_matrix, poisson_apply, poisson_tensor, isantisymmetric,
        jacobi_residual, structure_constant_residual
 
 include("brackets.jl")
+
+export MetricBracket, DoubleBracket, ProjectorBracket
+export metric_matrix, metric_apply, metric_derivative, metric_operator,
+       hamiltonian_field, project_orthogonal,
+       issymmetric, ispositive_semidefinite, degeneracy_residual
+
+include("metricbrackets.jl")
+
+export CollisionBracket
+
+include("collisionbrackets.jl")
 
 export lie_poisson_matrix, lie_poisson_derivative,
        so3, se3, so_n, random_antisymmetric_c, sine_algebra, sine_coefficient,
@@ -90,9 +107,13 @@ export MassCasimir, QuadraticHamiltonian
 
 include("hamiltonians.jl")
 
-export HamiltonianFlow, vectorfield, vectorfield!, jacobian
+export AbstractFlow, HamiltonianFlow, vectorfield, vectorfield!, jacobian
 
 include("flows.jl")
+
+export MetriplecticFlow, entropy, entropy_gradient, entropy_hessian
+
+include("metriplecticflows.jl")
 
 export IntegratorMethod, ExplicitEuler, RungeKutta4, ImplicitMidpoint,
        AverageVectorField, DiscreteGradient, Gonzalez, GonzalezMass,
@@ -123,7 +144,7 @@ export CamassaHolmSystem, camassa_holm_bracket_1, camassa_holm_bracket_2,
 include("equations/camassaholm.jl")
 
 export invariants, invariant_names, integrate, Trajectory, deviation,
-       drift, absolute_drift, growth, poisson_defect
+       drift, absolute_drift, growth, poisson_defect, entropy_production
 export energyplot, stateplot, sweepplot, convergenceplot,
        INTEGRATOR_COLORS, FLOW_STYLES, ERROR_FLOOR
 

@@ -2,7 +2,7 @@
 @doc raw"""
     IntegratorMethod
 
-A one-step method for a [`HamiltonianFlow`](@ref).
+A one-step method for an [`AbstractFlow`](@ref).
 
 The methods here are chosen to expose a trade-off rather than to cover the space of
 integrators. Three properties are in play — whether the map is Poisson, whether it conserves
@@ -319,7 +319,7 @@ So the crossover is near `N = 125`, and `:dense` stays the default.
     same matrices to the accuracy their condition number allows, so `SparspakLU` is the default
     for this formulation. Do not override it without checking the residual.
 """
-struct Integrator{T, FT <: HamiltonianFlow{T}, MT <: IntegratorMethod, ST, CT, BT, BCT}
+struct Integrator{T, FT <: AbstractFlow{T}, MT <: IntegratorMethod, ST, CT, BT, BCT}
     flow::FT
     method::MT
     Δt::T
@@ -334,16 +334,16 @@ struct Integrator{T, FT <: HamiltonianFlow{T}, MT <: IntegratorMethod, ST, CT, B
     formulation::Symbol         # :dense (the state alone) or :mixed (state + auxiliary)
 end
 
-function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
+function Integrator(f::AbstractFlow{T}, method::IntegratorMethod, Δt::Real;
         refactorize::Integer = 5,
         û₀ = nothing,
-        f_abstol = default_f_abstol(T, nbasis(f.space), û₀),
+        f_abstol = default_f_abstol(T, nbasis(space(f)), û₀),
         min_iterations::Integer = 1,
         max_iterations::Integer = 40, verbosity::Integer = 0,
         linesearch = Static(T), fallback_linesearch = Backtracking(T),
         linear_solver_method = missing, formulation::Symbol = :dense,
         kwargs...) where {T}
-    N = nbasis(f.space)
+    N = nbasis(space(f))
     dt = convert(T, Δt)
     formulation in (:dense, :mixed) || throw(ArgumentError(
         "formulation must be :dense or :mixed, but got :$(formulation)"))
@@ -364,7 +364,7 @@ function Integrator(f::HamiltonianFlow{T}, method::IntegratorMethod, Δt::Real;
         # The first residual block carries a factor of the mass matrix and the second does
         # not, so the equation is scaled rather than the tolerance -- see `mixed_row_scale`.
         # `f_abstol` therefore means the same thing here as in the dense formulation.
-        σ = mixed_row_scale(f.space)
+        σ = mixed_row_scale(space(f))
 
         # `SparspakLU` rather than the `UmfpackLU` that SimpleSolvers would otherwise pick for
         # a sparse Float64 Jacobian. This is a correctness requirement, not a preference:
@@ -424,12 +424,12 @@ timestep(integ::Integrator) = integ.Δt
 # ∂r/∂y = I - Δt ∂Φ/∂y. Writing the Jacobians out rather than differencing them is what
 # lets the Poisson-map test below measure the method instead of its own truncation error.
 
-function residual!(r, ::ImplicitMidpoint, f::HamiltonianFlow, un, y, Δt)
+function residual!(r, ::ImplicitMidpoint, f::AbstractFlow, un, y, Δt)
     ū = (un .+ y) ./ 2
     r .= y .- un .- Δt .* vectorfield(f, ū)
 end
 
-function residual_jacobian!(j, ::ImplicitMidpoint, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian!(j, ::ImplicitMidpoint, f::AbstractFlow, un, y, Δt)
     ū = (un .+ y) ./ 2
     j .= -(Δt / 2) .* jacobian(f, ū)
     @inbounds for i in axes(j, 1)
@@ -438,7 +438,7 @@ function residual_jacobian!(j, ::ImplicitMidpoint, f::HamiltonianFlow, un, y, Δ
     return j
 end
 
-function residual!(r, ::AverageVectorField, f::HamiltonianFlow, un, y, Δt)
+function residual!(r, ::AverageVectorField, f::AbstractFlow, un, y, Δt)
     r .= y .- un
     for τ in AVF_NODES
         r .-= (Δt / 2) .* vectorfield(f, un .+ τ .* (y .- un))
@@ -446,7 +446,7 @@ function residual!(r, ::AverageVectorField, f::HamiltonianFlow, un, y, Δt)
     return r
 end
 
-function residual_jacobian!(j, ::AverageVectorField, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian!(j, ::AverageVectorField, f::AbstractFlow, un, y, Δt)
     fill!(j, 0)
     for τ in AVF_NODES
         j .-= (Δt * τ / 2) .* jacobian(f, un .+ τ .* (y .- un))
@@ -657,16 +657,16 @@ function _solve_or_explain!(û, solver, state, params)
     return û
 end
 
-function residual!(r, m::ProjectionMethod, f::HamiltonianFlow, un, y, Δt)
+function residual!(r, m::ProjectionMethod, f::AbstractFlow, un, y, Δt)
     residual!(r, m.base, f, un, y, Δt)
 end
 
-function residual_jacobian!(j, m::ProjectionMethod, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian!(j, m::ProjectionMethod, f::AbstractFlow, un, y, Δt)
     residual_jacobian!(j, m.base, f, un, y, Δt)
 end
 
 function _step!(û, method::ProjectionMethod, integ::Integrator)
-    s = integ.flow.space
+    s = space(integ.flow)
 
     # the level sets to hold are those of the initial state, recorded on the first step
     if isempty(integ.targets)
@@ -745,13 +745,13 @@ end
 The derivative of the step's residual with respect to the *initial* state ``\\hat{u}^n``,
 the second half of what [`tangent_map`](@ref) needs.
 """
-function residual_jacobian_initial(::ImplicitMidpoint, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian_initial(::ImplicitMidpoint, f::AbstractFlow, un, y, Δt)
     ū = (un .+ y) ./ 2
     J = -(Δt / 2) .* jacobian(f, ū)
     J - I
 end
 
-function residual_jacobian_initial(::AverageVectorField, f::HamiltonianFlow, un, y, Δt)
+function residual_jacobian_initial(::AverageVectorField, f::AbstractFlow, un, y, Δt)
     N = length(un)
     J = zeros(eltype(un), N, N)
     for τ in AVF_NODES
@@ -798,11 +798,41 @@ with ``D\Phi`` the analytic [`tangent_map`](@ref).
 
 For the implicit midpoint rule on a constant bracket this is at round-off; for the average
 vector field method it is around ``10^{-5}``, and for explicit Euler it is of order one.
+
+A [`MetriplecticFlow`](@ref) is rejected rather than measured, and the error says which of the
+two reasons applies. In the four-argument form there is no ``\mathbb{P}`` to preserve; with a
+Poisson half there is one, but the metric half breaks
+``D\Phi \, \mathbb{P} \, D\Phi^T = \mathbb{P}`` *by construction*, so the number would measure
+the dissipation rather than the method — which is worse than refusing, because it looks like
+an answer.
 """
 function poisson_defect(integ::Integrator, û::AbstractVector)
-    P = poisson_matrix(integ.flow.bracket, û)
+    P = poisson_matrix(_poisson_bracket(integ.flow), û)
     DΦ = tangent_map(integ, û)
     maximum(abs, DΦ * P * DΦ' - P) / maximum(abs, P)
+end
+
+"""
+    _poisson_bracket(flow)
+
+The bracket [`poisson_defect`](@ref) measures against, or an error naming why there is none.
+
+Routed through the `bracket` accessor rather than `f.bracket`, so that a flow carrying no
+Poisson half reports the accessor it is missing instead of a `FieldError` about a field the
+[`AbstractFlow`](@ref) interface never asked it to have.
+"""
+_poisson_bracket(f::AbstractFlow) = bracket(f)
+
+function _poisson_bracket(f::MetriplecticFlow)
+    throw(ArgumentError(
+        "poisson_defect measures how far the numerical map is from preserving 𝔓, and a " *
+        "MetriplecticFlow is not a candidate for it: " *
+        (f.bracket === nothing ?
+         "this one carries no Poisson half at all, having been built with the " *
+         "four-argument form" :
+         "its metric half breaks the Poisson property by construction, so the result " *
+         "would measure the dissipation and not the method") *
+        ". Build the Poisson half on its own as a HamiltonianFlow to measure the method"))
 end
 
 @doc raw"""
@@ -811,12 +841,22 @@ end
 The explicit Runge-Kutta stability limit ``2\sqrt{2} / \rho`` with ``\rho`` the spectral
 radius of the linearised flow.
 
-Both fields here have essentially imaginary spectra, so the imaginary-axis limit is the
-relevant one. ``\rho`` grows like ``h^{-3}`` through the third derivative, which is why an
+``2\sqrt{2}`` is the **imaginary-axis** crossing of the classical fourth-order Runge-Kutta
+stability region, so this is the right constant for a flow whose spectrum lies on that axis.
+A [`HamiltonianFlow`](@ref) is such a flow: ``\mathbb{P}`` is antisymmetric, so
+``\mathbb{P} H''`` is similar to a skew matrix and ``\rho`` is essentially the largest
+imaginary part. ``\rho`` grows like ``h^{-3}`` through the third derivative, which is why an
 explicit method needs so many more steps than an implicit one at the same resolution.
+
+A [`MetriplecticFlow`](@ref) is **not** such a flow, and the number returned here is then an
+estimate rather than the limit. The metric half contributes a spectrum with a negative real
+part — that is what dissipation is — and the region's crossing on the negative real axis is
+``2.7853``, not ``2\sqrt{2} = 2.8284``. For a spectrum spread through the left half-plane the
+governing crossing is neither of the two, so read this as an order of magnitude on a
+dissipative field and not as a threshold.
 """
-stability_limit(f::HamiltonianFlow, û::AbstractVector) = 2 * sqrt(2) /
-                                                         maximum(abs, eigvals(jacobian(f, û)))
+stability_limit(f::AbstractFlow, û::AbstractVector) = 2 * sqrt(2) /
+                                                      maximum(abs, eigvals(jacobian(f, û)))
 
 @doc raw"""
     project_invariants!(û, space, invariants, targets; maxiter = 20, tol = 1e-14)
