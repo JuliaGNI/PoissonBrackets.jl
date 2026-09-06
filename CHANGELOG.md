@@ -50,6 +50,94 @@ were wrong.
 `[compat]` is unchanged at `SimpleSplines = "1"`. The package is still unregistered and still
 `1.0.0-DEV`, so the `[sources]` entries and the comments explaining them stay as they are.
 
+### Added — Nambu's Liouville criterion, as section 7 of `verify_kdv_nambu.jl`
+
+Nambu's guiding principle in 1973 was neither the Jacobi identity nor the fundamental identity
+of 1994 but **Liouville's theorem**: his eq. (3) is `div(∇H × ∇G) = 0`, and both slot functions
+being conserved is a *consequence* of antisymmetry rather than the design goal. The script
+reported a Jacobi residual and a Poisson-map residual and never asked his question. It does now,
+in twenty-eight checks, taking the script from 48 to 76.
+
+**The structural half is a two-line cancellation.** For `u̇_i = Σ_jk S_ijk a_j b_k`,
+
+```
+div = Σ_ijk [ (∂S_ijk/∂û_i) a_j b_k  +  S_ijk F_ij b_k  +  S_ijk a_j G_ik ]
+```
+
+and the last two terms die on the spot: `S` is antisymmetric in `(i,j)` where the Hessian `F_ij`
+is symmetric, and antisymmetric in `(i,k)` where `G_ik` is. **So a constant totally
+antisymmetric `S` is divergence-free for any pair of slot functions whatever**, and that is the
+whole of the wedge tensor's Liouville property — `𝖯¹` is a constant matrix, measured at
+`4.8 × 10⁻⁸` on a uniform mesh and `6.0 × 10⁻⁹` on an arbitrary one. Recorded as an instance of
+the lemma, not as evidence about Nambu brackets: nothing else could have happened.
+
+**The interesting case is `{u, H₂, C₀}`, and the answer is not the one the shape suggests.**
+There `S` genuinely depends on `u`, so the first term survives — and the flow is divergence-free
+anyway, at `2.2 × 10⁻¹⁰` against a flow of size `38.9`. It is *not* the lemma in disguise: the
+trace `Σ_i ∂S_ijk/∂û_i` is a nonzero matrix, `max |trace| = 4.99` at a tensor scale of `2.86`.
+**What vanishes is its Casimir column alone** — the column belonging to the constant function in
+the third slot — exactly, while every other column reaches `4.99`. Put `ψ₂`, `ψ₃` or `ψ₄` there
+instead and the divergence is `−0.50`, `+1.17`, `+0.67`. So Liouville here is a property of the
+*pair of slot functions*, not of the bracket.
+
+It survives every variation tried: truncations `K = 2, 3, 4, 5`, and both of the uniform weights
+`g ≡ 2i` and `g ≡ 3i` that section 5 shows are *inconsistent* with KdV. So it is the whole
+one-function family of section 5 that has a vanishing Casimir column, not the particular
+solution, and the zero-mode anomaly has nothing to do with it.
+
+**And the mechanism is identified, in three steps that never look at the weight.** Writing
+`∂S_ijk/∂û_m` out over modes as `2π Σ_{p+a+b+c=0} σ(p,a,b,c) (B_m)_p (B_i)_a (B_j)_b (B_k)_c`:
+
+1. the real basis is closed under conjugation, so `Σ_i (B_i)_p (B_i)_a = δ_{p,−a}/2π` — measured
+   at a defect of `2.8 × 10⁻¹⁷` — and contracting the field index against the first slot forces
+   `p = −a`;
+2. the mode constraint `p + a + b + c = 0` then leaves `b + c = 0`;
+3. the Casimir column is `c = 0`, hence `b = 0`: the surviving triples are `(a,0,0)`, with the
+   second and third slot modes **coincident**. All seven are zero, while off that column the
+   symbol's denominator is bounded below by `2.0`.
+
+That last step kills them three independent times, which is what makes the result robust rather
+than a consequence of a convention: total antisymmetry gives `S_{i11} = 0` outright, the constant
+basis function standing in both remaining slots; the Vandermonde numerator `V(a,0,0)` vanishes,
+`V` vanishing whenever two arguments agree; and only then does the denominator `e₂² + e₃²` vanish
+with it, leaving `make_sigma`'s guard to resolve a `0/0`. So no regularisation of the symbol off
+the `e₃ = 0` slice can reach the triples the contraction selects. It is also the **same zero-mode
+coincidence** that forces the bracket's anomaly, where the weight at the mean of `u` must be `3/2`
+of its value elsewhere — one phenomenon, two places.
+
+That has a consequence for how the earlier evidence should be read: **the weight sweep could not
+have failed.** `g` enters none of the three steps, so the two uniform weights are closer to the
+labelled trap than to a control, and the section now says so where it previously claimed the
+mechanism was unidentified. The prediction the argument makes is stronger than the sweep tested,
+and it holds — weights `0 / i`, `2.5i / −7.3i` and `−7.3+0.5i / 11.1−4i`, none of which solves
+anything, all give a Casimir column of exactly zero against other columns reaching `1.06`, `7.30`
+and `3.77`. Step 1 is load-bearing: repeat the contraction in the complex-exponential basis,
+which is orthonormal but *not* closed under conjugation, and the constant-mode column is `0.95`
+against a matrix maximum of `2.87`.
+
+Two things make the checks non-vacuous, in the spirit of the `se(3)` control above.
+
+- A **negative control**: the same construction with a field-dependent antisymmetric `S` gives
+  `div = 2.454` against a flow of `9.050`, so antisymmetry alone does not buy Liouville.
+- The **trap**, and it is the one that would have been walked into. If the field index is
+  antisymmetric against the first slot as well — a tensor antisymmetric in all four indices —
+  then `Σ_i T_iijk` vanishes identically and the control cannot fail. Measured at exactly zero
+  over a tensor of scale `0.78`. The control therefore uses a `T` antisymmetric in the three
+  slots only.
+
+`{u, H₂, C₀}` is built on an **orthonormal** real trigonometric basis, so the Gram matrix is the
+identity and `∂F/∂û_j` is the coefficient vector of `δF/δu` with no mass matrix anywhere. That
+construction is validated rather than assumed: it reproduces the KdV right-hand side to
+`7.1 × 10⁻¹⁵` against `|rhs| = 38.9`, which is section 5's result recomputed through the new
+representation. Divergences are measured by central differences on the flow itself, and the
+closed form agrees with them. Every flow in the section is a polynomial of degree at most two,
+so that difference has no truncation error at all and `h` trades against cancellation alone —
+the measured `2.2 × 10⁻¹⁰` is one ULP of `|flow|` over `2h`, a factor of 1750 below the
+threshold, and a *larger* `h` would be better. `divergence_fd` now says so, because the
+generosity of its default does not survive being copied to a nonlinear flow.
+
+No new exports and no new dependencies.
+
 ### Added — `verify_zeitlin_three_bracket.jl`
 
 Whether the Bialynicki-Birula--Morrison three-bracket `[A, B, S] = {A, B}` reproduces the Zeitlin
