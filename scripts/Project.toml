@@ -11,9 +11,9 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SymPyPythonCall = "bc8888f7-b21e-4b7c-a06a-5d9c9496438c"
 
 # SimpleSplines is not yet registered, so it needs an explicit source. `[sources]` is a
-# Julia 1.11 feature: on 1.10 it is ignored and resolution fails with "expected package
-# SimpleSplines to be registered". That row of the CI matrix will not pass until SimpleSplines
-# is released, at which point this whole block can go.
+# Julia 1.11 feature, which is why the package's `[compat] julia` floor is 1.11: on 1.10 the
+# block is ignored and resolution fails with "expected package SimpleSplines to be
+# registered". The whole block can go once SimpleSplines is released.
 [sources]
 PoissonBrackets = {path = ".."}
 SimpleSplines = {rev = "main", url = "https://github.com/JuliaDEC/SimpleSplines.jl"}

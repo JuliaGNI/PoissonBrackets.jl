@@ -4,25 +4,53 @@
 
 A semi-discrete vector field on the degrees of freedom.
 
-The interface is [`vectorfield`](@ref) and [`jacobian`](@ref), and it is deliberately that
-small: everything the time integrators do — the residual of an implicit step, its Jacobian,
-the tangent map, the stability limit — is written against those two and nothing else, so a
-new flow becomes integrable by defining them. [`HamiltonianFlow`](@ref) is the antisymmetric
-half and [`MetriplecticFlow`](@ref) carries a symmetric half alongside it.
+The interface is three methods — [`vectorfield`](@ref), [`jacobian`](@ref) and
+[`space`](@ref) — and it is deliberately that small. Everything a time integrator does *inside*
+a step is written against the first two and nothing else: the residual of an implicit method,
+its Jacobian, the tangent map, the stability limit. [`space`](@ref) is what
+[`Integrator`](@ref) needs *before* any of them — `nbasis(space(flow))` sizes the Newton work
+vectors and sets the default `f_abstol` — so it belongs to the interface rather than being an
+implementation detail of the two flows that happen to store a field of that name. Define the
+three and a new flow is integrable. [`HamiltonianFlow`](@ref) is the antisymmetric half and
+[`MetriplecticFlow`](@ref) carries a symmetric half alongside it.
 
-The [`Gonzalez`](@ref) discrete-gradient methods are the exception, and are still typed on
-[`HamiltonianFlow`](@ref). They are not written against the interface: a discrete gradient
-contracted with ``\mathbb{P}(\bar{u})`` is what makes them conserve the generating
-Hamiltonian, so they reach past `vectorfield` into the bracket and the Hamiltonian
+# The two exclusions, and when each one raises
+
+The [`Gonzalez`](@ref) discrete-gradient methods are not written against the interface: a
+discrete gradient contracted with ``\mathbb{P}(\bar{u})`` is what makes them conserve the
+generating Hamiltonian, so they reach past `vectorfield` into the bracket and the Hamiltonian
 separately. There is no such construction for a dissipative half, and a silent fallback that
 integrated only the Poisson part would be worse than a `MethodError`.
 
-The `:mixed` formulation of [`Integrator`](@ref) is excluded in the same way and for the same
-reason: its residual is assembled from `kernel_operator` and the Hamiltonian gradient rather
-than from `vectorfield`, so it too would drop a symmetric half without saying so. Both raise
-on any flow that is not a [`HamiltonianFlow`](@ref).
+The `:mixed` formulation of [`Integrator`](@ref) is excluded for the same reason: its residual
+is assembled from `kernel_operator` and the Hamiltonian gradient rather than from
+`vectorfield`, so it too would drop a symmetric half without saying so.
+
+Both are still typed on [`HamiltonianFlow`](@ref) and both raise on any flow that is not one,
+but **not at the same moment** — which is what to expect when reading the failure off a run:
+
+| exclusion | raises at | from |
+|:--|:--|:--|
+| `formulation = :mixed` | the [`Integrator`](@ref) constructor | `mixed_jacobian_prototype` |
+| [`Gonzalez`](@ref), [`GonzalezMass`](@ref) | the first [`integrate_step!`](@ref) | `residual!`, inside the Newton callback |
+
+`Integrator(f, Gonzalez(), Δt)` therefore *succeeds* on a [`MetriplecticFlow`](@ref): the
+constructor only stores the method and closes over the flow, and nothing evaluates a residual
+until a step is taken.
 """
 abstract type AbstractFlow{T} end
+
+"""
+    space(flow)
+
+The [`DiscreteSpace`](@ref) the flow's degrees of freedom live in.
+
+One of the three methods of the [`AbstractFlow`](@ref) interface, and the one an integrator
+reaches for before the first residual evaluation: `nbasis(space(flow))` sizes the Newton work
+vectors and sets the default tolerance. A flow that defines only [`vectorfield`](@ref) and
+[`jacobian`](@ref) cannot be integrated.
+"""
+function space end
 
 @doc raw"""
     HamiltonianFlow(space, bracket, hamiltonian)

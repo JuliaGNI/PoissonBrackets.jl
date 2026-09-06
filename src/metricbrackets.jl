@@ -137,7 +137,11 @@ positive, and `isposdef` is the wrong question to ask of them.
 """
 function ispositive_semidefinite(b::MetricBracket, û::AbstractVector; atol = 1e-10)
     λ = eigvals(Symmetric(Matrix(metric_matrix(b, û))))
-    minimum(λ) ≥ -atol * max(one(eltype(λ)), maximum(λ))
+    λmax = maximum(λ)
+    # no positive eigenvalue at all: semi-definite only if the matrix is zero. Returning the
+    # relative test here would divide the tolerance by a non-positive scale and pass.
+    λmax > 0 || return all(iszero, λ)
+    minimum(λ) ≥ -atol * λmax
 end
 
 @doc raw"""
@@ -172,7 +176,7 @@ function degeneracy_residual(b::MetricBracket, û::AbstractVector, g::AbstractVe
 end
 
 function degeneracy_residual(b::MetricBracket, û::AbstractVector)
-    degeneracy_residual(b, û, mass_matrix(b.space) * _generator(b, û))
+    degeneracy_residual(b, û, _mass_apply(b.space, _generator(b, û)))
 end
 
 @doc raw"""
@@ -218,6 +222,24 @@ function _mass_solve(F, A::AbstractMatrix{T}) where {T}
     end
     return X
 end
+
+@doc raw"""
+    _mass_apply(space, v)
+
+The product ``\mathbb{M} v``, formed through the space's mass *operator* wherever it has one
+rather than through the assembled matrix.
+
+`mass_matrix` is a stored constant on a `SplineSpace` and a `LagrangeSpace`, so the generic
+method below costs nothing there. On a [`TensorSplineSpace`](@ref) it is not stored: the matrix
+is the Kronecker product of the per-axis factors, it is rebuilt on every call, and
+[`ProjectorBracket`](@ref) needs ``\mathbb{M} \hat{\phi}`` on every single contraction. The
+`KroneckerMass` forms the same product as ``D`` one-dimensional applications without
+assembling anything, which is what keeps [`metric_apply`](@ref) independent of the mesh in
+cost as well as in algebra.
+"""
+_mass_apply(s::DiscreteSpace, v::AbstractVector) = mass_matrix(s) * v
+
+_mass_apply(s::TensorSplineSpace, v::AbstractVector) = mass_operator(s) * v
 
 ## Double bracket
 
@@ -411,12 +433,13 @@ The same ``N`` perturbed assemblies as [`metric_derivative`](@ref), but each one
 against ``\mathbb{M}^{-1} v`` and solved once rather than sandwiched.
 
 What that removes is the ``N`` sandwiches — ``O(N^3)`` each, so ``O(N^4)`` in total — and what
-it cannot remove is the ``N`` perturbed assemblies, which both paths pay. So the saving is
-asymptotic and modest at reachable sizes: measured in `scripts/verify_metriplectic_flow.jl`,
-**1.3× at ``N = 25`` rising to 2.1× at ``N = 121``**. The assemblies dominate throughout, and
-claiming an order here would be an extrapolation rather than a measurement. Contrast
-[`metric_directional`](@ref)`(::ProjectorBracket, …)`, which assembles nothing and is 147×
-at the same size.
+it cannot remove is the ``N`` perturbed assemblies, which both paths pay. So the saving here is
+a **constant factor and not an order**: the assemblies dominate at every size a
+two-dimensional problem reaches, and claiming an order would be an extrapolation rather than a
+measurement. Contrast [`metric_directional`](@ref)`(::ProjectorBracket, …)`, which assembles
+nothing and does save an order. `scripts/verify_metriplectic_flow.jl` measures both ratios;
+they are wall-clock numbers and are reported there rather than pinned here, where they would
+go stale on the next machine.
 
 Never *slower*, though, and that is the claim that is load-bearing: this runs once per Newton
 iteration and the tensor cannot.
@@ -462,8 +485,16 @@ On the degrees of freedom this is a **rank-one correction to the inverse mass ma
 
 and needs no quadrature at all: the two inverse mass matrices of the discrete functional
 derivative cancel against the ``\mathbb{M}`` of the ``L^2`` product, and what is left is
-algebra in ``\hat{\phi}``. [`metric_apply`](@ref) is therefore one mass solve and one
-inner product, independent of the mesh.
+algebra in ``\hat{\phi}``. [`metric_apply`](@ref) is therefore one mass solve, one mass apply
+and two inner products — no quadrature loop, and nothing of size ``N^2`` formed.
+
+Both mass operations go through the space's own operator, `mass_factorization` for the solve
+and [`_mass_apply`](@ref) for the product, so neither assembles ``\mathbb{M}``. That is what
+makes the cost independent of the mesh in fact and not only in algebra: on a
+[`TensorSplineSpace`](@ref) the call allocates 2 400 B at ``N = 25``, 4 576 B at ``N = 64`` and
+9 056 B at ``N = 144`` — the vectors it returns, growing like ``N``. Reaching for
+`mass_matrix` instead would rebuild the Kronecker product every time, which is 10 640, 29 376
+and 66 944 B of that same call.
 
 Positive semi-definiteness is Cauchy-Schwarz in the ``\mathbb{M}``-inner product: with
 ``v = \mathbb{M}^{-1} c``,
@@ -520,20 +551,20 @@ assembled matrix.
 """
 function project_orthogonal(b::ProjectorBracket, û::AbstractVector, v̂::AbstractVector)
     φ = _generator(b, û)
-    Mφ = mass_matrix(b.space) * φ
+    Mφ = _mass_apply(b.space, φ)
     v̂ - φ * (dot(Mφ, v̂) / dot(Mφ, φ))
 end
 
 function metric_matrix(b::ProjectorBracket, û::AbstractVector)
     φ = _generator(b, û)
-    Mφ = mass_matrix(b.space) * φ
-    inverse_mass_matrix(b.space) - (φ * φ') / dot(Mφ, φ)
+    n = dot(_mass_apply(b.space, φ), φ)
+    inverse_mass_matrix(b.space) - (φ * φ') / n
 end
 
 function metric_apply(b::ProjectorBracket, û::AbstractVector, c::AbstractVector)
     φ = _generator(b, û)
-    Mφ = mass_matrix(b.space) * φ
-    (mass_factorization(b.space) \ Vector(c)) - φ * (dot(φ, c) / dot(Mφ, φ))
+    n = dot(_mass_apply(b.space, φ), φ)
+    (mass_factorization(b.space) \ Vector(c)) - φ * (dot(φ, c) / n)
 end
 
 function metric_derivative(b::ProjectorBracket{T, ST, <:AbstractVector}, û::AbstractVector) where {
@@ -596,17 +627,18 @@ D_{im} = - \frac{(\hat{\phi} \cdot v) \, \Lambda_{im}
 ```
 
 Nothing of size ``N^3`` is formed, no quadrature is touched and nothing is assembled — this is
-two matrix-vector products and two dot products. It is the one bracket for which the saving is
-genuinely an order: `scripts/verify_metriplectic_flow.jl` measures **12× at ``N = 25`` and
-147× at ``N = 121``**, growing because there is no assembly left to dominate the sandwich it
-removes.
+two matrix-vector products and two dot products. It is the one bracket for which contracting
+first saves an **order of magnitude** rather than a constant factor, and the saving grows with
+``N`` because there is no assembly left to dominate the sandwich it removes.
+`scripts/verify_metriplectic_flow.jl` measures the ratio; it is a wall-clock number and is
+reported there rather than pinned here, where it would go stale on the next machine.
 """
 function metric_directional(
         b::ProjectorBracket{T, ST, <:AbstractMatrix}, û::AbstractVector,
         v::AbstractVector) where {T, ST}
     Λ = b.h
     φ = _generator(b, û)
-    Mφ = mass_matrix(b.space) * φ
+    Mφ = _mass_apply(b.space, φ)
     n = dot(Mφ, φ)
     φv = dot(φ, v)
     (-φv / n) .* Matrix(Λ) .- (φ / n) * (Λ' * v)' .+

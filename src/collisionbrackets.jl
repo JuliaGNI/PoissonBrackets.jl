@@ -479,11 +479,12 @@ The perturbed assemblies of [`metric_derivative`](@ref), each contracted against
 
 The operator derivative is dense here — the cross term is nonlocal — so this is ``N``
 assemblies of size ``N^2`` and ``N + 1`` mass solves, against the same ``N`` assemblies plus
-``N`` sandwiches. Of the four brackets this is the one where contracting first buys least:
-`scripts/verify_metriplectic_flow.jl` measures **1.4× at ``N = 25`` and 1.9× at ``N = 121``**,
-because it is the dense assemblies rather than the sandwiches that dominate at any size a
-two-dimensional problem reaches. Never slower, which is what the Newton iteration needs, but
-not an order.
+``N`` sandwiches. Of the four brackets this is the one where contracting first buys least: it
+is the dense assemblies rather than the sandwiches that dominate at any size a
+two-dimensional problem reaches, so the saving is a small constant factor and never an order.
+Never slower, which is what the Newton iteration needs.
+`scripts/verify_metriplectic_flow.jl` measures the ratio; it is a wall-clock number and is
+reported there rather than pinned here, where it would go stale on the next machine.
 
 The state enters through ``\hat{\phi} = \Lambda \hat{u}`` and through ``M(x, u_h)``, and the
 same short-circuit applies: a prescribed ``\phi`` with a state-independent mobility makes the

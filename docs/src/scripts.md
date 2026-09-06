@@ -4,11 +4,14 @@ CurrentModule = PoissonBrackets
 
 # The verification scripts
 
-`scripts/` holds thirty scripts that machine-verify the claims of the three manuscripts,
-plus two that draw their figures. Eighteen of them are the converted Python prototypes that used
-to live in the manuscripts' `Scripts/` directories; [Verification](@ref) records the agreement
-claim by claim and the errata the comparison turned up. The four `verify_fourbracket_*` scripts
-had no Python ancestor — they arrived as standalone Julia and were refactored onto the package.
+`scripts/` holds twenty-four `verify_*.jl` scripts that machine-verify the claims of the three
+manuscripts, two that draw their figures, one exploratory search, a driver and four shared
+helper modules — thirty-two files, plus the seven in `fable/`. Eighteen of the verification
+scripts are converted Python prototypes that used to live in the manuscripts' `Scripts/`
+directories; [Verification](@ref) records the agreement claim by claim and the errata the
+comparison turned up. The four `verify_fourbracket_*` scripts and the two of the metric-bracket
+half had no Python ancestor — they arrived as standalone Julia, or alongside the Julia
+implementation itself.
 
 This page is an **index**: what each script checks, and where the theory behind it is written
 down. Each script's own header carries the authoritative section-by-section detail, which is
@@ -17,7 +20,7 @@ why the entries here are one line long.
 ## Running them
 
 ```sh
-julia --project=scripts scripts/run_all.jl          # all twenty-two; nonzero exit on failure
+julia --project=scripts scripts/run_all.jl          # all twenty-four; nonzero exit on failure
 julia --project=scripts scripts/verify_kdv_bea.jl   # or just one
 sh scripts/run_fable.sh                             # the seven fable scripts, about 13 minutes
                                                     # (longer the first time: one of them needs SymPy)
@@ -120,6 +123,16 @@ rather than structure constants over ``\mathbb{Q}``.
 | `verify_fourbracket_identities.jl` | every displayed identity of Sections 3 to 6: the Gardner auxiliary identities, both reductions to ``\int u[A_u,B_u]`` and the factor of two between them, the Plücker relation, Theorem 4.5 for five unrelated structure functions, the Casimirs, the weighted brackets, Section 6's vanishing bracket, and Lemma 3.1 — that each family satisfies exactly **one** of the two antisymmetry conditions | [Poisson brackets from four-brackets](@ref) |
 | `verify_fourbracket_convergence.jl` | that the six identities involving non-band-limited fields converge at the design order of the stencil, so their residuals are discretisation error and not a defect of the identity; observed orders 7.2 to 8.1 | [Poisson brackets from four-brackets](@ref) |
 | `verify_fourbracket_log_entropy.jl` | the log-entropy weight: the pole at ``u = e^{-1}`` cancels in the two-bracket and diverges in the four-bracket, no regular weight can replace it, and the Casimir shift moves it out of range | [Poisson brackets from four-brackets](@ref) |
+
+## The metric-bracket half
+
+The symmetric, dissipative half of a metriplectic structure, and the two-dimensional spaces it
+needs. Neither script had a Python ancestor.
+
+| script | what it establishes | theory |
+|:--|:--|:--|
+| `verify_metric_collapse.jl` | that the collision-like bracket's ``O(N_q^2)`` double integral collapses to fourteen global moments **exactly**: the identity ``Q_2(z) = z^\perp \otimes z^\perp`` over five decades of scale, sufficiency and minimality of the moment set, and the three hypotheses whose failure breaks it — a non-polynomial kernel, a ``\kappa`` that does not factorise, an ``x``-dependent measure. Recentring is established as a *conditioning* requirement, swept over draws | [`CollisionBracket`](@ref) |
+| `verify_metriplectic_flow.jl` | that ``H`` is conserved by the bracket's degeneracy rather than by the integrator and ``S`` falls by semi-definiteness alone; `metric_directional` against the ``O(N^3)`` tensor contracted by hand, with the speedup ratios for all four brackets; and why Newton must be run to a residual tolerance rather than to a fixed iteration count | [`MetriplecticFlow`](@ref) |
 
 ## The fable investigation
 

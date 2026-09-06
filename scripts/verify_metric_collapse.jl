@@ -533,11 +533,9 @@ header("7. the Grad-Shafranov measure dmu = dr dz / r is absorbed into the weigh
 
 let rng = MersenneTwister(881)
     # C1's rectangle, [1,7] x [-9.5,9.5], where 1/r is bounded and the weight is genuinely
-    # non-Lebesgue.
+    # non-Lebesgue. Only r enters dmu = dr dz / r, so the z coordinate is never needed: the
+    # rectangle fixes the range of r and nothing else.
     rr = 1.0 .+ 6.0 .* rand(rng, NQ)
-    # The z coordinate is drawn and not used: only r enters the weight. It stays because the
-    # figures below were computed from the stream that includes it.
-    zz = -9.5 .+ 19.0 .* rand(rng, NQ)
     q = 0.2 .+ rand(rng, NQ)                             # a tensor Gauss rule's own weights
     mu = q ./ rr                                         # dmu = dr dz / r
     g = randn(rng, 2, NQ)

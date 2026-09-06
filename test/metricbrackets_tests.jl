@@ -270,4 +270,24 @@ end
         # the projector bracket has no such restriction
         @test ProjectorBracket(TensorSplineSpace((4, 4, 4), 2), ones(64)) isa MetricBracket
     end
+
+    @testset "$(rpad("ispositive_semidefinite is RELATIVE, and fails closed",76))" begin
+        # The predicate answers a question about a SIGN, so its tolerance is relative to the
+        # largest eigenvalue. A floor of one would make it absolute for any bracket scaled
+        # below that -- and absolute in the direction that passes, which is the wrong way for
+        # a check to be wrong.
+        for scale in (1e2, 1.0, 1e-6, 1e-12)
+            indefinite = MinimalMetricBracket(scale .* Matrix(Diagonal([1.0, -1.0])))
+            @test !ispositive_semidefinite(indefinite, zeros(2))
+            @test ispositive_semidefinite(
+                MinimalMetricBracket(scale .* Matrix(Diagonal([1.0, 0.0]))), zeros(2))
+        end
+        # a genuinely singular semi-definite matrix with round-off in the kernel still passes
+        @test ispositive_semidefinite(
+            MinimalMetricBracket([1.0 0.0; 0.0 -1e-14]), zeros(2))
+        # the zero bracket is semi-definite; one with no positive eigenvalue at all is not
+        @test ispositive_semidefinite(MinimalMetricBracket(zeros(2, 2)), zeros(2))
+        @test !ispositive_semidefinite(
+            MinimalMetricBracket(Matrix(Diagonal([-1.0, -2.0]))), zeros(2))
+    end
 end

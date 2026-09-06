@@ -221,23 +221,48 @@ end
         # function lies in neither a periodic nor a homogeneous-Dirichlet space.
         s = TensorSplineSpace(ntuple(_ -> UniformMesh(4, 1.0), 2), 3, Free())
         N, Nq = nbasis(s), length(quadrature_weights(s))
-        ε = 1e-8
-        b = CollisionBracket(s, project(s, p -> 3p[1] +
-                                                ε * (sin(4p[1]) * cos(3p[2]) + p[2]^2)))
         û = zeros(N)
 
-        𝔻ref = double_sum_diffusion(b, û)
-        𝔻c = PoissonBrackets._diffusion_tensor(b, û)
-        𝔻r = uncentred_diffusion(b, û)
+        # The claim is about CONDITIONING, so it is read off a sweep in the spread ε and not
+        # off one value of it. The amplification the centring removes is |α|² m₀ / ‖𝔻ₛ‖, which
+        # grows as ε falls; a single ε would only establish that the two forms differ there,
+        # and could do so for any reason.
+        εs = (1e-5, 1e-7, 1e-9, 1e-11)
+        bs = [CollisionBracket(s, project(s, p -> 3p[1] +
+                                                  ε * (sin(4p[1]) * cos(3p[2]) + p[2]^2)))
+              for ε in εs]
+        refs = [double_sum_diffusion(b, û) for b in bs]
+        centred = [PoissonBrackets._diffusion_tensor(b, û) for b in bs]
+        raw = [uncentred_diffusion(b, û) for b in bs]
+        ec = [tensor_error(centred[i], refs[i]) for i in eachindex(εs)]
+        er = [tensor_error(raw[i], refs[i]) for i in eachindex(εs)]
 
-        # centred: accurate, and positive semi-definite at every node
-        @test tensor_error(𝔻c, 𝔻ref) < 1e-13
-        @test notpsd(𝔻c, Nq) == 0
-        # uncentred: the same algebra, and it loses both. `M₂ - m₀ β̄ ⊗ β̄` reinstates
-        # exactly the cancellation the centring removes.
-        @test tensor_error(𝔻r, 𝔻ref) > 0.1
-        @test notpsd(𝔻r, Nq) > 0
-        # and the loss is a property of the conditioning, not of this one ε: at a spread
+        # centred: round-off at every spread, and FLAT across six decades of ε -- the
+        # conditioning never reaches it
+        @test maximum(ec) < 1e-12
+        @test maximum(ec) / minimum(ec) < 10
+        @test all(i -> notpsd(centred[i], Nq) == 0, eachindex(εs))
+
+        # uncentred: `M₂ - m₀ β̄ ⊗ β̄` is the same algebra and reinstates exactly the
+        # cancellation the centring removes, so it degrades monotonically until nothing is
+        # left. Already wrong by three orders more than the centred form at the LOOSEST
+        # spread here, and by the tightest it has no correct digits at all.
+        @test issorted(er)
+        @test er[1] > 1e3 * ec[1]
+        @test er[end] / er[1] > 1e6
+        @test er[end] > 1e3
+
+        # What is deliberately NOT asserted here: that the uncentred 𝔻ₛ goes *indefinite*. It
+        # does, and that is the failure that flips the sign of the entropy production -- but
+        # on any one φ whether it lands below zero or just above is decided by summation
+        # order, and the decision changes with bounds checking: a majority of seeded draws
+        # lose semi-definiteness under `--check-bounds=auto` and none at all under
+        # `--check-bounds=yes`, which is what `Pkg.test()` runs. It is a statement about a
+        # distribution, and it is measured where one can be: `verify_metric_collapse.jl`
+        # sweeps it over draws, 45/200 at spread 1e-7 rising to 180/200 at 1e-10, against
+        # 0/1800 for the centred form.
+
+        # and the loss is a property of the conditioning, not of the algebra: at a spread
         # where the amplification is mild both forms agree
         b0 = CollisionBracket(s, project(s, p -> 3p[1] + sin(4p[1]) * cos(3p[2]) + p[2]^2))
         @test tensor_error(uncentred_diffusion(b0, û), double_sum_diffusion(b0, û)) < 1e-10

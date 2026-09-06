@@ -337,13 +337,13 @@ end
 function Integrator(f::AbstractFlow{T}, method::IntegratorMethod, Δt::Real;
         refactorize::Integer = 5,
         û₀ = nothing,
-        f_abstol = default_f_abstol(T, nbasis(f.space), û₀),
+        f_abstol = default_f_abstol(T, nbasis(space(f)), û₀),
         min_iterations::Integer = 1,
         max_iterations::Integer = 40, verbosity::Integer = 0,
         linesearch = Static(T), fallback_linesearch = Backtracking(T),
         linear_solver_method = missing, formulation::Symbol = :dense,
         kwargs...) where {T}
-    N = nbasis(f.space)
+    N = nbasis(space(f))
     dt = convert(T, Δt)
     formulation in (:dense, :mixed) || throw(ArgumentError(
         "formulation must be :dense or :mixed, but got :$(formulation)"))
@@ -364,7 +364,7 @@ function Integrator(f::AbstractFlow{T}, method::IntegratorMethod, Δt::Real;
         # The first residual block carries a factor of the mass matrix and the second does
         # not, so the equation is scaled rather than the tolerance -- see `mixed_row_scale`.
         # `f_abstol` therefore means the same thing here as in the dense formulation.
-        σ = mixed_row_scale(f.space)
+        σ = mixed_row_scale(space(f))
 
         # `SparspakLU` rather than the `UmfpackLU` that SimpleSolvers would otherwise pick for
         # a sparse Float64 Jacobian. This is a correctness requirement, not a preference:
@@ -666,7 +666,7 @@ function residual_jacobian!(j, m::ProjectionMethod, f::AbstractFlow, un, y, Δt)
 end
 
 function _step!(û, method::ProjectionMethod, integ::Integrator)
-    s = integ.flow.space
+    s = space(integ.flow)
 
     # the level sets to hold are those of the initial state, recorded on the first step
     if isempty(integ.targets)
@@ -798,11 +798,37 @@ with ``D\Phi`` the analytic [`tangent_map`](@ref).
 
 For the implicit midpoint rule on a constant bracket this is at round-off; for the average
 vector field method it is around ``10^{-5}``, and for explicit Euler it is of order one.
+
+A [`MetriplecticFlow`](@ref) is rejected rather than measured, and the error says which of the
+two reasons applies. In the four-argument form there is no ``\mathbb{P}`` to preserve; with a
+Poisson half there is one, but the metric half breaks
+``D\Phi \, \mathbb{P} \, D\Phi^T = \mathbb{P}`` *by construction*, so the number would measure
+the dissipation rather than the method — which is worse than refusing, because it looks like
+an answer.
 """
 function poisson_defect(integ::Integrator, û::AbstractVector)
-    P = poisson_matrix(integ.flow.bracket, û)
+    P = poisson_matrix(_poisson_bracket(integ.flow), û)
     DΦ = tangent_map(integ, û)
     maximum(abs, DΦ * P * DΦ' - P) / maximum(abs, P)
+end
+
+"""
+    _poisson_bracket(flow)
+
+The bracket [`poisson_defect`](@ref) measures against, or an error naming why there is none.
+"""
+_poisson_bracket(f::AbstractFlow) = f.bracket
+
+function _poisson_bracket(f::MetriplecticFlow)
+    throw(ArgumentError(
+        "poisson_defect measures how far the numerical map is from preserving 𝔓, and a " *
+        "MetriplecticFlow is not a candidate for it: " *
+        (f.bracket === nothing ?
+         "this one carries no Poisson half at all, having been built with the " *
+         "four-argument form" :
+         "its metric half breaks the Poisson property by construction, so the result " *
+         "would measure the dissipation and not the method") *
+        ". Build the Poisson half on its own as a HamiltonianFlow to measure the method"))
 end
 
 @doc raw"""
@@ -811,9 +837,19 @@ end
 The explicit Runge-Kutta stability limit ``2\sqrt{2} / \rho`` with ``\rho`` the spectral
 radius of the linearised flow.
 
-Both fields here have essentially imaginary spectra, so the imaginary-axis limit is the
-relevant one. ``\rho`` grows like ``h^{-3}`` through the third derivative, which is why an
+``2\sqrt{2}`` is the **imaginary-axis** crossing of the classical fourth-order Runge-Kutta
+stability region, so this is the right constant for a flow whose spectrum lies on that axis.
+A [`HamiltonianFlow`](@ref) is such a flow: ``\mathbb{P}`` is antisymmetric, so
+``\mathbb{P} H''`` is similar to a skew matrix and ``\rho`` is essentially the largest
+imaginary part. ``\rho`` grows like ``h^{-3}`` through the third derivative, which is why an
 explicit method needs so many more steps than an implicit one at the same resolution.
+
+A [`MetriplecticFlow`](@ref) is **not** such a flow, and the number returned here is then an
+estimate rather than the limit. The metric half contributes a spectrum with a negative real
+part — that is what dissipation is — and the region's crossing on the negative real axis is
+``2.7853``, not ``2\sqrt{2} = 2.8284``. For a spectrum spread through the left half-plane the
+governing crossing is neither of the two, so read this as an order of magnitude on a
+dissipative field and not as a threshold.
 """
 stability_limit(f::AbstractFlow, û::AbstractVector) = 2 * sqrt(2) /
                                                       maximum(abs, eigvals(jacobian(f, û)))
