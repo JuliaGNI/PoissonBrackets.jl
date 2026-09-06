@@ -56,7 +56,7 @@ Nambu's guiding principle in 1973 was neither the Jacobi identity nor the fundam
 of 1994 but **Liouville's theorem**: his eq. (3) is `div(∇H × ∇G) = 0`, and both slot functions
 being conserved is a *consequence* of antisymmetry rather than the design goal. The script
 reported a Jacobi residual and a Poisson-map residual and never asked his question. It does now,
-in twenty-six checks, taking the script from 48 to 74.
+in twenty-eight checks, taking the script from 48 to 76.
 
 **The structural half is a two-line cancellation.** For `u̇_i = Σ_jk S_ijk a_j b_k`,
 
@@ -92,9 +92,18 @@ solution, and the zero-mode anomaly has nothing to do with it.
    at a defect of `2.8 × 10⁻¹⁷` — and contracting the field index against the first slot forces
    `p = −a`;
 2. the mode constraint `p + a + b + c = 0` then leaves `b + c = 0`;
-3. the Casimir column is `c = 0`, hence `b = 0`, hence `e₂(a,0,0) = e₃(a,0,0) = 0` — and
-   `make_sigma` returns `0` on a vanishing denominator. All seven surviving triples are zero,
-   while off that column the same denominator is bounded below by `2.0`.
+3. the Casimir column is `c = 0`, hence `b = 0`: the surviving triples are `(a,0,0)`, with the
+   second and third slot modes **coincident**. All seven are zero, while off that column the
+   symbol's denominator is bounded below by `2.0`.
+
+That last step kills them three independent times, which is what makes the result robust rather
+than a consequence of a convention: total antisymmetry gives `S_{i11} = 0` outright, the constant
+basis function standing in both remaining slots; the Vandermonde numerator `V(a,0,0)` vanishes,
+`V` vanishing whenever two arguments agree; and only then does the denominator `e₂² + e₃²` vanish
+with it, leaving `make_sigma`'s guard to resolve a `0/0`. So no regularisation of the symbol off
+the `e₃ = 0` slice can reach the triples the contraction selects. It is also the **same zero-mode
+coincidence** that forces the bracket's anomaly, where the weight at the mean of `u` must be `3/2`
+of its value elsewhere — one phenomenon, two places.
 
 That has a consequence for how the earlier evidence should be read: **the weight sweep could not
 have failed.** `g` enters none of the three steps, so the two uniform weights are closer to the
