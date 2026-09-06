@@ -154,7 +154,7 @@ each one establishes and where the theory behind it is written down.
 | `verify_kdv_jacobi_family` | all verdicts identical; the flat ``0.4212`` / ``0.4665`` table exact. See the residual-convention erratum below |
 | `verify_kdv_aliasing` | identical but for `**` vs `^`, numpy's `np.float64()` repr, and round-off |
 | `verify_kdv_miura` | 72 PASS / 0 FAIL both; ``\operatorname{cond}(DM)``, the Hill eigenvalue ``-0.3287`` and the whole drift table match |
-| `verify_kdv_nambu` | 48 PASS / 0 FAIL both; **byte-identical** on every deterministic detail, including both symbolic no-go systems (127 and 268 equations, 0 solutions) |
+| `verify_kdv_nambu` | 48 PASS / 0 FAIL both **at conversion**; **byte-identical** on every deterministic detail, including both symbolic no-go systems (127 and 268 equations, 0 solutions). The Julia now runs 76: section 7, Nambu's Liouville criterion, was added after the Python was retired and so has no counterpart to compare against |
 | `verify_kdv_bea` | 64 PASS / 0 FAIL both; the order test (3.00, 4.99) and the dispersion table identical, exponents 6.07 / 8.11 / 10.22 against ``2p+2`` |
 | `verify_burgers_jacobi_family` | labels and verdicts identical |
 | `verify_burgers_leibniz` | identical but for `**` vs `^` |
