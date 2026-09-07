@@ -32,9 +32,11 @@ module Checks
 
 using Printf
 
-export header, check, check_exact, check_refined, summary, fmt, relerr, normerr,
-       failures, reset_failures!
+export header, check, check_exact, check_refined, summary, fmt, relerr, normerr
 
+# The tally.  `check` pushes and `summary` reads; nothing else touches it.  There is
+# no accessor because nothing needs the labels programmatically, and no reset because
+# `run_all.jl` gives every script its own subprocess, so each one starts empty.
 const _failures = String[]
 
 """
@@ -149,11 +151,5 @@ integrand as `scale`: it is the size of the terms that were actually formed and 
 which is the quantity the residual has to be small compared with.
 """
 normerr(a, b, scale) = abs(a - b) / max(abs(scale), 1e-300)
-
-"The labels of the checks that have failed so far."
-failures() = copy(_failures)
-
-"Forget the recorded failures.  Only `run_all.jl` needs this, between scripts."
-reset_failures!() = (empty!(_failures); nothing)
 
 end # module

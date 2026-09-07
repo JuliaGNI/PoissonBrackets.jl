@@ -10,6 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Changed — `scripts/check.jl` drops its two failure-list accessors
+
+`failures` and `reset_failures!` are gone from the `Checks` harness, along with their entries in
+its export list. The two were a matched pair for a runner that does not exist: something that
+reads the tally between suites in one process and then clears it. `run_all.jl` is not that — it
+gives every script its own subprocess, so each starts with an empty tally and nothing is ever read
+back or reset.
+
+**Neither had a caller in any of the three repositories that carry a copy of this file** — here,
+`Experiments/MetriplecticRelaxation/scripts/` and
+`Papers/Metriplectic Relaxation to Equilibria/scripts/` — by grep in all three, by
+`trace_path(direction="inbound")` on the code graph in the two that are indexed, and by
+inspection of all 60 `using .Checks: …` lines that import the harness: 31 here, 19 in
+MetriplecticRelaxation, 10 in the paper, none anywhere else in the tree, and not one of them
+naming either. An import list is the position a call-site count cannot see, and the one place an
+unused export could still have been in real use. The removal is made in all three copies at once,
+so they stay diffable.
+
+`summary` remains the only read path for the tally, and `_failures` stays private with no
+accessor — with a comment saying why, so the pair is not reinstated on the assumption that the
+state was left unreachable by oversight. **No script's output changes:** the failure path still
+records the label and still exits 1, checked with a deliberate failing check in each copy.
+
 ### Fixed — the SimpleSplines compat bound, after its 0.1.0 release
 
 **Compat only. No code changed, and no computed result moves.**
