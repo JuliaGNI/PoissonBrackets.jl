@@ -29,9 +29,10 @@ This propagates immediately rather than at the next release, because `[sources]`
 SimpleSplines from `rev = "main"`: any downstream project that resolves *this* package from
 `main` inherits the broken bound, which is how the failure first surfaced — in
 `MetriplecticRelaxation`'s CI, in a pull request that does not touch `Project.toml`. The code
-is unaffected: SimpleSplines' release commit touches only its version string and its own
-changelog, so what resolves now is byte-identical to what this package's suite last ran green
-against. That release is a version on `main`, not a registration — SimpleSplines is still
+is effectively unaffected: eleven commits landed in SimpleSplines' `main` between this
+package's last green suite run and the `0.1.0` release, three of them touching `src/`, but the
+only executable change among them is a relocation of `_findcell` with a byte-identical body —
+everything else is docstrings and comments. That release is a version on `main`, not a registration — SimpleSplines is still
 absent from General — so the `[sources]` tables here, in `docs/Project.toml` and in
 `scripts/Project.toml`, stay, and with them the `julia = "1.11"` floor they force.
 
