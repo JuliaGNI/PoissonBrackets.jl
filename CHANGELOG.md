@@ -10,6 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Fixed — the `[sources]` comments promised a retirement a version bump does not earn
+
+**Comments only. No dependency, no bound and no resolved version changes.**
+
+`scripts/Project.toml` and `docs/Project.toml` each ended their `[sources]` comment with "The
+whole block can go once SimpleSplines is released". Both halves of that were wrong.
+SimpleSplines' `0.1.0` is a `version` on `main`, not a registration — it is still absent from
+General and carries no tags — so the promise reads as satisfied when it is not. And "the whole
+block" also holds `PoissonBrackets = {path = ".."}`, which stays whatever happens to
+SimpleSplines: this package is unregistered too, so deleting that line makes `docs/` and
+`scripts/` resolve PoissonBrackets from a registry that does not have it. On Julia 1.10, where
+`[sources]` is ignored, those two environments fail with `expected package PoissonBrackets to
+be registered` — the package the comments had misnamed as SimpleSplines, which is what the root
+environment reports instead.
+
+Both comments now retire the SimpleSplines source specifically, say *registered* rather than
+released, and quote the error their own environment produces. They also record that `rev =
+"main"` pins once, into a gitignored `Manifest.toml`, so environments resolved at different
+times sit on different commits of one branch: `Pkg.update("SimpleSplines")` refreshes such a
+pin, while `Pkg.resolve()` treats it as fixed and reports `Unsatisfiable requirements`. The
+root `Project.toml` — whose `[sources]` is the one that forces the `julia = "1.11"` floor —
+carries the same note, which it previously lacked entirely.
+
 ### Changed — `scripts/check.jl` drops its two failure-list accessors
 
 `failures` and `reset_failures!` are gone from the `Checks` harness, along with their entries in
@@ -55,9 +78,11 @@ SimpleSplines from `rev = "main"`: any downstream project that resolves *this* p
 is effectively unaffected: eleven commits landed in SimpleSplines' `main` between this
 package's last green suite run and the `0.1.0` release, three of them touching `src/`, but the
 only executable change among them is a relocation of `_findcell` with a byte-identical body —
-everything else is docstrings and comments. That release is a version on `main`, not a registration — SimpleSplines is still
-absent from General — so the `[sources]` tables here, in `docs/Project.toml` and in
-`scripts/Project.toml`, stay, and with them the `julia = "1.11"` floor they force.
+everything else is docstrings and comments. That release is a version on `main`, not a
+registration — SimpleSplines is still absent from General — so the `[sources]` tables here, in
+`docs/Project.toml` and in `scripts/Project.toml`, all stay. So does the `julia = "1.11"` floor,
+which this package's own `[sources]` forces; the two environment tables are separate projects
+and do not bear on it.
 
 ### Fixed — the metric-bracket half, second review round
 
