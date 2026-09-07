@@ -10,6 +10,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `0.1.0` has not shipped, so all of this may be folded into it; it is kept separate
 because the KdV sign convention below changes what every number in the package means.
 
+### Fixed — the SimpleSplines compat bound, after its 0.1.0 release
+
+**Compat only. No code changed, and no computed result moves.**
+
+SimpleSplines' `main` carried `version = "1.0.0-DEV"` while this package's `[compat]` bound was
+`"1"`, which that pre-release satisfied. On 2026-09-07 SimpleSplines released `0.1.0` — a
+*downgrade* in numbering rather than the `1.0.0` the bound anticipated — so the bound became
+unsatisfiable and resolution fails outright with
+
+```
+ERROR: LoadError: empty intersection between SimpleSplines@0.1.0 and project compatibility 1
+```
+
+before a single test runs. The bound is now `"0.1"`.
+
+This propagates immediately rather than at the next release, because `[sources]` resolves
+SimpleSplines from `rev = "main"`: any downstream project that resolves *this* package from
+`main` inherits the broken bound, which is how the failure first surfaced — in
+`MetriplecticRelaxation`'s CI, in a pull request that does not touch `Project.toml`. The code
+is effectively unaffected: eleven commits landed in SimpleSplines' `main` between this
+package's last green suite run and the `0.1.0` release, three of them touching `src/`, but the
+only executable change among them is a relocation of `_findcell` with a byte-identical body —
+everything else is docstrings and comments. That release is a version on `main`, not a registration — SimpleSplines is still
+absent from General — so the `[sources]` tables here, in `docs/Project.toml` and in
+`scripts/Project.toml`, stay, and with them the `julia = "1.11"` floor they force.
+
 ### Fixed — the metric-bracket half, second review round
 
 Four points from the review of the round below. Two change what a type outside this package
